@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "direct = open port on 236; relay = reverse SSH via Gitea host (recommended)"
+        description: "direct | relay (recommended) | bootstrap (generate relay key, print in log)"
         required: false
         default: relay
       action:

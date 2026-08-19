@@ -58,6 +58,24 @@ EOF
   echo "Cloud Agent: ssh -p ${TUNNEL_PORT} cursor-agent@36.103.198.236"
 }
 
+bootstrap_relay() {
+  section "Bootstrap relay keypair (one-time)"
+  mkdir -p "${KEY_DIR}"
+  chmod 700 "${KEY_DIR}"
+  if [ ! -f "${KEY_FILE}" ]; then
+    ssh-keygen -t ed25519 -f "${KEY_FILE}" -N "" -C "viknow-cloud-agent-tunnel@236"
+    chmod 600 "${KEY_FILE}"
+  fi
+  echo "1) Add the following public key to ${RELAY_USER}@${RELAY_HOST} ~/.ssh/authorized_keys"
+  echo "2) Store the private key in Gitea repo secret CLOUD_AGENT_TUNNEL_SSH_KEY"
+  echo "3) Re-run workflow with mode=relay action=install"
+  echo
+  cat "${KEY_FILE}.pub"
+  echo
+  echo "--- private key (for secret) ---"
+  cat "${KEY_FILE}"
+}
+
 install_relay() {
   section "Install reverse SSH tunnel to relay"
   if [ -z "${TUNNEL_SSH_PRIVATE_KEY:-}" ]; then
@@ -148,6 +166,7 @@ case "${ACTION}" in
     case "${MODE}" in
       direct) install_direct ;;
       relay) install_relay ;;
+      bootstrap) bootstrap_relay ;;
       *) echo "unknown TUNNEL_MODE=${MODE}" >&2; exit 1 ;;
     esac
     show_status

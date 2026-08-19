@@ -89,10 +89,62 @@ install_auto() {
   ensure_relay_key
   setup_relay_host_local
   rotate_cursor_agent_key
-  install_relay_from_file
+  if setup_relay_host_remote; then
+    install_relay_from_file
+  else
+    echo "WARN: remote relay host not configured; tunnel service may fail until ${RELAY_USER}@${RELAY_HOST} is set up" >&2
+    install_relay_from_file
+  fi
   echo "--- CLOUD_AGENT_TUNNEL_SSH_KEY (for Gitea secret, optional) ---"
   cat "${KEY_FILE}"
   echo "--- END CLOUD_AGENT_TUNNEL_SSH_KEY ---"
+}
+
+setup_relay_host_remote() {
+  section "Try configure remote relay host ${RELAY_USER}@${RELAY_HOST}"
+  pub="$(cat "${KEY_FILE}.pub")"
+  remote_script=$(cat <<EOS
+set -euo pipefail
+id ${RELAY_USER} >/dev/null 2>&1 || useradd -m -s /bin/bash ${RELAY_USER}
+install -d -m 700 -o ${RELAY_USER} -g ${RELAY_USER} /home/${RELAY_USER}/.ssh
+touch /home/${RELAY_USER}/.ssh/authorized_keys
+chown ${RELAY_USER}:${RELAY_USER} /home/${RELAY_USER}/.ssh/authorized_keys
+chmod 600 /home/${RELAY_USER}/.ssh/authorized_keys
+grep -qF '${pub}' /home/${RELAY_USER}/.ssh/authorized_keys || echo '${pub}' >> /home/${RELAY_USER}/.ssh/authorized_keys
+mkdir -p /etc/ssh/sshd_config.d
+cat > /etc/ssh/sshd_config.d/98-cloud-agent-relay.conf <<'EOF'
+GatewayPorts clientspecified
+AllowTcpForwarding yes
+EOF
+sshd -t
+systemctl reload ssh || systemctl reload sshd
+echo remote_ok
+EOS
+)
+  for spec in "root@10.168.1.233" "root@101.71.223.113" "root@git.qingxiang.tech"; do
+    user="${spec%@*}"
+    host="${spec#*@}"
+    echo "trying ${spec}"
+    if ssh -o BatchMode=yes -o ConnectTimeout=5 -o StrictHostKeyChecking=accept-new "${spec}" "bash -s" <<< "${remote_script}" 2>/dev/null | grep -q remote_ok; then
+      echo "remote relay configured via ${spec}"
+      return 0
+    fi
+  done
+  echo "no remote SSH path available from 236"
+  return 1
+}
+
+probe_relay_ssh() {
+  section "Probe SSH from 236"
+  bash -s <<'EOS'
+set -euo pipefail
+hostname
+ls -la /root/.ssh 2>/dev/null || true
+for spec in root@10.168.1.233 root@101.71.223.113 root@git.qingxiang.tech tunnel@git.qingxiang.tech; do
+  echo "--- $spec ---"
+  ssh -o BatchMode=yes -o ConnectTimeout=4 -o StrictHostKeyChecking=accept-new "$spec" hostname 2>&1 | head -2 || true
+done
+EOS
 }
 
 require_root() {
@@ -157,20 +209,12 @@ install_relay() {
   chmod 700 "${KEY_DIR}"
   printf '%s\n' "${TUNNEL_SSH_PRIVATE_KEY}" > "${KEY_FILE}"
   chmod 600 "${KEY_FILE}"
-  cat > "${ENV_FILE}" <<EOF
-RELAY_HOST=${RELAY_HOST}
-RELAY_USER=${RELAY_USER}
-REMOTE_PORT=${TUNNEL_PORT}
-EOF
-  chmod 600 "${ENV_FILE}"
-
   SSH_BIN="$(command -v autossh || command -v ssh)"
   if [ "$(basename "${SSH_BIN}")" = "autossh" ]; then
     AUTOSSH_ARGS='-M 0'
   else
     AUTOSSH_ARGS=''
   fi
-
   cat > "${UNIT_FILE}" <<EOF
 [Unit]
 Description=ViKnow Cloud Agent reverse SSH tunnel (${MODE})
@@ -179,21 +223,21 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-EnvironmentFile=${ENV_FILE}
 ExecStart=${SSH_BIN} ${AUTOSSH_ARGS} -N \\
   -o ServerAliveInterval=30 \\
   -o ServerAliveCountMax=3 \\
   -o ExitOnForwardFailure=yes \\
   -o StrictHostKeyChecking=accept-new \\
   -i ${KEY_FILE} \\
-  -R 0.0.0.0:\${REMOTE_PORT}:127.0.0.1:22 \\
-  \${RELAY_USER}@\${RELAY_HOST}
+  -R 0.0.0.0:${TUNNEL_PORT}:127.0.0.1:22 ${RELAY_USER}@${RELAY_HOST}
 Restart=always
 RestartSec=10
 
 [Install]
 WantedBy=multi-user.target
 EOF
+
+  rm -f "${ENV_FILE}"
 
   systemctl daemon-reload
   systemctl enable --now viknow-cloud-agent-tunnel.service
@@ -238,6 +282,7 @@ case "${ACTION}" in
       direct) install_direct ;;
       relay) install_relay ;;
       auto) install_auto ;;
+      probe) probe_relay_ssh ;;
       bootstrap) bootstrap_relay ;;
       *) echo "unknown TUNNEL_MODE=${MODE}" >&2; exit 1 ;;
     esac

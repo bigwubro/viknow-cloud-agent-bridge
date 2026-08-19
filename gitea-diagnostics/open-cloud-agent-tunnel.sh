@@ -17,7 +17,83 @@ KEY_DIR="/etc/viknow/cloud-agent-tunnel"
 KEY_FILE="${KEY_DIR}/id_ed25519"
 ENV_FILE="${KEY_DIR}/env"
 
+RELAY_SSHD_DROPIN="/etc/ssh/sshd_config.d/98-cloud-agent-relay.conf"
+CURSOR_AGENT_USER="${CURSOR_AGENT_USER:-cursor-agent}"
+CURSOR_KEY_DIR="/etc/viknow/cloud-agent-cursor"
+CURSOR_KEY_FILE="${CURSOR_KEY_DIR}/id_ed25519"
+
 section() { printf '\n========== %s ==========\n' "$*"; }
+
+ensure_relay_key() {
+  mkdir -p "${KEY_DIR}"
+  chmod 700 "${KEY_DIR}"
+  if [ ! -f "${KEY_FILE}" ]; then
+    ssh-keygen -t ed25519 -f "${KEY_FILE}" -N "" -C "viknow-cloud-agent-tunnel@236"
+    chmod 600 "${KEY_FILE}"
+  fi
+}
+
+setup_relay_host_local() {
+  section "Configure local relay host (${RELAY_USER}, GatewayPorts)"
+  id "${RELAY_USER}" &>/dev/null || useradd -m -s /bin/bash "${RELAY_USER}"
+  install -d -m 700 -o "${RELAY_USER}" -g "${RELAY_USER}" "/home/${RELAY_USER}/.ssh"
+  touch "/home/${RELAY_USER}/.ssh/authorized_keys"
+  chown "${RELAY_USER}:${RELAY_USER}" "/home/${RELAY_USER}/.ssh/authorized_keys"
+  chmod 600 "/home/${RELAY_USER}/.ssh/authorized_keys"
+  pub="$(cat "${KEY_FILE}.pub")"
+  if ! grep -qF "${pub}" "/home/${RELAY_USER}/.ssh/authorized_keys"; then
+    echo "${pub}" >> "/home/${RELAY_USER}/.ssh/authorized_keys"
+  fi
+  mkdir -p /etc/ssh/sshd_config.d
+  cat > "${RELAY_SSHD_DROPIN}" <<'EOF'
+# Managed by gitea-diagnostics/open-cloud-agent-tunnel.sh (relay)
+GatewayPorts clientspecified
+AllowTcpForwarding yes
+EOF
+  if command -v sshd >/dev/null 2>&1; then
+    sshd -t
+  fi
+  systemctl reload ssh 2>/dev/null || systemctl reload sshd
+  echo "relay user ${RELAY_USER} ready; GatewayPorts enabled"
+}
+
+rotate_cursor_agent_key() {
+  section "Ensure ${CURSOR_AGENT_USER} SSH key for Cloud Agent"
+  id "${CURSOR_AGENT_USER}" &>/dev/null || useradd -m -s /bin/bash "${CURSOR_AGENT_USER}"
+  install -d -m 700 -o "${CURSOR_AGENT_USER}" -g "${CURSOR_AGENT_USER}" "/home/${CURSOR_AGENT_USER}/.ssh"
+  mkdir -p "${CURSOR_KEY_DIR}"
+  chmod 700 "${CURSOR_KEY_DIR}"
+  if [ ! -f "${CURSOR_KEY_FILE}" ]; then
+    ssh-keygen -t ed25519 -f "${CURSOR_KEY_FILE}" -N "" -C "cursor-agent@236"
+    chmod 600 "${CURSOR_KEY_FILE}"
+  fi
+  pub="$(cat "${CURSOR_KEY_FILE}.pub")"
+  auth="/home/${CURSOR_AGENT_USER}/.ssh/authorized_keys"
+  touch "${auth}"
+  chown "${CURSOR_AGENT_USER}:${CURSOR_AGENT_USER}" "${auth}"
+  chmod 600 "${auth}"
+  printf '%s\n' "${pub}" > "${auth}"
+  echo "cursor-agent authorized_keys updated"
+  echo "--- CLOUD_AGENT_CURSOR_SSH_KEY (put in Cursor Secret VIKNOW_236_SSH_KEY) ---"
+  cat "${CURSOR_KEY_FILE}"
+  echo "--- END CLOUD_AGENT_CURSOR_SSH_KEY ---"
+}
+
+install_relay_from_file() {
+  TUNNEL_SSH_PRIVATE_KEY="$(cat "${KEY_FILE}")"
+  install_relay
+}
+
+install_auto() {
+  section "Auto setup relay via ${RELAY_HOST}"
+  ensure_relay_key
+  setup_relay_host_local
+  rotate_cursor_agent_key
+  install_relay_from_file
+  echo "--- CLOUD_AGENT_TUNNEL_SSH_KEY (for Gitea secret, optional) ---"
+  cat "${KEY_FILE}"
+  echo "--- END CLOUD_AGENT_TUNNEL_SSH_KEY ---"
+}
 
 require_root() {
   if [ "$(id -u)" -ne 0 ]; then
@@ -60,12 +136,7 @@ EOF
 
 bootstrap_relay() {
   section "Bootstrap relay keypair (one-time)"
-  mkdir -p "${KEY_DIR}"
-  chmod 700 "${KEY_DIR}"
-  if [ ! -f "${KEY_FILE}" ]; then
-    ssh-keygen -t ed25519 -f "${KEY_FILE}" -N "" -C "viknow-cloud-agent-tunnel@236"
-    chmod 600 "${KEY_FILE}"
-  fi
+  ensure_relay_key
   echo "1) Add the following public key to ${RELAY_USER}@${RELAY_HOST} ~/.ssh/authorized_keys"
   echo "2) Store the private key in Gitea repo secret CLOUD_AGENT_TUNNEL_SSH_KEY"
   echo "3) Re-run workflow with mode=relay action=install"
@@ -166,6 +237,7 @@ case "${ACTION}" in
     case "${MODE}" in
       direct) install_direct ;;
       relay) install_relay ;;
+      auto) install_auto ;;
       bootstrap) bootstrap_relay ;;
       *) echo "unknown TUNNEL_MODE=${MODE}" >&2; exit 1 ;;
     esac

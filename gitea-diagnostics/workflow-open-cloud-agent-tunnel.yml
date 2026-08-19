@@ -6,9 +6,9 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "direct | relay (recommended) | bootstrap (generate relay key, print in log)"
+        description: "auto | relay | direct | bootstrap"
         required: false
-        default: relay
+        default: auto
       action:
         description: "install | status | stop"
         required: false

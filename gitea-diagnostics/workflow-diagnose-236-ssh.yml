@@ -36,5 +36,5 @@ jobs:
             -v /:/host \
             -v /tmp/diagnose-236-ssh.sh:/host/tmp/diagnose-236-ssh.sh:ro \
             -e DIAG_SSH_USER="${DIAG_SSH_USER}" \
-            bash:5 \
+            viknow/ci-python:3.12-uv-docker29.1.3 \
             bash -c 'chroot /host env DIAG_SSH_USER="${DIAG_SSH_USER}" bash /tmp/diagnose-236-ssh.sh'

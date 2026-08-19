@@ -15,9 +15,9 @@ uname -a
 
 section "Listening SSH port"
 if command -v ss >/dev/null 2>&1; then
-  ss -tlnp | rg ":${SSH_PORT}\b" || echo "port ${SSH_PORT} not listening"
+  ss -tlnp | grep -E ":${SSH_PORT}\\b" || echo "port ${SSH_PORT} not listening"
 else
-  netstat -tlnp 2>/dev/null | rg ":${SSH_PORT}\b" || echo "ss/netstat unavailable"
+  netstat -tlnp 2>/dev/null | grep -E ":${SSH_PORT}\\b" || echo "ss/netstat unavailable"
 fi
 
 section "sshd service"
@@ -30,7 +30,7 @@ fi
 
 section "sshd config (effective highlights)"
 if [ -r /etc/ssh/sshd_config ]; then
-  rg -n '^(Port|ListenAddress|PermitRootLogin|PasswordAuthentication|PubkeyAuthentication|MaxStartups|MaxSessions|AllowUsers|DenyUsers|UsePAM|Subsystem)\b' /etc/ssh/sshd_config || true
+  grep -En '^(Port|ListenAddress|PermitRootLogin|PasswordAuthentication|PubkeyAuthentication|MaxStartups|MaxSessions|AllowUsers|DenyUsers|UsePAM|Subsystem)\b' /etc/ssh/sshd_config || true
 else
   echo "/etc/ssh/sshd_config not readable from this context"
 fi
@@ -53,7 +53,7 @@ section "Recent SSH auth log (last 80 lines)"
 for f in /var/log/auth.log /var/log/secure; do
   if [ -r "$f" ]; then
     echo "--- $f ---"
-    tail -n 80 "$f" | rg -i 'sshd|accepted|failed|invalid|reset|refused|banner|maxstartups|connection closed' || tail -n 80 "$f"
+    tail -n 80 "$f" | grep -Ei 'sshd|accepted|failed|invalid|reset|refused|banner|maxstartups|connection closed' || tail -n 80 "$f"
     break
   fi
 done

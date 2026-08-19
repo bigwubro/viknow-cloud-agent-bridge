@@ -1,0 +1,32 @@
+# Copy to: castmeta-research/viknow2/.gitea/workflows/diagnose-236-ssh.yml
+# Gitea → Actions → Diagnose 236 SSH → Run workflow
+
+name: Diagnose 236 SSH
+
+on:
+  workflow_dispatch:
+    inputs:
+      ssh_user:
+        description: SSH user to inspect authorized_keys
+        required: false
+        default: cursor-agent
+
+jobs:
+  diagnose-236-ssh:
+    name: Diagnose Cloud Agent SSH to 236
+    runs-on: python-312-uv
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          sparse-checkout: |
+            gitea-diagnostics/diagnose-236-ssh.sh
+          sparse-checkout-cone-mode: false
+
+      - name: Run SSH diagnostics on host
+        env:
+          DIAG_SSH_USER: ${{ inputs.ssh_user }}
+        run: |
+          chmod +x gitea-diagnostics/diagnose-236-ssh.sh
+          sudo -n bash gitea-diagnostics/diagnose-236-ssh.sh || bash gitea-diagnostics/diagnose-236-ssh.sh

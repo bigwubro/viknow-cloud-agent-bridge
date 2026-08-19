@@ -1,0 +1,56 @@
+# Copy to: castmeta-research/viknow2/.gitea/workflows/setup-reverse-tunnel.yml
+
+name: Setup reverse SSH tunnel for Cloud Agent
+
+on:
+  workflow_dispatch:
+    inputs:
+      backend:
+        description: "localhost (no account) | bore | ngrok (needs NGROK_AUTHTOKEN)"
+        required: false
+        default: localhost
+      action:
+        description: "install | status | stop"
+        required: false
+        default: install
+
+jobs:
+  setup-reverse-tunnel:
+    name: Expose 236 SSH via outbound tunnel
+    runs-on: python-312-uv
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          sparse-checkout: |
+            gitea-diagnostics/setup-reverse-tunnel.sh
+          sparse-checkout-cone-mode: false
+
+      - name: Install reverse tunnel on host (chroot)
+        env:
+          TUNNEL_ACTION: ${{ inputs.action }}
+          TUNNEL_BACKEND: ${{ inputs.backend }}
+          NGROK_AUTHTOKEN: ${{ secrets.NGROK_AUTHTOKEN }}
+        run: |
+          set -euo pipefail
+          chmod +x gitea-diagnostics/setup-reverse-tunnel.sh
+          AUTH="$(git config --local http.http://git.qingxiang.tech:3000/.extraheader || true)"
+          curl -fsSL -H "${AUTH}" \
+            -o /tmp/bore.bin \
+            "http://101.71.223.113:3000/castmeta-research/viknow2/raw/branch/agent/cloud-agent-tunnel/gitea-diagnostics/bin/bore-linux-amd64"
+          chmod 755 /tmp/bore.bin
+          ls -la /tmp/bore.bin
+          docker run --rm -i --privileged --pid=host --network=host \
+            -v /:/host \
+            viknow/ci-python:3.12-uv-docker29.1.3 \
+            bash -c 'cat > /host/usr/local/bin/bore && chmod 755 /host/usr/local/bin/bore' \
+            < /tmp/bore.bin
+          docker run --rm -i --privileged --pid=host --network=host \
+            -v /:/host \
+            -e TUNNEL_ACTION \
+            -e TUNNEL_BACKEND \
+            -e NGROK_AUTHTOKEN \
+            viknow/ci-python:3.12-uv-docker29.1.3 \
+            bash -c 'chroot /host env TUNNEL_ACTION="${TUNNEL_ACTION}" TUNNEL_BACKEND="${TUNNEL_BACKEND}" NGROK_AUTHTOKEN="${NGROK_AUTHTOKEN}" bash -s' \
+            < gitea-diagnostics/setup-reverse-tunnel.sh

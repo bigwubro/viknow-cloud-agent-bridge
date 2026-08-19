@@ -23,17 +23,23 @@
 - 本目录在 **跳板仓** 仅作模板；**必须在 Gitea `viknow2` 仓触发** 才会在 236 runner 上执行。
 - Cloud Agent 侧无 Gitea 写仓 Token 时，需人工在 Gitea 网页提交上述两个文件。
 
-## Cloud Agent 入口隧道（`open-cloud-agent-tunnel`）
+## Cloud Agent 连 236（公网域名）
 
-Cloud Agent 直连 `36.103.198.236:22` 可能被上游网络 reset。推荐 **relay 模式**：
+**不要直连 `36.103.198.236`**（Cloud Agent 会被 reset）。用域名 `git.qingxiang.tech`（已验证可达）。
 
-1. 在 Gitea 主机 `101.71.223.113` 创建用户 `tunnel`，配置 `sshd`：`GatewayPorts yes`、`AllowTcpForwarding yes`
-2. 在 Gitea 仓 Secrets 添加 `CLOUD_AGENT_TUNNEL_SSH_KEY`（`tunnel` 用户私钥）
-3. Actions → **Open Cloud Agent tunnel** → Run workflow
-   - `mode`: `relay`（推荐）或 `direct`（在 236 开放端口 + iptables 白名单）
-   - `cloud_agent_ip`: direct 模式必填（当前 Cloud Agent 出口 IP）
-4. Cloud Agent 连接：
-   - relay: `ssh -p 42236 cursor-agent@101.71.223.113`
-   - direct: `ssh -p 42236 cursor-agent@36.103.198.236`
+### 方案 A：relay（经 Gitea 域名中转，无需 Cloudflare）
 
-文件：`gitea-diagnostics/open-cloud-agent-tunnel.sh`、`.gitea/workflows/open-cloud-agent-tunnel.yml`
+1. Gitea 主机配置 `tunnel` 用户 + `GatewayPorts yes`
+2. Secret `CLOUD_AGENT_TUNNEL_SSH_KEY`
+3. Actions → **Open Cloud Agent tunnel** → `mode=relay`
+4. 连接：`ssh -p 42236 cursor-agent@git.qingxiang.tech`
+
+### 方案 B：Cloudflare Tunnel（推荐，真正独立域名）
+
+1. Cloudflare Zero Trust 创建 Tunnel，路由如 `ssh-236.qingxiang.tech` → `tcp://localhost:22`
+2. Secret `CLOUDFLARE_TUNNEL_TOKEN`
+3. Actions → **Setup Cloudflare tunnel for 236** → install
+4. 连接：`ssh cursor-agent@ssh-236.qingxiang.tech`
+
+两种方案均需修好 Cursor Secret `VIKNOW_236_SSH_KEY`（cursor-agent 私钥）。
+

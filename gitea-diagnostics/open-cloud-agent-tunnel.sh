@@ -8,7 +8,7 @@ set -euo pipefail
 ACTION="${TUNNEL_ACTION:-install}"
 MODE="${TUNNEL_MODE:-relay}"
 TUNNEL_PORT="${CLOUD_AGENT_TUNNEL_PORT:-42236}"
-RELAY_HOST="${CLOUD_AGENT_TUNNEL_HOST:-101.71.223.113}"
+RELAY_HOST="${CLOUD_AGENT_TUNNEL_HOST:-git.qingxiang.tech}"
 RELAY_USER="${CLOUD_AGENT_TUNNEL_USER:-tunnel}"
 CLOUD_AGENT_CIDR="${CLOUD_AGENT_CIDR:-}"
 SSHD_DROPIN="/etc/ssh/sshd_config.d/99-cloud-agent-port.conf"
@@ -55,7 +55,7 @@ EOF
   fi
   section "Direct mode status"
   ss -tlnp | grep -E ":${TUNNEL_PORT}\\b" || echo "port ${TUNNEL_PORT} not listening yet"
-  echo "Cloud Agent: ssh -p ${TUNNEL_PORT} cursor-agent@36.103.198.236"
+  echo "Cloud Agent: ssh -p ${TUNNEL_PORT} cursor-agent@git.qingxiang.tech"
 }
 
 bootstrap_relay() {

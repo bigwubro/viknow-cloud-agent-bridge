@@ -49,7 +49,7 @@ jobs:
           else
             export CLOUD_AGENT_CIDR=""
           fi
-          export CLOUD_AGENT_TUNNEL_HOST="${CLOUD_AGENT_TUNNEL_HOST:-101.71.223.113}"
+          export CLOUD_AGENT_TUNNEL_HOST="${CLOUD_AGENT_TUNNEL_HOST:-git.qingxiang.tech}"
           export CLOUD_AGENT_TUNNEL_USER="${CLOUD_AGENT_TUNNEL_USER:-tunnel}"
           chmod +x gitea-diagnostics/open-cloud-agent-tunnel.sh
           docker run --rm -i --privileged --pid=host --network=host \

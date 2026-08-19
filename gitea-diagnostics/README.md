@@ -22,3 +22,18 @@
 
 - 本目录在 **跳板仓** 仅作模板；**必须在 Gitea `viknow2` 仓触发** 才会在 236 runner 上执行。
 - Cloud Agent 侧无 Gitea 写仓 Token 时，需人工在 Gitea 网页提交上述两个文件。
+
+## Cloud Agent 入口隧道（`open-cloud-agent-tunnel`）
+
+Cloud Agent 直连 `36.103.198.236:22` 可能被上游网络 reset。推荐 **relay 模式**：
+
+1. 在 Gitea 主机 `101.71.223.113` 创建用户 `tunnel`，配置 `sshd`：`GatewayPorts yes`、`AllowTcpForwarding yes`
+2. 在 Gitea 仓 Secrets 添加 `CLOUD_AGENT_TUNNEL_SSH_KEY`（`tunnel` 用户私钥）
+3. Actions → **Open Cloud Agent tunnel** → Run workflow
+   - `mode`: `relay`（推荐）或 `direct`（在 236 开放端口 + iptables 白名单）
+   - `cloud_agent_ip`: direct 模式必填（当前 Cloud Agent 出口 IP）
+4. Cloud Agent 连接：
+   - relay: `ssh -p 42236 cursor-agent@101.71.223.113`
+   - direct: `ssh -p 42236 cursor-agent@36.103.198.236`
+
+文件：`gitea-diagnostics/open-cloud-agent-tunnel.sh`、`.gitea/workflows/open-cloud-agent-tunnel.yml`

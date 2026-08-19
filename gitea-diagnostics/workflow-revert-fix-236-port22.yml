@@ -1,0 +1,37 @@
+# Copy to: castmeta-research/viknow2/.gitea/workflows/revert-fix-236-port22.yml
+
+name: Revert port 22 hardening (restore existing SSH)
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "revert | status"
+        required: false
+        default: revert
+
+jobs:
+  revert-port22:
+    name: Restore original sshd :22 behavior
+    runs-on: python-312-uv
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          sparse-checkout: |
+            gitea-diagnostics/revert-fix-236-port22.sh
+          sparse-checkout-cone-mode: false
+
+      - name: Revert port 22 changes (chroot)
+        env:
+          REVERT22_ACTION: ${{ inputs.action }}
+        run: |
+          set -euo pipefail
+          chmod +x gitea-diagnostics/revert-fix-236-port22.sh
+          docker run --rm -i --privileged --pid=host --network=host \
+            -v /:/host \
+            -e REVERT22_ACTION \
+            viknow/ci-python:3.12-uv-docker29.1.3 \
+            bash -c 'chroot /host env REVERT22_ACTION="${REVERT22_ACTION}" bash -s' \
+            < gitea-diagnostics/revert-fix-236-port22.sh

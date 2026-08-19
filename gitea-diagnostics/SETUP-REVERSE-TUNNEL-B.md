@@ -1,6 +1,24 @@
 # 方案 B：反向隧道（不需要 ngrok 账号）
 
-## 原理
+## 安全保证：不影响现有 `:22`
+
+本方案 **只增加一条出站隧道**，不会：
+
+- ❌ 修改 `sshd_config` / reload sshd
+- ❌ 改 iptables / 防火墙
+- ❌ 占用或替换 `:22` 端口监听
+- ❌ 影响现有用户直连 `36.103.198.236:22`
+
+隧道只是把外部流量 **转发到** 已在监听的 `127.0.0.1:22`，与现有连接并行存在。
+
+安装前后 CI 会检查：`sshd` 仍监听 `:22`。
+
+### 若之前跑过「Fix 236 port 22」workflow
+
+该 workflow 会改 MaxStartups / iptables，**可能影响现有 :22**。
+请再跑一次：**Revert port 22 hardening (restore existing SSH)** 恢复原状。
+
+---
 
 ```
 236 ──出站──► 公网隧道服务（bore / localhost.run / ngrok）

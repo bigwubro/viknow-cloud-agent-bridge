@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 # Harden 236:22 for Cloud Agent: reduce scanner impact + whitelist current egress IP.
+#
+# WARNING: This workflow MODIFIES global :22 behavior (MaxStartups, iptables).
+# Do NOT run if you need to preserve existing :22 access unchanged.
+# Prefer setup-reverse-tunnel.yml (outbound-only, does not touch :22).
 set -euo pipefail
 
 ACTION="${FIX22_ACTION:-install}"

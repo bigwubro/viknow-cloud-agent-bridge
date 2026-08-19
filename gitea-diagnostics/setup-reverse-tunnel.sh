@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # Expose 236 SSH via outbound reverse tunnel (no inbound / no ngrok account required).
-# Backends:
+#
+# SAFETY: This script does NOT modify sshd, iptables, or the :22 listener.
+# It only starts an outbound client that forwards tunnel traffic to 127.0.0.1:22.
+# Existing users connecting to 36.103.198.236:22 are unaffected.
 #   serveo - default, uses system ssh -R (no account, no binary download)
 #   bore   - bore.pub (needs github release download)
 #   localhost - ssh -R via localhost.run (no account)
@@ -16,6 +19,16 @@ STATE_DIR="/etc/viknow/reverse-tunnel"
 LOG_FILE="${STATE_DIR}/tunnel.log"
 
 section() { printf '\n========== %s ==========\n' "$*"; }
+
+verify_port22_safe() {
+  section "Safety check: :22 must remain sshd-owned"
+  if ! ss -tlnp | grep -E ':22\b' | grep -q sshd; then
+    echo "ERROR: sshd is not listening on :22; aborting to protect existing access" >&2
+    exit 1
+  fi
+  echo "OK: sshd still listens on :22 (tunnel will only connect to 127.0.0.1:${LOCAL_PORT})"
+  echo "NOTE: this script does not change sshd_config, iptables, or port 22 binding"
+}
 
 require_root() {
   [ "$(id -u)" -eq 0 ] || { echo "must run as root" >&2; exit 1; }
@@ -159,6 +172,7 @@ EOF
 
 install_tunnel() {
   section "Install reverse tunnel (${BACKEND})"
+  verify_port22_safe
   mkdir -p "${STATE_DIR}"
   chmod 700 "${STATE_DIR}"
   touch "${LOG_FILE}"
@@ -193,6 +207,7 @@ install_tunnel() {
   systemctl daemon-reload
   systemctl enable --now viknow-reverse-tunnel.service
   sleep 6
+  verify_port22_safe
   show_status
 }
 

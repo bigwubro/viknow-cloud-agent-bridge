@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
-# Fix cursor-agent SSH login via git.qingxiang.tech:2222 (OpenSSH on 236).
+# Fix cursor-agent SSH via git.qingxiang.tech (host sshd on dedicated port, not :2222 socat/git).
 set -euo pipefail
 
 ACTION="${SSH2222_ACTION:-install}"
-SSH_PORT="${SSH2222_PORT:-2222}"
+SSH_PORT="${SSH2222_PORT:-2223}"
 CURSOR_USER="${CURSOR_AGENT_USER:-cursor-agent}"
 KEY_DIR="/etc/viknow/cloud-agent-cursor"
 KEY_FILE="${KEY_DIR}/id_ed25519"
-DROPIN="/etc/ssh/sshd_config.d/99-cursor-agent-2222.conf"
+DROPIN="/etc/ssh/sshd_config.d/99-cursor-agent-${SSH_PORT}.conf"
+LEGACY_DROPIN="/etc/ssh/sshd_config.d/99-cursor-agent-2222.conf"
 
 section() { printf '\n========== %s ==========\n' "$*"; }
 
@@ -38,24 +39,19 @@ ensure_cursor_key() {
 
 configure_sshd_2222() {
   section "Configure sshd for port ${SSH_PORT}"
+  # :2222 is socat -> Gitea git SSH; use a dedicated host sshd port instead.
+  rm -f "${LEGACY_DROPIN}"
   mkdir -p /etc/ssh/sshd_config.d
   if ss -tlnp | grep -qE ":${SSH_PORT}\\b"; then
-    echo "port ${SSH_PORT} already listening; skip adding duplicate Port directive"
-    listen=yes
-  else
-    listen=no
+    echo "port ${SSH_PORT} already listening"
+    ss -tlnp | grep -E ":${SSH_PORT}\\b" || true
   fi
-  {
-    echo "# Managed by gitea-diagnostics/setup-ssh-2222.sh"
-    if [ "${listen}" = "no" ]; then
-      echo "Port ${SSH_PORT}"
-    fi
-    cat <<EOF
-Match LocalPort ${SSH_PORT}
-    PubkeyAuthentication yes
-    PasswordAuthentication no
+  cat > "${DROPIN}" <<EOF
+# Managed by gitea-diagnostics/setup-ssh-2222.sh
+Port ${SSH_PORT}
+PubkeyAuthentication yes
+PasswordAuthentication no
 EOF
-  } > "${DROPIN}"
   if command -v sshd >/dev/null 2>&1; then
     sshd -t
   fi
@@ -64,6 +60,8 @@ EOF
 }
 
 show_status() {
+  section "Status"
+  hostname
   section "Listeners on ${SSH_PORT}"
   ss -tlnp | grep -E ":${SSH_PORT}\\b" || echo "not listening"
   section "sshd config grep ${SSH_PORT}"

@@ -12,7 +12,7 @@ on:
       port:
         description: "SSH port"
         required: false
-        default: "2222"
+        default: "2223"
 
 jobs:
   setup-ssh-2222:

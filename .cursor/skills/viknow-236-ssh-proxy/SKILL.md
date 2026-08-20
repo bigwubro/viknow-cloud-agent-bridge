@@ -5,6 +5,9 @@ environments: [cloud]
 ---
 # ViKnow 236 SSH 正向代理（阿里云跳板）
 
+> **Agent：本文件不会自动加载，你必须用 Read 工具打开并完整遵循。**  
+> 若 `36.103.198.236:22` timeout，说明你在直连——立即改用下方 ProxyCommand，不要探测其他端口。
+
 Cloud Agent **不能直连** `36.103.198.236`（机房入站对国外/AWS IP 丢包）。  
 必须通过 **阿里云跳板机** 做 SSH 正向代理（`ProxyJump` / `ProxyCommand`）。
 

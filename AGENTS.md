@@ -8,11 +8,13 @@
 
 ## Cursor Cloud specific instructions
 
+> **⚠️ 不要直连 `36.103.198.236`**（任意端口均 timeout）。必须经跳板 `8.145.57.129`。  
+> 若你正在执行 `prompts/feature.md` 或 `prompts/smoke.md`，其中已包含跳板命令；勿使用旧版「SSH 到 cursor-agent@36.103.198.236」直连写法。
+
 ### 必读 Skill
 
-连接 236 的完整步骤见：**`.cursor/skills/viknow-236-ssh-proxy/SKILL.md`**
-
-（其他 Cloud Agent 转发本仓时，先读该 Skill。）
+连接 236 的完整步骤见：**`.cursor/skills/viknow-236-ssh-proxy/SKILL.md`**  
+Agent **必须先 Read 该文件**，不要跳过。`.cursor/skills/` 不会自动注入，需主动读取。
 
 ### 必做（摘要）
 

@@ -15,6 +15,9 @@ Cloud Agent **不能直连** `36.103.198.236`（机房入站对国外/AWS IP 丢
 Cloud Agent ──SSH──► 跳板 8.145.57.129 ──SSH──► 236:22 (cursor-agent) ──► docker exec viknow2-test-dev
 ```
 
+**唯一跳板**：`8.145.57.129`（华东 ECS，密码登录）。  
+**勿用** `47.239.18.212`（香港 ECS）——香港 → 236 链路不稳定，已放弃。
+
 跳板已配置好到 236 的密钥；Cloud Agent 侧只需两个 Secret + 下列命令。
 
 ---

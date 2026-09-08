@@ -1,6 +1,6 @@
-# 云操作台账
+# 阿里云操作台账
 
-本文件记录 Cloud Agent / 跳板环境对 **阿里云、AWS、ACK、ACR** 以及相关云资源的每一次操作与变更。
+本文件记录 Cloud Agent / 跳板环境对 **阿里云**（ACK、ACR、RDS、Tair、OSS、RAM 等）的每一次操作与变更。不记 AWS。
 
 最后更新：2026-09-08
 
@@ -17,7 +17,7 @@
 ```md
 ### YYYY-MM-DD <动作>
 
-- 环境：Cloud Agent 跳板 / 236 / ACK online prod / AWS …
+- 环境：Cloud Agent 跳板 / 236 / ACK online prod …
 - 对象：<产品 + 资源 ID 或名称>
 - 动作：<做了什么>
 - 结果：成功 / 失败 / 部分成功
@@ -29,11 +29,19 @@
 
 ## 变更记录（倒序）
 
+### 2026-09-08 更正：台账范围是阿里云，不是 AWS
+
+- 环境：GitHub 跳板仓 `viknow-cloud-agent-bridge`，分支 `cursor/cloud-ops-log-10dc`
+- 对象：本文件、`AGENTS.md`、`README.md`
+- 动作：去掉所有 AWS 表述；后续只记录阿里云（含 ACK / ACR / RDS / Tair / OSS / RAM）操作与变更
+- 结果：成功
+- 残留：无云资源变更
+
 ### 2026-09-08 建立本台账
 
 - 环境：GitHub 跳板仓 `viknow-cloud-agent-bridge`，分支 `cursor/cloud-ops-log-10dc`
-- 对象：本文件 `docs/cloud-ops-log.md`；`AGENTS.md` 增加「每次云操作必须追加」约定
-- 动作：把同日阿里云登录探测写入台账，并规定后续阿里云 / AWS 操作都记在这里
+- 对象：本文件 `docs/cloud-ops-log.md`；`AGENTS.md` 增加「每次阿里云操作必须追加」约定
+- 动作：把同日阿里云登录探测写入台账，并规定后续阿里云操作都记在这里
 - 结果：成功
 - 残留：无云资源变更
 

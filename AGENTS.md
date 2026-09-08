@@ -20,9 +20,9 @@
    - `git commit` 后 `git push -u origin agent/<topic>`
 5. 结束时汇报：分支名、`git log --oneline origin/main..HEAD`、`git diff --stat origin/main...HEAD`
 
-### 云操作台账（必做）
+### 阿里云操作台账（必做）
 
-每次对 **阿里云 / AWS / ACK / ACR** 或其它云资源的操作、变更、登录探测，必须追加写入 [`docs/cloud-ops-log.md`](docs/cloud-ops-log.md)（倒序、用文件内模板）。禁止把密码、AK/SK、kubeconfig 原文写进该文件或任何提交。
+每次对 **阿里云**（ACK / ACR / RDS / Tair / OSS / RAM 等）的操作、变更、登录探测，必须追加写入 [`docs/cloud-ops-log.md`](docs/cloud-ops-log.md)（倒序、用文件内模板）。不记 AWS。禁止把密码、AK/SK、kubeconfig 原文写进该文件或任何提交。
 
 ### 禁止
 

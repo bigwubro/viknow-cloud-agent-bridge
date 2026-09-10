@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>vLLM 调度器动态演示 — Slot vs Iteration Batch</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --panel: #1a2332;
+      --border: #2d3a4f;
+      --text: #e7ecf3;
+      --muted: #8b9cb3;
+      --decode: #22c55e;
+      --decode-dim: #14532d;
+      --prefill: #f59e0b;
+      --prefill-dim: #78350f;
+      --waiting: #64748b;
+      --waiting-dim: #334155;
+      --active: #38bdf8;
+      --idle-step: #ef4444;
+      --gpu: #a855f7;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "Segoe UI", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 20px;
+      line-height: 1.5;
+    }
+    h1 { font-size: 1.35rem; font-weight: 600; margin-bottom: 4px; }
+    .subtitle { color: var(--muted); font-size: 0.9rem; margin-bottom: 20px; }
+    .layout {
+      display: grid;
+      grid-template-columns: 1fr 320px;
+      gap: 20px;
+      max-width: 1200px;
+    }
+    @media (max-width: 900px) {
+      .layout { grid-template-columns: 1fr; }
+    }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .card h2 {
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+    button, .toggle-group button {
+      background: #243044;
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 8px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.85rem;
+    }
+    button:hover { background: #2d3f58; }
+    button.primary { background: #1d4ed8; border-color: #2563eb; }
+    button.active { background: #2563eb; border-color: #3b82f6; }
+    .toggle-group { display: flex; gap: 0; }
+    .toggle-group button:first-child { border-radius: 8px 0 0 8px; }
+    .toggle-group button:last-child { border-radius: 0 8px 8px 0; border-left: none; }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .stat {
+      background: #121a24;
+      border-radius: 8px;
+      padding: 10px 12px;
+      border-left: 3px solid var(--border);
+    }
+    .stat .label { font-size: 0.72rem; color: var(--muted); }
+    .stat .value { font-size: 1.25rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .stat.running { border-left-color: var(--decode); }
+    .stat.waiting { border-left-color: var(--waiting); }
+    .stat.batch { border-left-color: var(--gpu); }
+    .stat.iter { border-left-color: var(--active); }
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      font-size: 0.8rem;
+      margin-bottom: 12px;
+    }
+    .legend span { display: flex; align-items: center; gap: 6px; }
+    .dot {
+      width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0;
+    }
+    .dot.decode { background: var(--decode); }
+    .dot.prefill { background: var(--prefill); }
+    .dot.waiting { background: var(--waiting); }
+    .dot.scheduled { box-shadow: 0 0 0 2px var(--active), 0 0 12px var(--active); }
+    .slot-grid {
+      display: grid;
+      grid-template-columns: repeat(16, 1fr);
+      gap: 4px;
+      margin-bottom: 16px;
+    }
+    .slot {
+      aspect-ratio: 1;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.55rem;
+      font-weight: 600;
+      color: rgba(255,255,255,0.85);
+      transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s;
+      position: relative;
+    }
+    .slot.decode { background: var(--decode-dim); border: 1px solid var(--decode); }
+    .slot.prefill { background: var(--prefill-dim); border: 1px solid var(--prefill); }
+    .slot.waiting { background: var(--waiting-dim); border: 1px solid var(--waiting); opacity: 0.7; }
+    .slot.scheduled {
+      transform: scale(1.08);
+      box-shadow: 0 0 0 2px var(--active), 0 0 16px rgba(56,189,248,0.5);
+      z-index: 1;
+    }
+    .slot.not-scheduled.decode {
+      opacity: 0.45;
+      border-style: dashed;
+    }
+    .queue-bar {
+      display: flex;
+      gap: 3px;
+      flex-wrap: wrap;
+      min-height: 28px;
+      padding: 8px;
+      background: #121a24;
+      border-radius: 8px;
+      margin-bottom: 8px;
+    }
+    .queue-item {
+      width: 18px; height: 18px;
+      background: var(--waiting-dim);
+      border: 1px solid var(--waiting);
+      border-radius: 3px;
+    }
+    .gpu-panel {
+      background: linear-gradient(135deg, #1e1033 0%, #121a24 100%);
+      border: 2px solid var(--gpu);
+      border-radius: 10px;
+      padding: 14px;
+      min-height: 100px;
+    }
+    .gpu-panel h3 {
+      font-size: 0.75rem;
+      color: var(--gpu);
+      margin-bottom: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .batch-composition {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .batch-block {
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 0.95rem;
+    }
+    .batch-block.decode { background: rgba(34,197,94,0.2); border: 1px solid var(--decode); color: #86efac; }
+    .batch-block.prefill { background: rgba(245,158,11,0.2); border: 1px solid var(--prefill); color: #fcd34d; }
+    .batch-block.empty { background: rgba(239,68,68,0.15); border: 1px solid var(--idle-step); color: #fca5a5; }
+    .step-log {
+      font-family: ui-monospace, monospace;
+      font-size: 0.78rem;
+      background: #0a0e14;
+      padding: 10px 12px;
+      border-radius: 8px;
+      color: #94a3b8;
+      margin-top: 10px;
+      white-space: pre-wrap;
+    }
+    .step-log .highlight { color: var(--active); font-weight: 600; }
+    .timeline {
+      display: flex;
+      gap: 6px;
+      margin-top: 12px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+    .timeline .step-dot {
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      border: 2px solid var(--border);
+      background: #243044;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.65rem;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .timeline .step-dot.current { border-color: var(--active); background: #1e3a5f; color: var(--active); }
+    .timeline .step-dot.bad { border-color: var(--idle-step); }
+    .timeline .step-dot.good { border-color: var(--decode); }
+    .explain {
+      font-size: 0.88rem;
+      color: #cbd5e1;
+    }
+    .explain strong { color: var(--active); }
+    .explain .warn { color: #fbbf24; }
+    .explain .ok { color: #4ade80; }
+    .flow-diagram {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      padding: 12px;
+      background: #121a24;
+      border-radius: 8px;
+      font-size: 0.8rem;
+    }
+    .flow-box {
+      padding: 8px 12px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      text-align: center;
+    }
+    .flow-box.highlight { border-color: var(--active); background: rgba(56,189,248,0.1); }
+    .arrow { color: var(--muted); font-size: 1.2rem; }
+    .speed-label { font-size: 0.75rem; color: var(--muted); margin-left: 8px; }
+  </style>
+</head>
+<body>
+  <h1>vLLM 调度器动态演示</h1>
+  <p class="subtitle">Slot（占坑）≠ 本步一定上 GPU · 看 Running 池 vs 每步 Iteration Batch</p>
+
+  <div class="layout">
+    <div class="main">
+      <div class="card">
+        <div class="controls">
+          <div class="toggle-group">
+            <button id="modeBefore" class="active">调参前：大 prefill 挤掉 decode</button>
+            <button id="modeAfter">调参后：63D + 1P 混合</button>
+          </div>
+          <button id="btnPlay" class="primary">▶ 播放</button>
+          <button id="btnStep">单步 →</button>
+          <button id="btnReset">重置</button>
+          <span class="speed-label">速度</span>
+          <input type="range" id="speed" min="300" max="2000" value="900" step="100" />
+        </div>
+
+        <div class="stats">
+          <div class="stat running"><div class="label">Running（占 slot）</div><div class="value" id="statRunning">64</div></div>
+          <div class="stat waiting"><div class="label">Waiting（排队）</div><div class="value" id="statWaiting">12</div></div>
+          <div class="stat batch"><div class="label">本步 Batch</div><div class="value" id="statBatch">0D+1P</div></div>
+          <div class="stat iter"><div class="label">Iteration</div><div class="value" id="statIter">1</div></div>
+        </div>
+
+        <h2>Running 池 — 64 Slots（生命周期占坑）</h2>
+        <div class="legend">
+          <span><i class="dot decode"></i> Decode 阶段（占 slot）</span>
+          <span><i class="dot prefill"></i> Prefill 阶段（占 slot）</span>
+          <span><i class="dot scheduled"></i> 本步被 scheduler 选入 batch</span>
+          <span><span style="border:1px dashed #22c55e;width:12px;height:12px;border-radius:3px;display:inline-block;opacity:0.5"></span> 占 slot 但本步未调度</span>
+        </div>
+        <div class="slot-grid" id="slotGrid"></div>
+
+        <h2>Waiting 队列（尚无 slot）</h2>
+        <div class="queue-bar" id="queueBar"></div>
+
+        <h2>本步 GPU Forward（Iteration Batch）</h2>
+        <div class="gpu-panel">
+          <h3>Scheduler 本 step 实际选中的请求</h3>
+          <div class="batch-composition" id="batchComp"></div>
+          <div class="step-log" id="stepLog"></div>
+        </div>
+
+        <div class="timeline" id="timeline"></div>
+      </div>
+    </div>
+
+    <div class="side">
+      <div class="card">
+        <h2>三层概念</h2>
+        <div class="flow-diagram">
+          <div class="flow-box" id="flowWait">Waiting</div>
+          <span class="arrow">→</span>
+          <div class="flow-box highlight" id="flowRun">Running<br><small>占 slot</small></div>
+          <span class="arrow">→</span>
+          <div class="flow-box" id="flowGpu">GPU Batch<br><small>本 step</small></div>
+        </div>
+      </div>
+      <div class="card">
+        <h2>当前步骤说明</h2>
+        <div class="explain" id="explain"></div>
+      </div>
+      <div class="card">
+        <h2>关键结论</h2>
+        <div class="explain">
+          <p style="margin-bottom:10px"><strong>Running=64</strong> 只表示 64 个坑被占满，不表示 64 条每步都在算。</p>
+          <p style="margin-bottom:10px">Scheduler 每步在 <strong>token 预算</strong>（16384）内选 batch；大 prefill 可能独占一步。</p>
+          <p>调参目标：让 decode 几乎每步都能混进 batch，避免「0 generation」的长步。</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const NUM_SLOTS = 64;
+    const NUM_WAITING = 12;
+
+    const scenarios = {
+      before: {
+        name: '调参前',
+        steps: [
+          {
+            scheduled: [],
+            prefillSlots: [0],
+            decodeCount: 63,
+            batch: { decode: 0, prefill: 1, prefillTokens: 60000 },
+            duration: '3.2s',
+            log: 'Engine step: 0 generation requests, 60000 context tokens',
+            explain: '<span class="warn">⚠ 本步纯 prefill</span>：slot #1 的大 prompt 吃掉整步 token 预算（64000）。<br><br>其余 <strong>63 条 decode 仍占着 slot</strong>（running=64），但 <strong>本 step 0 条被调度</strong> — 虚线边框表示「占坑但未上 GPU」。<br><br>这就是你以为「有 slot 就在 running 算」的误区：<strong>running ≠ 本步在算</strong>。',
+            bad: true,
+          },
+          {
+            scheduled: Array.from({ length: 63 }, (_, i) => i + 1),
+            prefillSlots: [0],
+            decodeCount: 63,
+            batch: { decode: 63, prefill: 0, prefillTokens: 0 },
+            duration: '125ms',
+            log: 'Engine step: 63 generation requests, 63 tokens',
+            explain: '<span class="ok">下一步恢复正常 decode</span>：63 条各 +1 token。但上一步已经浪费了 3.2s，generation 有效吞吐被拉低。',
+            bad: false,
+          },
+          {
+            scheduled: [],
+            prefillSlots: [0],
+            decodeCount: 63,
+            batch: { decode: 0, prefill: 1, prefillTokens: 45000 },
+            duration: '2.8s',
+            log: 'Engine step: 0 generation requests, 45000 context tokens',
+            explain: '又来一个 <span class="warn">0D + 大P</span> 步 — 循环出现，Prompt tok/s 虚高，Generation ~1k 上不去。',
+            bad: true,
+          },
+        ],
+      },
+      after: {
+        name: '调参后',
+        steps: [
+          {
+            scheduled: [...Array.from({ length: 63 }, (_, i) => i + 1), 0],
+            prefillSlots: [0],
+            decodeCount: 63,
+            batch: { decode: 63, prefill: 1, prefillTokens: 1056 },
+            duration: '142ms',
+            log: 'Engine step: 63 generation requests + 1 context chunk (1056 tokens)',
+            explain: '<span class="ok">✓ 混合 batch</span>：63 条 decode 和 1 条小 prefill chunk <strong>同一步 forward</strong>。<br><br>token 预算 16384 cap + long-prefill 限制 → prefill 不能独占一步。<br><strong>Decode 没有停</strong>，iteration ~150ms。',
+            bad: false,
+          },
+          {
+            scheduled: [...Array.from({ length: 63 }, (_, i) => i + 1), 0],
+            prefillSlots: [0],
+            decodeCount: 63,
+            batch: { decode: 63, prefill: 1, prefillTokens: 1056 },
+            duration: '138ms',
+            log: 'Engine step: 63 generation requests + 1 context chunk (1056 tokens)',
+            explain: '下一步同样 <strong>63D + 1P(1056)</strong> — 稳定混合，generation tok/s 保持 ~1k 档。',
+            bad: false,
+          },
+          {
+            scheduled: Array.from({ length: 64 }, (_, i) => i),
+            prefillSlots: [],
+            decodeCount: 64,
+            batch: { decode: 64, prefill: 0, prefillTokens: 0 },
+            duration: '128ms',
+            log: 'Engine step: 64 generation requests, 64 tokens',
+            explain: 'Prefill 完成后 slot #1 也进入 decode — 本步 <strong>64D</strong>，全部 scheduled。',
+            bad: false,
+          },
+        ],
+      },
+    };
+
+    let mode = 'before';
+    let stepIdx = 0;
+    let playing = false;
+    let timer = null;
+
+    const slotGrid = document.getElementById('slotGrid');
+    const queueBar = document.getElementById('queueBar');
+    const batchComp = document.getElementById('batchComp');
+    const stepLog = document.getElementById('stepLog');
+    const explain = document.getElementById('explain');
+    const timeline = document.getElementById('timeline');
+
+    function buildSlots() {
+      slotGrid.innerHTML = '';
+      for (let i = 0; i < NUM_SLOTS; i++) {
+        const el = document.createElement('div');
+        el.className = 'slot';
+        el.id = 'slot-' + i;
+        el.textContent = i + 1;
+        slotGrid.appendChild(el);
+      }
+      queueBar.innerHTML = '';
+      for (let i = 0; i < NUM_WAITING; i++) {
+        const el = document.createElement('div');
+        el.className = 'queue-item';
+        queueBar.appendChild(el);
+      }
+    }
+
+    function renderStep() {
+      const sc = scenarios[mode];
+      const step = sc.steps[stepIdx];
+      const scheduledSet = new Set(step.scheduled);
+
+      for (let i = 0; i < NUM_SLOTS; i++) {
+        const el = document.getElementById('slot-' + i);
+        el.className = 'slot';
+        if (step.prefillSlots.includes(i)) {
+          el.classList.add('prefill');
+        } else if (i <= step.decodeCount) {
+          el.classList.add('decode');
+        } else {
+          el.classList.add('waiting');
+        }
+        if (scheduledSet.has(i)) {
+          el.classList.add('scheduled');
+        } else if (el.classList.contains('decode') || el.classList.contains('prefill')) {
+          el.classList.add('not-scheduled');
+        }
+      }
+
+      document.getElementById('statRunning').textContent = NUM_SLOTS;
+      document.getElementById('statWaiting').textContent = NUM_WAITING;
+      document.getElementById('statBatch').textContent =
+        `${step.batch.decode}D+${step.batch.prefill}P`;
+      document.getElementById('statIter').textContent = stepIdx + 1;
+
+      batchComp.innerHTML = '';
+      if (step.batch.decode > 0) {
+        const d = document.createElement('div');
+        d.className = 'batch-block decode';
+        d.textContent = `${step.batch.decode} × Decode (+1 tok each)`;
+        batchComp.appendChild(d);
+      }
+      if (step.batch.prefill > 0) {
+        const p = document.createElement('div');
+        p.className = 'batch-block prefill';
+        p.textContent = `${step.batch.prefill} × Prefill (${step.batch.prefillTokens.toLocaleString()} tok)`;
+        batchComp.appendChild(p);
+      }
+      if (step.batch.decode === 0 && step.batch.prefill === 0) {
+        const e = document.createElement('div');
+        e.className = 'batch-block empty';
+        e.textContent = '空 batch（异常）';
+        batchComp.appendChild(e);
+      }
+
+      stepLog.innerHTML = `<span class="highlight">Iteration #${stepIdx + 1}</span>  (${step.duration})\n${step.log}`;
+      explain.innerHTML = step.explain;
+
+      renderTimeline();
+    }
+
+    function renderTimeline() {
+      const sc = scenarios[mode];
+      timeline.innerHTML = '';
+      sc.steps.forEach((s, i) => {
+        const dot = document.createElement('div');
+        dot.className = 'step-dot' + (i === stepIdx ? ' current' : '') + (s.bad ? ' bad' : ' good');
+        dot.textContent = i + 1;
+        dot.title = `${s.batch.decode}D+${s.batch.prefill}P · ${s.duration}`;
+        dot.onclick = () => { stepIdx = i; renderStep(); };
+        timeline.appendChild(dot);
+      });
+    }
+
+    function nextStep() {
+      const sc = scenarios[mode];
+      stepIdx = (stepIdx + 1) % sc.steps.length;
+      renderStep();
+    }
+
+    function reset() {
+      stepIdx = 0;
+      renderStep();
+    }
+
+    function setMode(m) {
+      mode = m;
+      document.getElementById('modeBefore').classList.toggle('active', m === 'before');
+      document.getElementById('modeAfter').classList.toggle('active', m === 'after');
+      reset();
+    }
+
+    function togglePlay() {
+      playing = !playing;
+      document.getElementById('btnPlay').textContent = playing ? '⏸ 暂停' : '▶ 播放';
+      if (playing) {
+        const ms = 2200 - parseInt(document.getElementById('speed').value, 10);
+        timer = setInterval(nextStep, ms);
+      } else {
+        clearInterval(timer);
+      }
+    }
+
+    document.getElementById('modeBefore').onclick = () => { if (playing) togglePlay(); setMode('before'); };
+    document.getElementById('modeAfter').onclick = () => { if (playing) togglePlay(); setMode('after'); };
+    document.getElementById('btnPlay').onclick = togglePlay;
+    document.getElementById('btnStep').onclick = nextStep;
+    document.getElementById('btnReset').onclick = reset;
+    document.getElementById('speed').oninput = () => {
+      if (playing) { clearInterval(timer); playing = false; document.getElementById('btnPlay').textContent = '▶ 播放'; togglePlay(); }
+    };
+
+    buildSlots();
+    renderStep();
+  </script>
+</body>
+</html>

@@ -1,0 +1,23 @@
+# ViKnow 236 — Docker 操作审计规则
+# 安装到 /etc/audit/rules.d/viknow-docker.rules 后 augenrules --load
+#
+# 注意：不要用 -D 清空现有规则；若主机已有 audit 策略，请合并而非覆盖。
+
+# 缓冲区和失败模式（若与其他 rules 冲突，可移到 auditd.conf）
+-b 8192
+-f 1
+
+# ── 1. docker CLI 执行（含 rm/stop/kill/run 等全部子命令）──
+-w /usr/bin/docker -p x -k viknow_docker_exec
+
+# 常见 docker 插件/compose 也走同类路径（可按需扩展）
+-w /usr/libexec/docker/cli-plugins/docker-compose -p x -k viknow_docker_exec
+
+# ── 2. docker.sock 访问（捕获 Python/curl/HTTP over UNIX 的 API DELETE）──
+-w /var/run/docker.sock -p wa -k viknow_docker_sock
+
+# ── 3. 已知 vLLM 运维脚本执行（jcy 路径，走 sudo 时会进 auth.log；直连 exec 也留底）──
+-w /home/jcy/viknow-model-runtime/run-qwen36-4gpu-prod.sh -p x -k viknow_vllm_script
+
+# 锁定规则（防止 runtime 删除）
+-e 2

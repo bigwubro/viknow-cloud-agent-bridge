@@ -1,0 +1,30 @@
+# Manual ViKnow deploy: image + deploy.env (no secrets step).
+#
+#   docker compose -f docker-compose.viknow2-test.manual.yml up -d
+#
+# Override only if needed:
+#   VIKNOW_HOST_PORT=5185 docker compose -f docker-compose.viknow2-test.manual.yml up -d
+
+services:
+  viknow2-test:
+    image: viknow2-app:84e833a24660
+    container_name: viknow2-test
+    restart: unless-stopped
+    privileged: true
+    ports:
+      - "${VIKNOW_HOST_PORT:-5175}:8000"
+    env_file:
+      - ./deploy.env
+    environment:
+      PORT: "8000"
+      VIKNOW_CONFIG: /opt/viknow/config/test/app.yaml
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - /data:/data
+      - viknow2_test_state:/opt/viknow/.state
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+
+volumes:
+  viknow2_test_state:
+    name: viknow2_test_state

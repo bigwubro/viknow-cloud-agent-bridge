@@ -58,3 +58,18 @@ ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=accept-new cursor-agent@36.103
 ```
 
 成功标志：Gitea `castmeta-research/viknow2` 出现分支 `agent/cloud-smoke`。
+
+### 236 Docker 操作审计（已安装 2026-09-11）
+
+追查「谁 `docker rm` / DELETE 了生产容器」时用 **auditd**（不改 Docker 配置、不 restart dockerd）。
+
+| 项 | 路径 / 命令 |
+|---|---|
+| 文档 | `docs/ops/236-docker-audit/README.md` |
+| 安装记录 | `docs/ops/236-docker-audit/STATUS.md` |
+| 236 脚本 | `/home/cursor-agent/viknow-cloud-agent-bridge/docs/ops/236-docker-audit/` |
+| 查 CLI | `sudo ausearch -k viknow_docker_exec -ts today --interpret` |
+| 查 socket/API | `sudo ausearch -k viknow_docker_sock -ts today --interpret` |
+| events 旁路 | `/home/cursor-agent/.local/log/viknow-docker-events.log` |
+
+**禁止**：改 `daemon.json`、restart docker、改 docker.sock 权限或 docker 组。

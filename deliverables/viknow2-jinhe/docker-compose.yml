@@ -1,57 +1,50 @@
-# ViKnow jinhe 客户现场部署（接入已有容器网络）
+# =============================================================================
+# ViKnow jinhe 客户现场 docker-compose.yml
+# =============================================================================
+# 由 236 上 viknow2-test（:5175）运行参数反推，适配「已有容器网络」部署。
 #
-# 适用场景
-#   - Postgres / Redis / Minio / Neo4j 等已由其他 docker compose 栈启动
-#   - ViKnow 不通过 host.docker.internal 绕宿主机，而是加入同一 Docker 网络，用服务名直连
+# 236 viknow2-test 对照
+#   镜像     viknow2-app:f396ab99e5e2          → ${VIKNOW_IMAGE}（交付 jinhe tag）
+#   端口     5175:8000                         → ${VIKNOW_HOST_PORT:-8000}:8000
+#   特权     privileged: true                  → 保留（JuiceFS 容器内 mount 需要）
+#   数据卷   /data:/data                       → ${VIKNOW_DATA_DIR:-./data}:/data
+#   状态卷   viknow2_test_state                → viknow_jinhe_state
+#   cgroup   /sys/fs/cgroup:rw                 → 保留（与 viknow2-test 一致）
+#   网络     token-gateway + extra_hosts       → external data 网络（容器名直连）
+#   配置     config/test/app.yaml              → config/jinhe/app.yaml（镜像已 bake）
+#   Langfuse / Token Gateway                  → jinhe 关闭（见 deploy.env）
 #
-# 使用前准备
-#   1. 确认 data 栈已运行：docker compose -f <data-compose> up -d
-#   2. 查网络名：docker network ls
-#      或：docker inspect <redis容器名> --format '{{range $k,$v := .NetworkSettings.Networks}}{{$k}}{{end}}'
-#   3. 复制 deploy.env，把 REDIS_HOST / POSTGRES_HOST 等改成 compose services 名（见 config/jinhe/deploy.env 注释）
-#   4. 设置下方 VIKNOW_DATA_NETWORK（或 export 后 compose 展开）
-#
-# 启动
-#   docker compose -f docker-compose.yml up -d
-#
-# 与 236 联调 compose 的区别
-#   - 无 extra_hosts / host.docker.internal
-#   - 有 networks.external，挂入现场 data 栈网络
-#   - env 里端口用容器内端口（redis:6379），不是宿主机映射端口（16379）
+# 使用前
+#   1. data 栈（postgres/redis/minio/neo4j）已 up
+#   2. export VIKNOW_DATA_NETWORK=<现场 data compose 网络名>
+#   3. 编辑 deploy.env：服务名 + 密钥 + LiteLLM URL
+#   4. docker load -i viknow2-app-*.tar && docker compose up -d
+# =============================================================================
 
 services:
   viknow2:
-    image: ${VIKNOW_IMAGE:-viknow2-app:latest}
+    image: ${VIKNOW_IMAGE:-viknow2-app:jinhe-51742-b497cc365b67}
     container_name: ${VIKNOW_CONTAINER_NAME:-viknow2-jinhe}
     restart: unless-stopped
+    privileged: true
     ports:
-      # 对外 API 端口；容器内固定 8000
       - "${VIKNOW_HOST_PORT:-8000}:8000"
     env_file:
       - ./deploy.env
     environment:
       PORT: "8000"
-      # jinhe 配置包；若镜像已 bake config/jinhe，路径不变
       VIKNOW_CONFIG: /opt/viknow/config/jinhe/app.yaml
     volumes:
-      # 业务数据目录（JuiceFS 挂载点、job log 等）
       - ${VIKNOW_DATA_DIR:-./data}:/data
       - viknow_jinhe_state:/opt/viknow/.state
-      # 若镜像未包含 jinhe 配置（旧 tag），取消下一行注释：
-      # - ./config/jinhe:/opt/viknow/config/jinhe:ro
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
     networks:
       - data
-      # 若还需访问其他 compose 栈里的服务，可追加网络，例如：
-      # - app
 
 networks:
   data:
     external: true
-    # 【必改】现场 data 栈的 Docker 网络名，例如 customer-data_default
-    name: ${VIKNOW_DATA_NETWORK:-customer-data_default}
-  # app:
-  #   external: true
-  #   name: ${VIKNOW_APP_NETWORK:-customer-app_default}
+    name: ${VIKNOW_DATA_NETWORK:?set VIKNOW_DATA_NETWORK to your data stack network}
 
 volumes:
   viknow_jinhe_state:

@@ -1,31 +1,38 @@
-# ViKnow jinhe 客户现场交付包
+# ViKnow jinhe 客户交付包
 
-与 `config/jinhe/` 配套，用于 **接入已有 Docker 容器网络** 的外部部署（不是 236 的 `host.docker.internal` 联调模式）。
+由 236 `viknow2-test`（:5175）反推，改为 **容器网络 + jinhe 配置**。
 
 ## 文件
 
 | 文件 | 说明 |
 |------|------|
-| `docker-compose.yml` | 挂 external network，无 `extra_hosts` |
-| `deploy.env` | 运行时密钥与中间件地址；默认按 **compose 服务名 + 容器内端口**，段内注释含 236 联调对照 |
+| `docker-compose.yml` | 挂 external data 网络；保留 privileged/cgroup（JuiceFS） |
+| `deploy.env` | 中间件用 compose 服务名；**行尾禁止 `#` 注释** |
 
-## 启动前
+## 与 236 viknow2-test 差异
 
-1. `export VIKNOW_DATA_NETWORK=<现场 data 栈网络名>`
-2. `export VIKNOW_IMAGE=<镜像 tag>`
-3. 编辑 `deploy.env`：中间件用 **compose 服务名 + 容器内端口**
+| viknow2-test | 客户 jinhe |
+|--------------|------------|
+| `host.docker.internal:16379` 等 | `redis:6379` 等（同 Docker 网络） |
+| `config/test/app.yaml` | `config/jinhe/app.yaml`（镜像内） |
+| Langfuse + Token Gateway 开 | 关闭，直连 LiteLLM |
+| 网络 token-gateway-real-host | external data 网络 |
+
+## 启动
 
 ```bash
-REDIS_HOST=redis
-REDIS_PORT=6379
-POSTGRES_HOST=postgres
-POSTGRES_PORT=5432
-MINIO_ENDPOINT=minio:9000
-NEO4J_URI=neo4j://neo4j:7687
+export VIKNOW_DATA_NETWORK=你的data栈网络名
+export VIKNOW_IMAGE=viknow2-app:jinhe-51742-b497cc365b67
+# 编辑 deploy.env 填密钥与服务名
+docker compose up -d
 ```
 
-4. `docker compose -f docker-compose.yml up -d`
+## 查网络名
+
+```bash
+docker inspect <redis容器> --format '{{range $k,$v := .NetworkSettings.Networks}}{{$k}}{{end}}'
+```
 
 ## 236 联调
 
-5177 仍用 `/home/cursor-agent/docker-compose.viknow2-test.manual.yml`（`extra_hosts` + 映射端口）。
+5177 仍用 `/home/cursor-agent/docker-compose.viknow2-test.manual.yml`（host.docker.internal）。

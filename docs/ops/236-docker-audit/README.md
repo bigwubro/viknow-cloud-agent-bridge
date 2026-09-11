@@ -121,14 +121,17 @@ grep vllm-vlm ~/.local/log/viknow-docker-events.log
 sudo grep "Accepted publickey" /var/log/auth.log | grep "Sep 11 13:5"
 ```
 
-## 236 当前状态（2026-09-11 排查）
+## 236 当前状态
+
+**安装记录见 [`STATUS.md`](./STATUS.md)**（2026-09-11 已由 root 安装 auditd）。
 
 | 项目 | 状态 |
 |------|------|
-| auditd | **未安装** |
+| auditd | **已安装**（2026-09-11） |
+| 236 脚本路径 | `/home/cursor-agent/viknow-cloud-agent-bridge/docs/ops/236-docker-audit/` |
 | docker.sock | `root:docker`，成员：dtong,twj,dev,netdata,wlk,ljs,cursor-agent,guoshiyu |
-| cursor-agent sudo | 只读（journalctl/grep/awk/cat /var/log/find home） |
-| DELETE 13:56:42 | journal 有，**无 UID** |
+| events 旁路 | `/home/cursor-agent/.local/log/viknow-docker-events.log` |
+| DELETE 13:56:42（历史） | journal 有，**无 UID**（发生在 auditd 安装前） |
 
 ## 权限说明
 

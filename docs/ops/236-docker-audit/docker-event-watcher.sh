@@ -16,7 +16,7 @@ CONTAINER_FILTER='name=vllm-vlm|name=vllm-|name=viknow'
 
 docker events \
   --filter 'type=container' \
-  --format '{{.Time}} event={{.Status}} container={{.Actor.Attributes.name}} id={{.Actor.ID}} image={{.Actor.Attributes.image}}' \
+  --format '{{.Time}} event={{.Action}} container={{.Actor.Attributes.name}} id={{.Actor.ID}} image={{.Actor.Attributes.image}}' \
   2>>"$LOG_FILE" | while IFS= read -r line; do
     if echo "$line" | grep -qE "$CONTAINER_FILTER"; then
       log "$line"

@@ -23,7 +23,7 @@
 
 services:
   viknow2:
-    image: ${VIKNOW_IMAGE:-viknow2-app:jinhe-51742-b497cc365b67}
+    image: ${VIKNOW_IMAGE:-viknow2-app:56d8705e5feb}
     container_name: ${VIKNOW_CONTAINER_NAME:-viknow2-jinhe}
     restart: unless-stopped
     privileged: true

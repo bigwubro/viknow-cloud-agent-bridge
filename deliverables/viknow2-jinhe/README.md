@@ -12,7 +12,30 @@
 | `deploy.env` | 运行时配置与密钥（**部署前必须编辑**） |
 | `README.md` | 本说明 |
 
-镜像 tar 请放在同目录或 `viknow-deploy-image/` 子目录（另行上传）。
+## 镜像文件
+
+**deploy-test 产物（2026-09-11）**
+
+| 项 | 值 |
+|----|-----|
+| 镜像 tag | `viknow2-app:56d8705e5feb` |
+| 对应 commit | `56d8705` 修改晶合配置 |
+| tar 文件 | `viknow-deploy-image/viknow2-app-56d8705e5feb.tar`（约 3.6 GB） |
+
+```bash
+docker load -i viknow-deploy-image/viknow2-app-56d8705e5feb.tar
+export VIKNOW_IMAGE=viknow2-app:56d8705e5feb
+```
+
+> **说明：** 3.6 GB 镜像 tar 需通过内网/SFTP/Synology Drive 上传至 `viknow-deploy-image/`。QuickConnect 网页上传大文件易卡在 0%。  
+> 236 暂存路径：`/home/cursor-agent/nas-staging/viknow-deploy-image/viknow2-app-56d8705e5feb.tar`
+
+若分片上传，合并：
+
+```bash
+cd viknow-deploy-image
+cat viknow2-app-56d8705e5feb.tar.part-* > viknow2-app-56d8705e5feb.tar
+```
 
 ---
 
@@ -78,11 +101,11 @@ docker inspect <redis容器名> --format '{{range $k,$v := .NetworkSettings.Netw
 cd /opt/viknow2-jinhe
 
 # 1. 加载镜像（若尚未 load）
-docker load -i viknow-deploy-image/viknow2-app-jinhe-*.tar
+docker load -i viknow-deploy-image/viknow2-app-56d8705e5feb.tar
 
 # 2. 设置 compose 变量（必设网络名）
 export VIKNOW_DATA_NETWORK=customer-data_default
-export VIKNOW_IMAGE=viknow2-app:jinhe-51742-b497cc365b67
+export VIKNOW_IMAGE=viknow2-app:56d8705e5feb
 export VIKNOW_HOST_PORT=8000
 
 # 3. 确认 deploy.env 已编辑
@@ -123,7 +146,7 @@ docker compose -f docker-compose.yml up -d
 ├── deploy.env              # 含密钥，权限建议 chmod 600
 ├── data/                   # 自动创建；业务数据
 └── viknow-deploy-image/
-    └── viknow2-app-*.tar
+    └── viknow2-app-56d8705e5feb.tar
 ```
 
 首次启动前可创建数据目录：

@@ -7,7 +7,7 @@
 | 文件 | 说明 |
 |------|------|
 | `docker-compose.yml` | 挂 external network，无 `extra_hosts` |
-| `deploy.env` | 运行时密钥与中间件地址（见 jinhe 模板） |
+| `deploy.env` | 运行时密钥与中间件地址；默认按 **compose 服务名 + 容器内端口**，段内注释含 236 联调对照 |
 
 ## 启动前
 

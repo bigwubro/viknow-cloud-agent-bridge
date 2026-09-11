@@ -58,3 +58,67 @@ ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=accept-new cursor-agent@36.103
 ```
 
 成功标志：Gitea `castmeta-research/viknow2` 出现分支 `agent/cloud-smoke`。
+
+### 飞书（浏览器扫码登录）
+
+Cloud Agent 云主机有桌面 Chrome（`DISPLAY=:1`），飞书 **不能** 用 API 密钥代替网页登录读内部文档时，走扫码：
+
+1. 打开 Chrome → 飞书登录页（会跳转到 `castmeta.feishu.cn`）：
+   - `https://accounts.feishu.cn/accounts/page/login?app_id=2&redirect_uri=https%3A%2F%2Fcastmeta.feishu.cn%2F`
+2. 截图 QR 给用户扫码；过期点 **Refresh QR Code** 再截一张
+3. 登录成功后 Cookie 留在云主机 Chrome，可继续打开文档
+
+常用文档：
+
+- 共享存储说明：`https://castmeta.feishu.cn/docx/Q6MrdUryCoPO9zxBlDYcS7Kpnae`
+
+程序读文档（Wiki/导出）仍用 236 容器内 `FEISHU_APP_ID` / `FEISHU_APP_SECRET`（与网页登录无关）。
+
+### NAS（Synology DSM / File Station）
+
+**凭证（勿提交 Git）**：读本地文件
+
+```bash
+# 仓库内（已 gitignore）
+set -a && source /workspace/.secrets/castmeta-credentials.env && set +a
+# 或云主机 home（跨会话备份）
+set -a && source ~/.config/castmeta/credentials.env && set +a
+```
+
+| 项 | 值 |
+|---|---|
+| 用户名 | `$CASTMETA_NAS_USERNAME`（`zihan.wu@castmeta.cn`） |
+| 密码 | `$CASTMETA_NAS_PASSWORD` |
+| QuickConnect ID | `castmeta-data` |
+| QuickConnect URL | `https://quickconnect.to/castmeta-data` |
+| 内网 DSM | `http://10.168.1.222/`（云主机浏览器可访问；236 ping 不通） |
+
+**登录步骤（File Station）**
+
+1. Chrome 打开 QuickConnect URL → DSM 登录页
+2. 输入 `$CASTMETA_NAS_USERNAME` / `$CASTMETA_NAS_PASSWORD`
+3. 打开 **File Station**，左侧选 `castmeta-data`
+
+**常用路径**
+
+| 用途 | File Station 路径 |
+|---|---|
+| NFS 共享（客户授权数据） | `P40_NFS` → `/volume2/P40_NFS` |
+| 交付包目录 | `P60_SHARE/auto_download/app/viknow2-for-jinhe-911`（当前为空） |
+| 历史参考包 | `P60_SHARE/auto_download/app/viknow2-for-jinhe/viknow-deploy-image/` |
+
+**上传大文件注意**
+
+- 236 无法直连写 NAS；大镜像 `docker save` 后需经云主机 File Station 上传
+- 旧参考包约 11 GB（app + postgres/redis/minio/neo4j）；仅 app 镜像 tar 约 3.5 GB
+
+**NFS 挂载（服务器侧，文档记载）**
+
+```bash
+sudo apt install nfs-common
+sudo mount -v 10.168.1.222:/volume2/P40_NFS /mnt/P40_NFS/
+# /etc/fstab:
+# 10.168.1.222:/volume2/P40_NFS  /mnt/P40_NFS  nfs  rw,hard,timeo=600,rsize=262144,wsize=262144
+```
+
+236 上 `/mnt/P40_NFS` 存在但 ping 不通 NAS，需内网或 VPN 才能 mount。

@@ -1,31 +1,38 @@
-# Manual ViKnow deploy: image + deploy.env (no secrets step).
+# =============================================================================
+# 236 联调：5177 manual compose
+# =============================================================================
+# 启动：docker compose -f docker-compose.viknow2-test.manual.yml up -d
+# 端口 5177（不替代正式 :5175 viknow2-test）
 #
-#   docker compose -f docker-compose.viknow2-test.manual.yml up -d
-#
-# Port 5177 (does not replace the live :5175 viknow2-test).
+# 模式：单容器 + host.docker.internal 连 test-data 栈（非容器网络直连）
+#   - env：deploy.actio-manual-5177.env（host 映射端口 15432/16379/…）
+#   - 配置：bind-mount config/jinhe（镜像 tag 84e833a 未 bake jinhe）
+# 客户现场部署请用 config/jinhe/docker-compose.yml + deploy.env
+# =============================================================================
 
 services:
   viknow2-test:
-    image: viknow2-app:84e833a24660
+    image: viknow2-app:84e833a24660          # 联调镜像 tag；交付前换最新 main build
     container_name: viknow2-test-5177
     restart: unless-stopped
-    privileged: true
+    privileged: true                           # JuiceFS/cgroup 等能力；客户 compose 通常可关
     ports:
-      - "5177:8000"
+      - "5177:8000"                            # 对外 API；容器内 PORT=8000
     env_file:
-      - ./deploy.env
+      - ./deploy.actio-manual-5177.env         # 236 密钥 + host.docker.internal 地址
     environment:
       PORT: "8000"
-      VIKNOW_CONFIG: /opt/viknow/config/test/app.yaml
+      VIKNOW_CONFIG: /opt/viknow/config/jinhe/app.yaml   # 覆盖为 jinhe 配置包
     extra_hosts:
+      # Linux 必需：让 env 里 host.docker.internal 解析到宿主机（连映射端口）
       - "host.docker.internal:host-gateway"
     volumes:
-      - /data:/data
-      - viknow2_test_5177_state:/opt/viknow/.state
-      - /sys/fs/cgroup:/sys/fs/cgroup:rw
-      - ./manual-config/tools/multimodal.yaml:/opt/viknow/config/test/tools/multimodal.yaml:ro
-      - ./manual-config/app.yaml:/opt/viknow/config/test/app.yaml:ro
+      - /data:/data:rslave                     # 业务数据；:rslave 便于挂载传播
+      - viknow2_test_5177_state:/opt/viknow/.state        # 应用 state（命名卷）
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw       # privileged 场景 cgroup 访问
+      # 旧镜像无 jinhe：挂载仓库内配置包（新镜像 bake 后可删此行）
+      - /home/cursor-agent/work/viknow2/config/jinhe:/opt/viknow/config/jinhe:ro
 
 volumes:
   viknow2_test_5177_state:
-    name: viknow2_test_5177_state
+    name: viknow2_test_5177_state              # Docker 卷名；仅名称，代码不读

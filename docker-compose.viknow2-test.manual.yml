@@ -1,0 +1,31 @@
+# Manual ViKnow deploy: image + deploy.env (no secrets step).
+#
+#   docker compose -f docker-compose.viknow2-test.manual.yml up -d
+#
+# Port 5177 (does not replace the live :5175 viknow2-test).
+
+services:
+  viknow2-test:
+    image: viknow2-app:84e833a24660
+    container_name: viknow2-test-5177
+    restart: unless-stopped
+    privileged: true
+    ports:
+      - "5177:8000"
+    env_file:
+      - ./deploy.env
+    environment:
+      PORT: "8000"
+      VIKNOW_CONFIG: /opt/viknow/config/test/app.yaml
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - /data:/data
+      - viknow2_test_5177_state:/opt/viknow/.state
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+      - ./manual-config/tools/multimodal.yaml:/opt/viknow/config/test/tools/multimodal.yaml:ro
+      - ./manual-config/app.yaml:/opt/viknow/config/test/app.yaml:ro
+
+volumes:
+  viknow2_test_5177_state:
+    name: viknow2_test_5177_state

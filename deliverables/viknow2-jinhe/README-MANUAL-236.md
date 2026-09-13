@@ -43,6 +43,28 @@ docker compose -f docker-compose.236-smoke.yml down
 # 清 state 卷（可选）：docker compose -f docker-compose.236-smoke.yml down -v
 ```
 
+### 若 `docker rm -f` 报 zombie PID 删不掉
+
+镜像内 JuiceFS 会 fork 子进程；未启用 `init` 时主进程异常退出后，容器 init PID 可能变 zombie，Docker 无法 kill。
+
+**优先**用 compose 重建（已启用 `init: true`）：
+
+```bash
+docker compose -f docker-compose.236-smoke.yml down --remove-orphans
+docker compose -f docker-compose.236-smoke.yml up -d --force-recreate
+```
+
+仍卡住时，在宿主机上先杀容器命名空间内子进程，再删容器：
+
+```bash
+CID=viknow2-jinhe-manual
+docker top "$CID" -eo pid | tail -n +2 | xargs -r sudo kill -9
+sudo kill -9 "$(docker inspect -f '{{.State.Pid}}' "$CID")" 2>/dev/null || true
+docker rm -f "$CID"
+```
+
+最后手段：`sudo systemctl restart docker`（会短暂影响本机其它容器）。
+
 ## 与客户现场差异
 
 | 项 | 236 冒烟 | 客户现场 |

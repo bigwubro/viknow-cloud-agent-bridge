@@ -26,6 +26,8 @@ services:
     image: ${VIKNOW_IMAGE:-viknow2-app:56d8705e5feb}
     container_name: ${VIKNOW_CONTAINER_NAME:-viknow2-jinhe}
     restart: unless-stopped
+    # JuiceFS 等子进程退出后需 init 回收，否则 docker rm/kill 可能卡在 zombie PID
+    init: true
     privileged: true
     ports:
       - "${VIKNOW_HOST_PORT:-8000}:8000"

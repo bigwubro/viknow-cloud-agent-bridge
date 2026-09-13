@@ -22,11 +22,7 @@ docker load -i viknow2-app-56d8705e5feb.tar
 # 2. 确认 test-data 栈在跑（15432/16379/19000/17687）
 docker ps --format '{{.Names}}\t{{.Ports}}' | grep viknow-test-data
 
-# 3. 准备 env
-cp deploy.env.236 deploy.env
-chmod 600 deploy.env
-
-# 4. 启动（端口 8006，容器名 viknow2-jinhe-manual）
+# 3. 启动（compose 直接读 deploy.env.236，无需 cp）
 export VIKNOW_IMAGE=viknow2-app:56d8705e5feb
 export VIKNOW_HOST_PORT=8006
 export VIKNOW_CONTAINER_NAME=viknow2-jinhe-manual

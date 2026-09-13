@@ -12,7 +12,7 @@ services:
     ports:
       - "${VIKNOW_HOST_PORT:-8006}:8000"
     env_file:
-      - ./deploy.env
+      - ./deploy.env.236
     environment:
       PORT: "8000"
       VIKNOW_CONFIG: /opt/viknow/config/jinhe/app.yaml

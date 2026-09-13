@@ -1,0 +1,36 @@
+# 236 手工冒烟：在客户 compose 基础上加 extra_hosts，便于连 236 上已有模型地址。
+# 与 docker-compose.yml 同目录；deploy.env 用 deploy.env.236 复制为 deploy.env。
+#
+# 前置：viknow-private-data 四件套已 up（network: viknow-private-data_appnet）
+
+services:
+  viknow2:
+    image: ${VIKNOW_IMAGE:-viknow2-app:56d8705e5feb}
+    container_name: ${VIKNOW_CONTAINER_NAME:-viknow2-jinhe-manual}
+    restart: unless-stopped
+    privileged: true
+    ports:
+      - "${VIKNOW_HOST_PORT:-8006}:8000"
+    env_file:
+      - ./deploy.env
+    environment:
+      PORT: "8000"
+      VIKNOW_CONFIG: /opt/viknow/config/jinhe/app.yaml
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+      - "ai.qingxiang.tech:172.30.57.94"
+    volumes:
+      - ${VIKNOW_DATA_DIR:-./data}:/data
+      - viknow_jinhe_state:/opt/viknow/.state
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+    networks:
+      - data
+
+networks:
+  data:
+    external: true
+    name: ${VIKNOW_DATA_NETWORK:?set VIKNOW_DATA_NETWORK to your data stack network}
+
+volumes:
+  viknow_jinhe_state:
+    name: ${VIKNOW_STATE_VOLUME:-viknow_jinhe_manual_state}

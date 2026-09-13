@@ -1,7 +1,7 @@
 # 236 手工冒烟：监控用占位 URL，其余用内网 IP；无需 extra_hosts。
 # JuiceFS 已 format 卷用 deploy.env.236 的 JUICEFS_BUCKET_URL（IP）覆盖 mount --bucket。
 #
-# 前置：viknow-test-data 四件套已 up（10.200.0.1:15432/16379/19000/17687）
+# 前置：viknow-test-data 四件套已 up（宿主机 172.30.57.94:15432/16379/19000/17687）
 
 services:
   viknow2:

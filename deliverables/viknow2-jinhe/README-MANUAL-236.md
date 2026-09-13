@@ -71,7 +71,6 @@ docker rm -f "$CID"
 |----|----------|----------|
 | compose | `docker-compose.236-smoke.yml`（无 extra_hosts） | `docker-compose.yml` |
 | deploy.env | `deploy.env.236` | `deploy.on-site-minimal.env` |
-| JuiceFS 对象存储 | `JUICEFS_BUCKET_URL=http://10.200.0.1:19000/juicefs-viknow` 覆盖已 format 卷 | 现场 format 时写成客户 MinIO IP |
-| 中间件 / Actio | `10.200.0.1` + test 映射端口 | 客户内网 IP |
-| 模型 | `172.30.57.94` | 客户 LiteLLM IP |
+| JuiceFS 对象存储 | `JUICEFS_BUCKET_URL=http://172.30.57.94:19000/juicefs-viknow` 覆盖已 format 卷 | 现场 format 时写成客户 MinIO IP |
+| 中间件 / Actio / HTTP 模型 | 宿主机内网 `172.30.57.94` + 映射端口 | 客户内网 IP |
 | 监控 | `127.0.0.1` 占位 | `127.0.0.1` 占位 |

@@ -6,7 +6,7 @@
 |------|------|
 | `viknow2-app-56d8705e5feb.tar` | 交付镜像 |
 | `docker-compose.yml` | 客户现场版（external 网络，无 extra_hosts） |
-| `docker-compose.236-smoke.yml` | **236 推荐**：加 extra_hosts，连已有模型 |
+| `docker-compose.236-smoke.yml` | **236 推荐**：与客户 compose 同结构（external data 网络） |
 | `deploy.on-site-minimal.env` | 客户现场模板（CHANGE_ME） |
 | `deploy.env.236` | 236 已填好中间件 + 模型（复制为 deploy.env） |
 | `data/` | 业务数据目录（compose 挂载 `./data`） |
@@ -52,7 +52,8 @@ docker compose -f docker-compose.236-smoke.yml down
 
 | 项 | 236 冒烟 | 客户现场 |
 |----|----------|----------|
-| compose | `docker-compose.236-smoke.yml` + extra_hosts | `docker-compose.yml` |
+| compose | `docker-compose.236-smoke.yml` | `docker-compose.yml` |
+| LLM 地址 | deploy.env 写内网 IP/可达 URL | 同 data 网服务名或内网 IP |
 | deploy.env | `deploy.env.236` | `deploy.on-site-minimal.env` → 改 CHANGE_ME |
 | 中间件 HOST | `viknow-private-data-*-1` | `postgres` / `redis` / …（compose services 名） |
 | 网络 | `viknow-private-data_appnet` | 客户 `VIKNOW_DATA_NETWORK` |

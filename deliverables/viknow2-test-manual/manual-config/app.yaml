@@ -1,0 +1,237 @@
+app:
+  name: viknow
+  log_level: info
+  state_dir: ../../.state/test
+api:
+  host: 0.0.0.0
+  port: 5174
+  static_dir: ../../web
+  request_timeout_seconds: 60
+# hyperrag / actio 额外物化只读 share；各自 yaml 保留组件旋钮
+share:
+  files_root: /data/viknow
+  model_providers:
+    private:
+      provider: openai-compatible
+      base_url_env: VIKNOW_PRIVATE_BASE_URL
+      api_key_env: VIKNOW_PRIVATE_API_KEY
+    siliconflow:
+      provider: openai-compatible
+      base_url_env: VIKNOW_SILICONFLOW_BASE_URL
+      api_key_env: VIKNOW_SILICONFLOW_API_KEY
+    embedding:
+      provider: openai-compatible
+      base_url_env: VIKNOW_EMBEDDING_BASE_URL
+      api_key_env: VIKNOW_EMBEDDING_API_KEY
+    asr:
+      provider: openai-compatible
+      base_url_env: VIKNOW_PRIVATE_BASE_URL
+      api_key_env: VIKNOW_PRIVATE_API_KEY
+    rerank:
+      provider: openai-compatible
+      base_url_env: HYPERRAG_RERANK_BASE_URL
+      api_key_env: HYPERRAG_RERANK_API_KEY
+  actio:
+    vlm_timeout_seconds: 600
+    models:
+      vlm: private:${VIKNOW_PRIVATE_MODEL}
+      llm: private:${VIKNOW_PRIVATE_MODEL}
+      embed: embedding:${VIKNOW_EMBEDDING_MODEL}
+  agent:
+    # 私有化：直连 LiteLLM（OpenAI-compatible private provider），不经 Token Gateway。
+    model_ref: private:${VIKNOW_PRIVATE_MODEL}
+  database:
+    postgres:
+      host: ${POSTGRES_HOST}
+      port: ${POSTGRES_PORT}
+      user: ${POSTGRES_USER}
+      password: ${POSTGRES_PASSWORD}
+      database: ${POSTGRES_DATABASE}
+    juicefs_postgres:
+      host: ${JUICEFS_POSTGRES_HOST}
+      port: ${JUICEFS_POSTGRES_PORT}
+      user: ${JUICEFS_POSTGRES_USER}
+      password: ${JUICEFS_POSTGRES_PASSWORD}
+      database: ${JUICEFS_POSTGRES_DATABASE}
+  redis:
+    host: ${REDIS_HOST}
+    port: ${REDIS_PORT}
+    username: ${REDIS_USERNAME}
+    password: ${REDIS_PASSWORD}
+    database: ${REDIS_DATABASE}
+  neo4j:
+    uri: ${NEO4J_URI}
+    username: ${NEO4J_USERNAME}
+    password: ${NEO4J_PASSWORD}
+  langfuse:
+    host: ${VIKNOW_LANGFUSE_HOST}
+    secret_key: ${VIKNOW_LANGFUSE_SECRET_KEY}
+    public_key: ${VIKNOW_LANGFUSE_PUBLIC_KEY}
+    media_upload_enabled: 'true'
+    tracing_enabled: 'true'
+  tools:
+    thread_pool_size: 64
+  scheduler:
+    unified:
+      enabled: ${VIKNOW_UNIFIED_SCHEDULER_ENABLED}
+      max_concurrent_job_tasks: 10
+      domains:
+        chat-llm:
+          capacity: 64
+        vllm:
+          capacity: 64
+        embedding:
+          capacity: 64
+        asr:
+          capacity: 64
+        rerank:
+          capacity: 64
+        hyperrag-db:
+          capacity: 64
+      per_run_max_concurrent_tools: 32
+      per_run_max_concurrent_models: 1
+      reference_domain: vllm
+      lease_ttl_seconds: 60
+      heartbeat_interval_seconds: 15
+      queue_wait_timeout_seconds: 180
+      default_execution_timeout_seconds: 180
+knowledge:
+  engine: hyperrag
+  default_library_id: default
+  feishu:
+    enabled: false
+    enabled_env: VIKNOW_FEISHU_ENABLED
+    api_base_url: https://open.feishu.cn/open-apis
+    app_id_env: FEISHU_APP_ID
+    app_secret_env: FEISHU_APP_SECRET
+    space_id_env: FEISHU_SPACE_ID
+    tenant_host_env: FEISHU_TENANT_HOST
+    request_timeout_seconds: 15
+    page_size: 50
+    sync_poll_interval_seconds: 5
+    default_sync_interval_seconds: 10800
+  hyperrag:
+    config_path: ./hyperrag.yml
+    repo_root: ../../external/HyperRAG
+    workspace_root: ../../
+    default_query_mode: hybrid
+    default_top_k: 4
+    runtime_concurrency: 64
+    sync_bridge_concurrency: 64
+observability:
+  langfuse:
+    enabled: false
+    index_enabled: null
+    usage_push:
+      enabled: true
+      callback_url: ''
+      callback_token_env: VIKNOW_LANGFUSE_USAGE_PUSH_TOKEN
+      poll_interval_seconds: 30
+      max_attempts: 0
+eval:
+  inspect_tool:
+    judge_model:
+      ref: siliconflow:Qwen/Qwen3.6-27B
+      temperature: 0
+      timeout_seconds: 180
+persistence:
+  backend: ${VIKNOW_PERSISTENCE_BACKEND}
+  postgres:
+    upload_statement_timeout_seconds: 60
+    session_schema: ${VIKNOW_SESSION_SCHEMA}
+    checkpoint_schema: ${VIKNOW_CHECKPOINT_SCHEMA}
+    memory_schema: ${VIKNOW_MEMORY_SCHEMA}
+    scheduler_schema: ${VIKNOW_SCHEDULER_SCHEMA}
+    juicefs_schema: ${JUICEFS_SCHEMA}
+admin:
+  username: admin
+  password: ${VIKNOW_ADMIN_PASSWORD}
+memory:
+  mem0:
+    vector_store:
+      config:
+        collection_name: viknow_memories
+        embedding_model_dims: 1024
+agent:
+  kernel: deepagents
+  default_profile: viknow-v2
+  model:
+    temperature: 0.7
+    repetition_penalty: 1.0
+    # 使用 Qwen3.6 本地运行时能力；4310 不再向 Consumer 下发公共上下文上限。
+    max_input_tokens: 156000
+    # Align with runtime_budget.time_limit_seconds so a hung generate can die.
+    timeout_seconds: 600
+  model_options:
+  - ref: siliconflow:zai-org/GLM-5.2
+    label: GLM-5.2
+    max_input_tokens: 1024000
+  - ref: siliconflow:deepseek-ai/DeepSeek-V4-Flash
+    label: DeepSeek-V4-Flash
+    max_input_tokens: 1024000
+  - ref: siliconflow:Qwen/Qwen3.6-35B-A3B
+    label: Qwen/Qwen3.6-35B-A3B(SILICONFLOW)
+    max_input_tokens: 256000
+  - ref: siliconflow:Qwen/Qwen3.5-397B-A17B
+    label: Qwen/Qwen3.5-397B-A17B(SILICONFLOW)
+    max_input_tokens: 256000
+  skill_dirs:
+  - ../skills
+  profile_dir: ./profiles
+  deepagents:
+    multi_agent:
+      enabled: false
+    checkpointer:
+      enabled: true
+    skill_reminder:
+      enabled: true
+    summarization:
+      trigger_fraction: 0.6
+      keep_fraction: 0.05
+    workspace:
+      backend: bubblewrap
+      virtual_mode: true
+      max_file_size_mb: 25
+      upload:
+        max_file_mb: 25
+        allowed_extensions: []
+      parse:
+        enabled: false
+      staging:
+        keep_uploads_cache: true
+        purge_outputs_after_sync: true
+        purge_scratch_after_run: true
+    sandbox:
+      memory_limit_mb: 512
+      max_pids: 256
+      cpu_shares: 100
+      timeout_seconds: 60
+      max_output_bytes: 262144
+      network_access: false
+      gpu: false
+      extra_bind_mounts: []
+      extra_env: {}
+  hermes:
+    home: ../../.state/hermes-home
+
+# 学习内容独立按需生成；默认关闭，不影响索引和问答。
+capabilities:
+  vicoach:
+    courses:
+      poll_seconds: 2
+      translation_batch_size: 8
+    # 复用统一模型 provider；章节参数和输入预算独立配置。
+    chapters:
+      ref: private:${VIKNOW_PRIVATE_MODEL}
+      token_budget_mode: conservative
+      context_tokens: 156000
+      input_tokens: 32768
+      output_tokens: 8192
+      image_tokens: 8192
+      source_manifest: null
+      visual_review: false
+
+# 训练题生成与自由文本评分共用模型；章节生产配置独立。
+vicoach:
+  model:
+    ref: private:${VIKNOW_PRIVATE_MODEL}

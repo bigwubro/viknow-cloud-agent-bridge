@@ -1,0 +1,28 @@
+# 236 手工冒烟：监控用占位 URL，其余用内网 IP；无需 extra_hosts。
+# JuiceFS 已 format 卷用 deploy.env.236 的 JUICEFS_BUCKET_URL（IP）覆盖 mount --bucket。
+#
+# 前置：viknow-test-data 四件套已 up（宿主机 172.30.57.94:15432/16379/19000/17687）
+
+services:
+  viknow2:
+    image: ${VIKNOW_IMAGE:-viknow2-app:56d8705e5feb}
+    container_name: ${VIKNOW_CONTAINER_NAME:-viknow2-jinhe-manual}
+    restart: unless-stopped
+    # JuiceFS 等子进程退出后需 init 回收，否则 docker rm/kill 可能卡在 zombie PID
+    init: true
+    privileged: true
+    ports:
+      - "${VIKNOW_HOST_PORT:-8006}:8000"
+    env_file:
+      - ./deploy.env
+    environment:
+      PORT: "8000"
+      VIKNOW_CONFIG: /opt/viknow/config/jinhe/app.yaml
+    volumes:
+      - ${VIKNOW_DATA_DIR:-./data}:/data
+      - viknow_jinhe_state:/opt/viknow/.state
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+
+volumes:
+  viknow_jinhe_state:
+    name: ${VIKNOW_STATE_VOLUME:-viknow_jinhe_manual_state}

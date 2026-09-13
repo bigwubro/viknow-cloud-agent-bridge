@@ -1,8 +1,7 @@
-# 236 手工冒烟：与客户 compose 相同（external data 网络，无 extra_hosts）。
+# 236 手工冒烟：连接方式对齐 viknow2-test（host.docker.internal + 172.30.57.94）
 # 与 docker-compose.yml 同目录；deploy.env 用 deploy.env.236 复制为 deploy.env。
-# 外部 LLM 请在 deploy.env 里写容器路由可达的 IP/URL（如 http://10.x.x.x:4000/v1）。
 #
-# 前置：viknow-private-data 四件套已 up（network: viknow-private-data_appnet）
+# 前置：viknow-test-data 四件套已 up（宿主机映射 15432/16379/19000/17687）
 
 services:
   viknow2:
@@ -17,17 +16,12 @@ services:
     environment:
       PORT: "8000"
       VIKNOW_CONFIG: /opt/viknow/config/jinhe/app.yaml
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ${VIKNOW_DATA_DIR:-./data}:/data
       - viknow_jinhe_state:/opt/viknow/.state
       - /sys/fs/cgroup:/sys/fs/cgroup:rw
-    networks:
-      - data
-
-networks:
-  data:
-    external: true
-    name: ${VIKNOW_DATA_NETWORK:?set VIKNOW_DATA_NETWORK to your data stack network}
 
 volumes:
   viknow_jinhe_state:

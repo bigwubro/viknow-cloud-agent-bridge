@@ -19,15 +19,14 @@ cd /home/cursor-agent/nas-staging/viknow-deploy-image
 # 1. 加载镜像（只需一次）
 docker load -i viknow2-app-56d8705e5feb.tar
 
-# 2. 确认 data 栈在跑（四件套）
-docker ps --format '{{.Names}}' | grep viknow-private-data
+# 2. 确认 test-data 栈在跑（15432/16379/19000/17687）
+docker ps --format '{{.Names}}\t{{.Ports}}' | grep viknow-test-data
 
 # 3. 准备 env
 cp deploy.env.236 deploy.env
 chmod 600 deploy.env
 
 # 4. 启动（端口 8006，容器名 viknow2-jinhe-manual）
-export VIKNOW_DATA_NETWORK=viknow-private-data_appnet
 export VIKNOW_IMAGE=viknow2-app:56d8705e5feb
 export VIKNOW_HOST_PORT=8006
 export VIKNOW_CONTAINER_NAME=viknow2-jinhe-manual
@@ -52,8 +51,7 @@ docker compose -f docker-compose.236-smoke.yml down
 
 | 项 | 236 冒烟 | 客户现场 |
 |----|----------|----------|
-| compose | `docker-compose.236-smoke.yml` | `docker-compose.yml` |
-| LLM 地址 | deploy.env 写内网 IP/可达 URL | 同 data 网服务名或内网 IP |
-| deploy.env | `deploy.env.236` | `deploy.on-site-minimal.env` → 改 CHANGE_ME |
-| 中间件 HOST | `viknow-private-data-*-1` | `postgres` / `redis` / …（compose services 名） |
-| 网络 | `viknow-private-data_appnet` | 客户 `VIKNOW_DATA_NETWORK` |
+| compose | `docker-compose.236-smoke.yml`（bridge + extra_hosts） | `docker-compose.yml`（external data 网） |
+| deploy.env | `deploy.env.236`（同 viknow2-test 连接） | `deploy.on-site-minimal.env` → 改 IP |
+| 中间件 | `host.docker.internal:15432` 等 | 内网 IP 或 data 网服务名 |
+| 模型 | `172.30.57.94:8443/8601/8602` | 客户 LiteLLM 内网 IP |

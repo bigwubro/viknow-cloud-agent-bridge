@@ -69,9 +69,9 @@ docker rm -f "$CID"
 
 | 项 | 236 冒烟 | 客户现场 |
 |----|----------|----------|
-| compose | `docker-compose.236-smoke.yml`（`extra_hosts` 只给 JuiceFS 解析 `host.docker.internal`） | `docker-compose.yml` |
+| compose | `docker-compose.236-smoke.yml`（无 extra_hosts） | `docker-compose.yml` |
 | deploy.env | `deploy.env.236` | `deploy.on-site-minimal.env` |
-| JuiceFS 对象存储 | 元数据已写成 `host.docker.internal:19000`，必须 `extra_hosts` | 现场 format 时写成客户 MinIO 地址 |
+| JuiceFS 对象存储 | `JUICEFS_BUCKET_URL=http://10.200.0.1:19000/juicefs-viknow` 覆盖已 format 卷 | 现场 format 时写成客户 MinIO IP |
 | 中间件 / Actio | `10.200.0.1` + test 映射端口 | 客户内网 IP |
 | 模型 | `172.30.57.94` | 客户 LiteLLM IP |
 | 监控 | `127.0.0.1` 占位 | `127.0.0.1` 占位 |

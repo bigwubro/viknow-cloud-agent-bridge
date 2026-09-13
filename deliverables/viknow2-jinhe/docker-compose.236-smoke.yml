@@ -1,6 +1,5 @@
-# 236 手工冒烟：监控用占位 URL，其余用内网 IP。
-# 必须 extra_hosts：本机 JuiceFS 元数据里的 MinIO 桶是 host.docker.internal:19000
-#（与 viknow2-test 共用同一卷）。应用层仍走 10.200.0.1，不要改成 IP 重 format。
+# 236 手工冒烟：监控用占位 URL，其余用内网 IP；无需 extra_hosts。
+# JuiceFS 已 format 卷用 deploy.env.236 的 JUICEFS_BUCKET_URL（IP）覆盖 mount --bucket。
 #
 # 前置：viknow-test-data 四件套已 up（10.200.0.1:15432/16379/19000/17687）
 
@@ -12,8 +11,6 @@ services:
     # JuiceFS 等子进程退出后需 init 回收，否则 docker rm/kill 可能卡在 zombie PID
     init: true
     privileged: true
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     ports:
       - "${VIKNOW_HOST_PORT:-8006}:8000"
     env_file:

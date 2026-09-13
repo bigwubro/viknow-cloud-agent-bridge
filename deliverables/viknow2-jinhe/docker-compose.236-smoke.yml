@@ -1,7 +1,7 @@
-# 236 手工冒烟：连接方式对齐 viknow2-test（host.docker.internal + 172.30.57.94）
+# 236 手工冒烟：监控用占位 URL，其余用内网 IP；无需 extra_hosts。
 # 与 docker-compose.yml 同目录；deploy.env 用 deploy.env.236 复制为 deploy.env。
 #
-# 前置：viknow-test-data 四件套已 up（宿主机映射 15432/16379/19000/17687）
+# 前置：viknow-test-data 四件套已 up（10.200.0.1:15432/16379/19000/17687）
 
 services:
   viknow2:
@@ -16,8 +16,6 @@ services:
     environment:
       PORT: "8000"
       VIKNOW_CONFIG: /opt/viknow/config/jinhe/app.yaml
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     volumes:
       - ${VIKNOW_DATA_DIR:-./data}:/data
       - viknow_jinhe_state:/opt/viknow/.state

@@ -51,7 +51,8 @@ docker compose -f docker-compose.236-smoke.yml down
 
 | 项 | 236 冒烟 | 客户现场 |
 |----|----------|----------|
-| compose | `docker-compose.236-smoke.yml`（bridge + extra_hosts） | `docker-compose.yml`（external data 网） |
-| deploy.env | `deploy.env.236`（同 viknow2-test 连接） | `deploy.on-site-minimal.env` → 改 IP |
-| 中间件 | `host.docker.internal:15432` 等 | 内网 IP 或 data 网服务名 |
-| 模型 | `172.30.57.94:8443/8601/8602` | 客户 LiteLLM 内网 IP |
+| compose | `docker-compose.236-smoke.yml`（无 extra_hosts） | `docker-compose.yml` |
+| deploy.env | `deploy.env.236` | `deploy.on-site-minimal.env` |
+| 中间件 / Actio | `10.200.0.1` + test 映射端口 | 客户内网 IP |
+| 模型 | `172.30.57.94` | 客户 LiteLLM IP |
+| 监控 | `127.0.0.1` 占位 | `127.0.0.1` 占位 |

@@ -182,7 +182,51 @@ A: 检查 ViKnow 容器是否在 data 网络：`docker inspect viknow2-jinhe --f
 A: 多半是 deploy.env 行尾写了 `# 注释`，删掉行尾注释。
 
 **Q: JuiceFS mount failed**  
-A: 需 `privileged: true` 且 `/data` 可写；检查 Minio/PG 地址密码是否正确。
+A: 需 `privileged: true` 且 `/data` 可写；检查 Minio/PG 地址密码是否正确。已 format 的卷若元数据里是域名、新容器只能走 IP，设 `JUICEFS_BUCKET_URL=http://<minio-ip>:<port>/juicefs-viknow`。
+
+---
+
+## 换 ViKnow、MinIO 还是同一套
+
+JuiceFS = **Postgres 元数据**（`JUICEFS_SCHEMA`）+ **MinIO 桶**（默认 `juicefs-viknow`）。换容器/镜像不会自动 format；卷已存在就只 mount。
+
+### 要保留知识库 / 文件（最常见）
+
+先停旧容器（让它 umount），再起新容器，**四项与旧实例对齐**：
+
+| 项 | 环境变量 | 必须与旧的一致 |
+|----|----------|----------------|
+| JuiceFS 元数据 | `JUICEFS_POSTGRES_*` + `JUICEFS_SCHEMA` | 是（默认 `viknow_juicefs`） |
+| MinIO 桶 | `MINIO_ENDPOINT` + 账号 | 是（同一 endpoint、同一桶） |
+| 业务库 | `POSTGRES_*` + `VIKNOW_*_SCHEMA` | 是（会话 / checkpoint / HyperRAG） |
+| 图谱 | `NEO4J_*` | 是 |
+
+不要清空 MinIO 桶，不要改 `JUICEFS_SCHEMA`，不要对已有卷再 `juicefs format`。
+
+MinIO **还是那台、那个桶**，只是新容器访问地址变了（域名 → IP、换了端口）：
+
+```bash
+JUICEFS_BUCKET_URL=http://<新可达的MinIO_IP>:<端口>/juicefs-viknow
+```
+
+这只改 **mount --bucket**，不重 format，对象还在原桶。
+
+### 只要同一台 MinIO，不要旧数据
+
+同一 MinIO **服务**可以，**不要复用旧桶 + 旧 schema**。新实例用新桶和新 schema，例如：
+
+```bash
+JUICEFS_SCHEMA=viknow_juicefs_2
+JUICEFS_DATA_BUCKET=juicefs-viknow-2
+JUICEFS_BUCKET_URL=http://<minio-ip>:<port>/juicefs-viknow-2
+```
+
+业务 PG schema / Neo4j 也要新的（或空库），否则会话和图谱还是旧的。
+
+### 禁止
+
+- **新 `JUICEFS_SCHEMA` + 旧桶**：新 format 会往同一桶写另一套文件系统，和旧卷互相踩对象。
+- **新旧 ViKnow 同时挂同一卷**，且共用同一 PG + `REDIS_DATABASE=0`：leader / HyperRAG / 会话会冲突。替换则先停旧的；并存则 Redis 换 db，且 JuiceFS 用新桶+新 schema。
 
 ---
 

@@ -314,8 +314,9 @@
       <div class="card">
         <h2>关键结论</h2>
         <div class="explain">
-          <p style="margin-bottom:10px"><strong>Running=64</strong> 只表示 64 个坑被占满，不表示 64 条每步都在算。</p>
-          <p style="margin-bottom:10px">Scheduler 每步在 <strong>token 预算</strong>（16384）内选 batch；大 prefill 可能独占一步。</p>
+          <p style="margin-bottom:10px"><strong>Running=64</strong> 是 max-num-seqs 生命周期占坑，不是本步 batch 成分。</p>
+          <p style="margin-bottom:10px">本步 GPU batch = <strong>E（MM encoder，若有）</strong> + P（context/prefill）+ D（generation/decode）。演示里只画了 P/D 调度数量。</p>
+          <p style="margin-bottom:10px"><strong>63D+1P=64</strong> 表示本 step 共调度 64 条请求的 forward，不是「只有 P 和 D 两种组件且必等于 64」；有 MM 时同一步还有 encoder inputs。</p>
           <p>调参目标：让 decode 几乎每步都能混进 batch，避免「0 generation」的长步。</p>
         </div>
       </div>

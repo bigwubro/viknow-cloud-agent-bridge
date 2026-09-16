@@ -5,17 +5,103 @@
     "tags": ["qwen36", "vllm", "swimlane", "batch"],
     "timezone": "browser",
     "schemaVersion": 39,
-    "version": 1,
+    "version": 2,
     "refresh": "5s",
     "time": {"from": "now-15m", "to": "now"},
     "annotations": {"list": []},
     "templating": {"list": []},
     "panels": [
       {
+        "id": 50,
+        "type": "row",
+        "title": "每 step token 时序（双图 · E 与 P/D 独立预算）",
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 0},
+        "collapsed": false,
+        "panels": []
+      },
+      {
+        "id": 18,
+        "type": "text",
+        "title": "预算说明",
+        "gridPos": {"h": 3, "w": 24, "x": 0, "y": 1},
+        "transparent": true,
+        "options": {
+          "mode": "markdown",
+          "content": "**Encoder 预算 ≠ `vllm_batch_total_tokens`。** 两者默认上限都是 `--max-num-batched-tokens`（16384），但是**独立计数、独立扣减**：\n\n- **Encoder 图**：`vllm_batch_encoder_output_embeddings`（output embeddings，不是 total_tokens）\n- **P/D 图**：`vllm_batch_context_tokens` + `vllm_batch_generation_tokens`（= total_tokens，**不含** encoder）\n\n实际每 step 用量**通常不相等**（例如 E=7920、P+D=1059 很常见）。"
+        }
+      },
+      {
+        "id": 19,
+        "type": "timeseries",
+        "title": "Encoder output embeddings / step（预算 A · 单线）",
+        "description": "vllm_batch_encoder_output_embeddings：上一 iteration 新算的 MM encoder 输出 embedding 数。与 total_tokens 无关。虚线 = 16384 上限。",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+        "datasource": {"type": "prometheus", "uid": "efxtwpht5answc"},
+        "fieldConfig": {
+          "defaults": {
+            "min": 0,
+            "max": 16384,
+            "custom": {"drawStyle": "line", "lineWidth": 2, "fillOpacity": 15, "spanNulls": false},
+            "color": {"mode": "fixed", "fixedColor": "blue"},
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "red", "value": 16384}
+              ]
+            }
+          },
+          "overrides": [
+            {"matcher": {"id": "byName", "options": "budget 16384"}, "properties": [
+              {"id": "custom.lineStyle", "value": {"dash": [10, 10], "fill": "dash"}},
+              {"id": "color", "value": {"fixedColor": "red", "mode": "fixed"}},
+              {"id": "custom.fillOpacity", "value": 0},
+              {"id": "custom.lineWidth", "value": 1}
+            ]}
+          ]
+        },
+        "options": {"legend": {"displayMode": "list", "placement": "bottom"}},
+        "targets": [
+          {"expr": "vllm_batch_encoder_output_embeddings", "legendFormat": "encoder embeds", "refId": "A"},
+          {"expr": "16384", "legendFormat": "budget 16384", "refId": "B"}
+        ]
+      },
+      {
+        "id": 20,
+        "type": "timeseries",
+        "title": "Prefill + Decode tokens / step（预算 B · 双线）",
+        "description": "context_tokens=prefill，generation_tokens=decode。vllm_batch_total_tokens = 两者之和，不含 encoder。",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+        "datasource": {"type": "prometheus", "uid": "efxtwpht5answc"},
+        "fieldConfig": {
+          "defaults": {
+            "min": 0,
+            "max": 16384,
+            "custom": {"drawStyle": "line", "lineWidth": 2, "fillOpacity": 10, "spanNulls": false}
+          },
+          "overrides": [
+            {"matcher": {"id": "byName", "options": "prefill tokens"}, "properties": [{"id": "color", "value": {"fixedColor": "green", "mode": "fixed"}}]},
+            {"matcher": {"id": "byName", "options": "decode tokens"}, "properties": [{"id": "color", "value": {"fixedColor": "purple", "mode": "fixed"}}]},
+            {"matcher": {"id": "byName", "options": "budget 16384"}, "properties": [
+              {"id": "custom.lineStyle", "value": {"dash": [10, 10], "fill": "dash"}},
+              {"id": "color", "value": {"fixedColor": "red", "mode": "fixed"}},
+              {"id": "custom.fillOpacity", "value": 0},
+              {"id": "custom.lineWidth", "value": 1}
+            ]}
+          ]
+        },
+        "options": {"legend": {"displayMode": "list", "placement": "bottom"}},
+        "targets": [
+          {"expr": "vllm_batch_context_tokens", "legendFormat": "prefill tokens", "refId": "A"},
+          {"expr": "vllm_batch_generation_tokens", "legendFormat": "decode tokens", "refId": "B"},
+          {"expr": "16384", "legendFormat": "budget 16384", "refId": "C"}
+        ]
+      },
+      {
         "id": 100,
         "type": "row",
         "title": "泳道 1 · 请求生命周期（CPU → 调度 → GPU 一步）",
-        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 0},
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 12},
         "collapsed": false,
         "panels": []
       },
@@ -23,7 +109,7 @@
         "id": 1,
         "type": "text",
         "title": "生命周期总览",
-        "gridPos": {"h": 6, "w": 16, "x": 0, "y": 1},
+        "gridPos": {"h": 6, "w": 16, "x": 0, "y": 13},
         "transparent": true,
         "options": {
           "mode": "html",
@@ -39,7 +125,7 @@
         "type": "timeseries",
         "title": "队列状态（调度层之前）",
         "description": "running=已占 slot；waiting=capacity+deferred；与 step 内 token 预算是不同维度。",
-        "gridPos": {"h": 6, "w": 8, "x": 16, "y": 1},
+        "gridPos": {"h": 6, "w": 8, "x": 16, "y": 13},
         "datasource": {"type": "prometheus", "uid": "efphcpq654uf4f"},
         "fieldConfig": {
           "defaults": {
@@ -63,7 +149,7 @@
         "id": 200,
         "type": "row",
         "title": "泳道 2 · Step N 放大（双预算 · 先 E 后 P/D）",
-        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 7},
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 19},
         "collapsed": false,
         "panels": []
       },
@@ -71,7 +157,7 @@
         "id": 3,
         "type": "text",
         "title": "Step 结构说明",
-        "gridPos": {"h": 4, "w": 8, "x": 0, "y": 8},
+        "gridPos": {"h": 4, "w": 8, "x": 0, "y": 20},
         "transparent": true,
         "options": {
           "mode": "markdown",
@@ -83,7 +169,7 @@
         "type": "bargauge",
         "title": "预算 A · Encoder output embeddings / 16384",
         "description": "vllm_batch_encoder_output_embeddings，上一 iteration 的 MM encoder 输出 embedding 数。",
-        "gridPos": {"h": 4, "w": 8, "x": 8, "y": 8},
+        "gridPos": {"h": 4, "w": 8, "x": 8, "y": 20},
         "datasource": {"type": "prometheus", "uid": "efxtwpht5answc"},
         "fieldConfig": {
           "defaults": {
@@ -116,7 +202,7 @@
         "type": "bargauge",
         "title": "预算 B · LLM P+D tokens / 16384",
         "description": "vllm_batch_total_tokens = context_tokens + generation_tokens，不含 encoder。",
-        "gridPos": {"h": 4, "w": 8, "x": 16, "y": 8},
+        "gridPos": {"h": 4, "w": 8, "x": 16, "y": 20},
         "datasource": {"type": "prometheus", "uid": "efxtwpht5answc"},
         "fieldConfig": {
           "defaults": {
@@ -148,7 +234,7 @@
         "id": 6,
         "type": "stat",
         "title": "E · inputs",
-        "gridPos": {"h": 3, "w": 3, "x": 0, "y": 12},
+        "gridPos": {"h": 3, "w": 3, "x": 0, "y": 24},
         "datasource": {"type": "prometheus", "uid": "efxtwpht5answc"},
         "fieldConfig": {"defaults": {"decimals": 0, "color": {"mode": "fixed", "fixedColor": "blue"}}},
         "options": {"colorMode": "background", "graphMode": "none", "reduceOptions": {"calcs": ["lastNotNull"]}},
@@ -158,7 +244,7 @@
         "id": 7,
         "type": "stat",
         "title": "E · embeds",
-        "gridPos": {"h": 3, "w": 3, "x": 3, "y": 12},
+        "gridPos": {"h": 3, "w": 3, "x": 3, "y": 24},
         "datasource": {"type": "prometheus", "uid": "efxtwpht5answc"},
         "fieldConfig": {"defaults": {"decimals": 0, "color": {"mode": "fixed", "fixedColor": "blue"}}},
         "options": {"colorMode": "background", "graphMode": "area", "reduceOptions": {"calcs": ["lastNotNull"]}},
@@ -168,7 +254,7 @@
         "id": 8,
         "type": "stat",
         "title": "P · reqs",
-        "gridPos": {"h": 3, "w": 3, "x": 6, "y": 12},
+        "gridPos": {"h": 3, "w": 3, "x": 6, "y": 24},
         "datasource": {"type": "prometheus", "uid": "efxtwpht5answc"},
         "fieldConfig": {"defaults": {"decimals": 0, "color": {"mode": "fixed", "fixedColor": "green"}}},
         "options": {"colorMode": "background", "graphMode": "none", "reduceOptions": {"calcs": ["lastNotNull"]}},
@@ -178,7 +264,7 @@
         "id": 9,
         "type": "stat",
         "title": "P · tokens",
-        "gridPos": {"h": 3, "w": 3, "x": 9, "y": 12},
+        "gridPos": {"h": 3, "w": 3, "x": 9, "y": 24},
         "datasource": {"type": "prometheus", "uid": "efxtwpht5answc"},
         "fieldConfig": {"defaults": {"decimals": 0, "color": {"mode": "fixed", "fixedColor": "green"}}},
         "options": {"colorMode": "background", "graphMode": "area", "reduceOptions": {"calcs": ["lastNotNull"]}},
@@ -188,7 +274,7 @@
         "id": 10,
         "type": "stat",
         "title": "D · reqs",
-        "gridPos": {"h": 3, "w": 3, "x": 12, "y": 12},
+        "gridPos": {"h": 3, "w": 3, "x": 12, "y": 24},
         "datasource": {"type": "prometheus", "uid": "efxtwpht5answc"},
         "fieldConfig": {"defaults": {"decimals": 0, "color": {"mode": "fixed", "fixedColor": "purple"}}},
         "options": {"colorMode": "background", "graphMode": "none", "reduceOptions": {"calcs": ["lastNotNull"]}},
@@ -198,7 +284,7 @@
         "id": 11,
         "type": "stat",
         "title": "D · tokens",
-        "gridPos": {"h": 3, "w": 3, "x": 15, "y": 12},
+        "gridPos": {"h": 3, "w": 3, "x": 15, "y": 24},
         "datasource": {"type": "prometheus", "uid": "efxtwpht5answc"},
         "fieldConfig": {"defaults": {"decimals": 0, "color": {"mode": "fixed", "fixedColor": "purple"}}},
         "options": {"colorMode": "background", "graphMode": "area", "reduceOptions": {"calcs": ["lastNotNull"]}},
@@ -208,7 +294,7 @@
         "id": 12,
         "type": "timeseries",
         "title": "双预算利用率趋势（%）",
-        "gridPos": {"h": 3, "w": 6, "x": 18, "y": 12},
+        "gridPos": {"h": 3, "w": 6, "x": 18, "y": 24},
         "datasource": {"type": "prometheus", "uid": "efxtwpht5answc"},
         "fieldConfig": {
           "defaults": {
@@ -231,7 +317,7 @@
         "id": 300,
         "type": "row",
         "title": "泳道 3 · 三个维度（别混加）",
-        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 15},
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 27},
         "collapsed": false,
         "panels": []
       },
@@ -239,18 +325,18 @@
         "id": 13,
         "type": "text",
         "title": "维度对照表",
-        "gridPos": {"h": 5, "w": 10, "x": 0, "y": 16},
+        "gridPos": {"h": 5, "w": 10, "x": 0, "y": 28},
         "transparent": true,
         "options": {
           "mode": "markdown",
-          "content": "| 维度 | 上限 | 单位 | 本 dashboard 指标 | 能否相加 |\n|------|------|------|-------------------|----------|\n| **并发 request** | 64 | 条 | `P reqs + D reqs` | ❌ 与 token 不同维 |\n| **LLM token** | 16384 | P+D tokens | `vllm_batch_total_tokens` | ✅ 只加 P 和 D |\n| **Encoder** | ~16384 | output embeds | `vllm_batch_encoder_output_embeddings` | ❌ 不和 P+D 比 |\n\n**数字例子（上一 iteration）：**\n- P: 3 reqs / 5000 tok，D: 20 reqs / 2000 tok → 预算 B = **7000/16384** ✓\n- E: 4 inputs / 3000 embeds → 预算 A = **3000/16384** ✓\n- ❌ 错误：10000 vs 16384（E 和 P+D 不能这样加）"
+          "content": "| 维度 | 上限 | 单位 | 本 dashboard 指标 | 能否相加 |\n|------|------|------|-------------------|----------|\n| **并发 request** | 64 | 条 | `P reqs + D reqs` | ❌ 与 token 不同维 |\n| **LLM token** | 16384 | P+D tokens | `vllm_batch_total_tokens` | ✅ 只加 P 和 D |\n| **Encoder** | ~16384 | output embeds | `vllm_batch_encoder_output_embeddings` | ❌ 不和 P+D 比 |\n\n**上限默认都是 16384，但用量通常不相等。** 例如日志里常见：`encoder output embeddings: 7920` 同时 `context+generation tokens: 1059`。"
         }
       },
       {
         "id": 14,
         "type": "bargauge",
         "title": "维度 1 · P+D reqs / 64 slots",
-        "gridPos": {"h": 5, "w": 5, "x": 10, "y": 16},
+        "gridPos": {"h": 5, "w": 5, "x": 10, "y": 28},
         "datasource": {"type": "prometheus", "uid": "efxtwpht5answc"},
         "fieldConfig": {
           "defaults": {
@@ -267,7 +353,7 @@
         "id": 15,
         "type": "bargauge",
         "title": "维度 2 · P+D tokens / 16384",
-        "gridPos": {"h": 5, "w": 5, "x": 15, "y": 16},
+        "gridPos": {"h": 5, "w": 5, "x": 15, "y": 28},
         "datasource": {"type": "prometheus", "uid": "efxtwpht5answc"},
         "fieldConfig": {
           "defaults": {
@@ -284,7 +370,7 @@
         "id": 16,
         "type": "bargauge",
         "title": "维度 3 · E embeds / 16384",
-        "gridPos": {"h": 5, "w": 4, "x": 20, "y": 16},
+        "gridPos": {"h": 5, "w": 4, "x": 20, "y": 28},
         "datasource": {"type": "prometheus", "uid": "efxtwpht5answc"},
         "fieldConfig": {
           "defaults": {
@@ -301,7 +387,7 @@
         "id": 17,
         "type": "timeseries",
         "title": "三维度时序（reqs / P+D tok / E embed）",
-        "gridPos": {"h": 7, "w": 24, "x": 0, "y": 21},
+        "gridPos": {"h": 7, "w": 24, "x": 0, "y": 33},
         "datasource": {"type": "prometheus", "uid": "efxtwpht5answc"},
         "fieldConfig": {
           "defaults": {"custom": {"drawStyle": "line", "lineWidth": 1, "fillOpacity": 10}, "min": 0},

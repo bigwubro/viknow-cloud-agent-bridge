@@ -5,7 +5,7 @@
     "tags": ["qwen36", "vllm", "swimlane", "batch"],
     "timezone": "browser",
     "schemaVersion": 39,
-    "version": 2,
+    "version": 3,
     "refresh": "5s",
     "time": {"from": "now-15m", "to": "now"},
     "annotations": {"list": []},
@@ -62,7 +62,7 @@
         },
         "options": {"legend": {"displayMode": "list", "placement": "bottom"}},
         "targets": [
-          {"expr": "vllm_batch_encoder_output_embeddings", "legendFormat": "encoder embeds", "refId": "A"},
+          {"expr": "max_over_time(vllm_batch_encoder_output_embeddings[10s])", "legendFormat": "encoder embeds (max/10s)", "refId": "A"},
           {"expr": "16384", "legendFormat": "budget 16384", "refId": "B"}
         ]
       },
@@ -92,8 +92,8 @@
         },
         "options": {"legend": {"displayMode": "list", "placement": "bottom"}},
         "targets": [
-          {"expr": "vllm_batch_context_tokens", "legendFormat": "prefill tokens", "refId": "A"},
-          {"expr": "vllm_batch_generation_tokens", "legendFormat": "decode tokens", "refId": "B"},
+          {"expr": "max_over_time(vllm_batch_context_tokens[10s])", "legendFormat": "prefill tokens (max/10s)", "refId": "A"},
+          {"expr": "max_over_time(vllm_batch_generation_tokens[10s])", "legendFormat": "decode tokens (max/10s)", "refId": "B"},
           {"expr": "16384", "legendFormat": "budget 16384", "refId": "C"}
         ]
       },
@@ -117,14 +117,14 @@
             "language": "html",
             "showLineNumbers": false
           },
-          "content": "<div style=\"font-family:system-ui,sans-serif;font-size:13px;line-height:1.45\">\n<div style=\"display:flex;align-items:stretch;gap:6px;margin-bottom:10px\">\n  <div style=\"flex:1;border:2px solid #5794f2;border-radius:8px;padding:10px;background:rgba(87,148,242,.08)\">\n    <div style=\"font-weight:700;color:#5794f2;margin-bottom:4px\">① CPU · MM Processor</div>\n    <div style=\"color:#ccc\">解码图片/视频 · SHM cache</div>\n    <div style=\"font-size:11px;color:#999;margin-top:6px\">不占 GPU 16384 · 可能 deferred</div>\n  </div>\n  <div style=\"display:flex;align-items:center;color:#888;font-size:20px\">→</div>\n  <div style=\"flex:1;border:2px solid #ffb357;border-radius:8px;padding:10px;background:rgba(255,179,87,.08)\">\n    <div style=\"font-weight:700;color:#ffb357;margin-bottom:4px\">② Scheduler · schedule()</div>\n    <div style=\"color:#ccc\">决定本 step 装多少 E 和 P/D</div>\n    <div style=\"font-size:11px;color:#999;margin-top:6px\">扣两套独立 budget · waiting 在这层之前</div>\n  </div>\n  <div style=\"display:flex;align-items:center;color:#888;font-size:20px\">→</div>\n  <div style=\"flex:1.2;border:2px solid #73bf69;border-radius:8px;padding:10px;background:rgba(115,191,105,.08)\">\n    <div style=\"font-weight:700;color:#73bf69;margin-bottom:4px\">③ GPU · 1 个 engine step</div>\n    <div style=\"color:#ccc\"><b>先 E</b> vision encoder → <b>后 P/D</b> LLM forward</div>\n    <div style=\"font-size:11px;color:#999;margin-top:6px\">不是两个 step · 是同一 iteration 内两段 GPU 计算</div>\n  </div>\n</div>\n<div style=\"padding:8px 12px;border-left:4px solid #f2495c;background:rgba(242,73,92,.06);border-radius:4px;color:#ddd;font-size:12px\">\n  <b>Waiting 高 ≠ 2×16384 打满</b>：capacity=硬等（slot/KV/token）；deferred=软等（CPU MM/SHM/blocked），见右侧曲线。\n</div>\n</div>"
+          "content": "<div style=\"font-family:system-ui,sans-serif;font-size:13px;line-height:1.45\">\n<div style=\"display:flex;align-items:stretch;gap:6px;margin-bottom:10px\">\n  <div style=\"flex:1;border:2px solid #5794f2;border-radius:8px;padding:10px;background:rgba(87,148,242,.08)\">\n    <div style=\"font-weight:700;color:#5794f2;margin-bottom:4px\">① CPU · MM Processor</div>\n    <div style=\"color:#ccc\">解码图片/视频 · SHM cache</div>\n    <div style=\"font-size:11px;color:#999;margin-top:6px\">不占 GPU 16384 · 进 scheduler 前</div>\n  </div>\n  <div style=\"display:flex;align-items:center;color:#888;font-size:20px\">→</div>\n  <div style=\"flex:1;border:2px solid #ffb357;border-radius:8px;padding:10px;background:rgba(255,179,87,.08)\">\n    <div style=\"font-weight:700;color:#ffb357;margin-bottom:4px\">② Scheduler · schedule()</div>\n    <div style=\"color:#ccc\">决定本 step 装多少 E 和 P/D</div>\n    <div style=\"font-size:11px;color:#999;margin-top:6px\">维护 waiting[] / skipped_waiting[] / running[]</div>\n  </div>\n  <div style=\"display:flex;align-items:center;color:#888;font-size:20px\">→</div>\n  <div style=\"flex:1.2;border:2px solid #73bf69;border-radius:8px;padding:10px;background:rgba(115,191,105,.08)\">\n    <div style=\"font-weight:700;color:#73bf69;margin-bottom:4px\">③ GPU · 1 个 engine step</div>\n    <div style=\"color:#ccc\"><b>先 E</b> vision encoder → <b>后 P/D</b> LLM forward</div>\n    <div style=\"font-size:11px;color:#999;margin-top:6px\">不是两个 step · 是同一 iteration 内两段 GPU 计算</div>\n  </div>\n</div>\n<div style=\"padding:8px 12px;border-left:4px solid #f2495c;background:rgba(242,73,92,.06);border-radius:4px;color:#ddd;font-size:12px\">\n  <b>队列高 ≠ token 预算打满</b>：<code>waiting[]</code>=可调度但 budget/KV/slot 不够；<code>skipped_waiting[]</code>=本轮跳过（blocked/LoRA/async KV 等）。见右侧曲线。\n</div>\n</div>"
         }
       },
       {
         "id": 2,
         "type": "timeseries",
-        "title": "队列状态（调度层之前）",
-        "description": "running=已占 slot；waiting=capacity+deferred；与 step 内 token 预算是不同维度。",
+        "title": "调度队列（waiting / skipped_waiting / running）",
+        "description": "对齐 vLLM v1 scheduler.py：running=len(running)；waiting=len(waiting)（Prometheus reason=capacity）；skipped_waiting=len(skipped_waiting)（Prometheus reason=deferred）。不含 waiting total 汇总线。",
         "gridPos": {"h": 6, "w": 8, "x": 16, "y": 13},
         "datasource": {"type": "prometheus", "uid": "efphcpq654uf4f"},
         "fieldConfig": {
@@ -133,16 +133,15 @@
             "min": 0
           },
           "overrides": [
-            {"matcher": {"id": "byName", "options": "waiting total"}, "properties": [{"id": "custom.lineStyle", "value": {"dash": [10, 10], "fill": "dash"}}]},
-            {"matcher": {"id": "byName", "options": "deferred"}, "properties": [{"id": "color", "value": {"fixedColor": "orange", "mode": "fixed"}}]},
-            {"matcher": {"id": "byName", "options": "capacity"}, "properties": [{"id": "color", "value": {"fixedColor": "red", "mode": "fixed"}}]}
+            {"matcher": {"id": "byName", "options": "running"}, "properties": [{"id": "color", "value": {"fixedColor": "green", "mode": "fixed"}}]},
+            {"matcher": {"id": "byName", "options": "waiting"}, "properties": [{"id": "color", "value": {"fixedColor": "red", "mode": "fixed"}}, {"id": "custom.fillOpacity", "value": 25}]},
+            {"matcher": {"id": "byName", "options": "skipped_waiting"}, "properties": [{"id": "color", "value": {"fixedColor": "orange", "mode": "fixed"}}]}
           ]
         },
         "targets": [
           {"expr": "vllm:num_requests_running{model_name=\"Qwen/Qwen3.6-35B-A3B-FP8\"}", "legendFormat": "running", "refId": "A"},
-          {"expr": "vllm:num_requests_waiting{model_name=\"Qwen/Qwen3.6-35B-A3B-FP8\"}", "legendFormat": "waiting total", "refId": "B"},
-          {"expr": "vllm:num_requests_waiting_by_reason{model_name=\"Qwen/Qwen3.6-35B-A3B-FP8\",reason=\"capacity\"}", "legendFormat": "capacity", "refId": "C"},
-          {"expr": "vllm:num_requests_waiting_by_reason{model_name=\"Qwen/Qwen3.6-35B-A3B-FP8\",reason=\"deferred\"}", "legendFormat": "deferred", "refId": "D"}
+          {"expr": "vllm:num_requests_waiting_by_reason{model_name=\"Qwen/Qwen3.6-35B-A3B-FP8\",reason=\"capacity\"}", "legendFormat": "waiting", "refId": "B"},
+          {"expr": "vllm:num_requests_waiting_by_reason{model_name=\"Qwen/Qwen3.6-35B-A3B-FP8\",reason=\"deferred\"}", "legendFormat": "skipped_waiting", "refId": "C"}
         ]
       },
       {

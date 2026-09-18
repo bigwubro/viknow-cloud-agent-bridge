@@ -42,7 +42,7 @@ start_engine() {
   local kv extra=()
   if [[ "$role" == p ]]; then
     kv='{"kv_connector":"NixlConnector","kv_role":"kv_producer","kv_load_failure_policy":"fail","kv_connector_extra_config":{"kv_lease_duration":120,"num_threads":8}}'
-    extra+=(--scheduling-policy fcfs --max-num-seqs 64 --max-num-batched-tokens 32768 --max-num-partial-prefills 1)
+    extra+=(--scheduling-policy fcfs --max-num-seqs 64 --max-num-batched-tokens 32768)
   else
     kv='{"kv_connector":"NixlConnector","kv_role":"kv_consumer","kv_load_failure_policy":"fail","kv_connector_extra_config":{"num_threads":8}}'
     extra+=(--max-num-seqs 64 --max-num-batched-tokens 16384)

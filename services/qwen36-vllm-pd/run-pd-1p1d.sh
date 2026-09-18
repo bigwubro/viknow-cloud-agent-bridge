@@ -34,8 +34,11 @@ COMMON=(
 # UCX_NET_DEVICES=all: that path measured ~330 MB/s and split across every
 # in-flight NIXL READ, so D sat in WAITING_FOR_REMOTE_KVS for 12-40s.
 # tcp+sm are required for UCX active messages (NIXL intra-agent setup).
-# gdr_copy is not built in this image. Data plane should still pick cuda_ipc.
-UCX_INTRANODE_TLS=tcp,sm,cuda_ipc,cuda_copy,self
+# gdr_copy is not built in this image. Data plane should pick cuda_ipc.
+# Host yama ptrace_scope=1: without CAP_SYS_PTRACE, UCX cuda_ipc cannot
+# map the peer process and silently falls back to cuda_copy+tcp.
+# NVIDIA_DRIVER_CAPABILITIES must include ipc or the driver hides IPC.
+UCX_INTRANODE_TLS=sm,self,cuda_ipc,cuda_copy,tcp
 
 start_engine() {
   local name="$1" gpu_devices="$2" cuda_visible="$3" port="$4" role="$5" nixl_port="$6"
@@ -60,10 +63,13 @@ start_engine() {
     --network host \
     --ipc host \
     --pid host \
+    --cap-add SYS_PTRACE \
+    --security-opt seccomp=unconfined \
     --ulimit memlock=-1 \
     --ulimit stack=67108864 \
     -v /data/twj/models:/root/.cache/models:ro \
     -e NVIDIA_VISIBLE_DEVICES="${gpu_devices}" \
+    -e NVIDIA_DRIVER_CAPABILITIES=compute,utility,ipc \
     -e PYTHONHASHSEED=0 \
     -e VLLM_USE_DEEP_GEMM=0 \
     -e VLLM_ENGINE_READY_TIMEOUT_S=1800 \
@@ -75,6 +81,8 @@ start_engine() {
     -e UCX_MEMTYPE_CACHE=n \
     -e UCX_RNDV_SCHEME=put_zcopy \
     -e UCX_RNDV_THRESH=0 \
+    -e UCX_PROTO_ENABLE=y \
+    -e UCX_LOG_LEVEL=info \
     -e CUDA_DEVICE_MAX_CONNECTIONS=8 \
     "$IMAGE" \
     "${COMMON[@]}" \

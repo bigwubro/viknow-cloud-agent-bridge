@@ -10,4 +10,4 @@
 
 同一套 B 对照见 `loadtests/workload-b-vs-sf/RESULTS_PD.md`。出词侧不要开 MTP：Mamba 块会对不齐，回包乱码。
 
-出词卡慢的主因不是 184 token 的 decode，而是 NIXL 从预填充卡 READ 约 246MB KV。`UCX_TLS=all` + `UCX_NET_DEVICES=all` 只跑出约 330MB/s，40 路并发时每条传输被均分到 30 秒以上，出词卡日志长期是 `Running: 0 / Waiting=Deferred`。只挂一张 GPU 的容器看不见对端，CUDA IPC 建不起来，只能走主机中转。现网同一对 P/D 都能看见两张卡（计算卡排在 `CUDA_VISIBLE_DEVICES` 第一位），UCX 为 `tcp,sm,cuda_ipc,cuda_copy,self`，出词侧 FCFS，NIXL `num_threads=8`。
+出词卡慢的主因不是 184 token 的 decode，而是 NIXL 从预填充卡 READ 约 246MB KV。只改 `UCX_TLS` 不够：主机 `yama ptrace_scope=1`，容器默认没有 `CAP_SYS_PTRACE`，`NVIDIA_DRIVER_CAPABILITIES` 也只有 `compute,utility`，UCX 的 `cuda_ipc` 会静默退回 `cuda_copy+tcp`（约 330MB/s）。现网同一对 P/D 都能看见两张卡，并加上 `SYS_PTRACE`、`seccomp=unconfined`、`NVIDIA_DRIVER_CAPABILITIES=compute,utility,ipc`。

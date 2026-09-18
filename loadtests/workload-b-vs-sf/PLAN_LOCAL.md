@@ -7,4 +7,4 @@
 VIKNOW_OUT_DIR=out/local-b-30k-<date> ./run.sh local
 ```
 
-默认 `COOLDOWN_SEC=60`。结果见 `RESULTS_LOCAL.md`（跑完再写）。
+这次实际 `COOLDOWN_SEC=15`（和云端两趟对齐）。结果见 `RESULTS_LOCAL.md`。

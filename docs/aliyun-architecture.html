@@ -4,213 +4,293 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>ViKnow2 Online Prod · 阿里云部署图</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&family=Noto+Serif+SC:wght@500;600;700&family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <style>
     :root {
-      --bg: #0b1220;
-      --bg2: #121b2e;
-      --card: #17233a;
-      --line: #2a3b5c;
-      --text: #e8eefc;
-      --muted: #93a0bf;
-      --user: #7dd3fc;
-      --edge: #fbbf24;
-      --ack: #34d399;
-      --app: #60a5fa;
-      --data: #c084fc;
-      --cloud: #fb923c;
-      --warn: #f87171;
-      --ok: #4ade80;
-      --idle: #64748b;
+      color-scheme: light;
+      --sp-ink: #212c33;
+      --sp-muted: rgb(33 44 51 / 0.72);
+      --sp-soft: rgb(33 44 51 / 0.56);
+      --sp-paper: #f8f5ec;
+      --sp-strong: rgb(251 249 242 / 0.92);
+      --sp-wash: rgb(122 158 141 / 0.16);
+      --sp-line: #dadcd6;
+      --sp-line-strong: rgb(79 109 95 / 0.26);
+      --sp-green: #4f6d5f;
+      --sp-green-deep: #2f453d;
+      --sp-wheat: #c4a35a;
+      --sp-air: #7a9e8d;
+      --nm-1: #4E79A7;
+      --nm-2: #F28E2B;
+      --nm-3: #E15759;
+      --nm-4: #76B7B2;
+      --nm-5: #59A14F;
+      --nm-6: #EDC948;
+      --nm-7: #B07AA1;
+      --nm-8: #FF9DA7;
+      --font-display: "Cormorant Garamond", "Noto Serif SC", Georgia, serif;
+      --font-ui: "Source Sans 3", "Noto Sans SC", ui-sans-serif, system-ui, sans-serif;
     }
     * { box-sizing: border-box; }
-    html, body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.5 ui-sans-serif, system-ui, "PingFang SC", "Noto Sans SC", sans-serif; }
+    html, body { margin: 0; background: var(--sp-paper); color: var(--sp-ink); font: 15px/1.55 var(--font-ui); }
+    body {
+      background:
+        radial-gradient(circle at top left, rgb(122 158 141 / 0.08), transparent 28%),
+        radial-gradient(circle at top right, rgb(79 109 95 / 0.05), transparent 22%),
+        var(--sp-paper);
+    }
+    ::selection { background: rgb(122 158 141 / 0.28); }
+    a { color: var(--sp-green-deep); }
+    code {
+      font-family: "SF Mono", Monaco, "Cascadia Code", Consolas, monospace;
+      font-size: 12px;
+      color: var(--sp-green-deep);
+      background: rgb(122 158 141 / 0.12);
+      padding: 0.05em 0.35em;
+      border-radius: 4px;
+    }
+    .mark {
+      display: flex; gap: 3px; height: 22px; align-items: flex-end;
+    }
+    .mark i { display: block; width: 5px; border-radius: 1px; background: var(--sp-green); }
+    .mark i:nth-child(1) { height: 10px; background: var(--nm-1); }
+    .mark i:nth-child(2) { height: 16px; background: var(--nm-4); }
+    .mark i:nth-child(3) { height: 13px; background: var(--nm-5); }
+    .mark i:nth-child(4) { height: 22px; background: var(--sp-green-deep); }
     header {
-      padding: 28px 32px 12px;
-      border-bottom: 1px solid var(--line);
-      background: linear-gradient(180deg, #152038, var(--bg));
+      max-width: 1240px; margin: 0 auto; padding: 28px 28px 8px;
     }
-    header h1 { margin: 0 0 8px; font-size: 26px; letter-spacing: .02em; }
-    header p { margin: 0; color: var(--muted); max-width: 980px; }
-    .meta { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
-    .chip { border: 1px solid var(--line); background: var(--card); color: var(--text); border-radius: 999px; padding: 4px 10px; font-size: 12px; }
-    .chip.ok { border-color: #166534; color: var(--ok); }
-    .chip.warn { border-color: #7f1d1d; color: #fca5a5; }
-    .chip.info { border-color: #1e3a8a; color: #93c5fd; }
-    nav.tabs { display: flex; gap: 8px; padding: 16px 32px 0; position: sticky; top: 0; background: rgba(11,18,32,.92); backdrop-filter: blur(8px); z-index: 5; }
+    .kicker {
+      display: flex; align-items: center; gap: 10px;
+      letter-spacing: .16em; text-transform: uppercase;
+      font-size: 11px; font-weight: 700; color: var(--sp-green);
+    }
+    header h1 {
+      font-family: var(--font-display);
+      font-weight: 600; font-size: clamp(32px, 4vw, 48px);
+      line-height: 1.12; margin: 10px 0 8px; letter-spacing: -0.02em;
+    }
+    header .lede { max-width: 760px; color: var(--sp-muted); margin: 0 0 16px; }
+    .swatches { display: flex; height: 10px; border-radius: 999px; overflow: hidden; max-width: 420px; border: 1px solid var(--sp-line-strong); }
+    .swatches b { flex: 1; }
+    .meta { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+    .chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      border: 1px solid rgb(79 109 95 / 0.24); border-radius: 999px;
+      background: rgb(122 158 141 / 0.14); color: var(--sp-green);
+      font-size: 12px; font-weight: 700; padding: 4px 10px;
+    }
+    .chip.warn { background: rgb(225 87 89 / 0.1); border-color: rgb(225 87 89 / 0.28); color: #9b2c2c; }
+    .chip.info { background: rgb(78 121 167 / 0.12); border-color: rgb(78 121 167 / 0.28); color: #2f4f73; }
+    nav.tabs {
+      max-width: 1240px; margin: 0 auto; padding: 8px 28px 0;
+      display: flex; gap: 4px; position: sticky; top: 0; z-index: 5;
+      background: rgb(248 245 236 / 0.92); backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--sp-line);
+    }
     nav.tabs button {
-      background: transparent; color: var(--muted); border: 1px solid transparent;
-      padding: 8px 12px; border-radius: 8px; cursor: pointer; font-weight: 600;
+      font: 600 13px var(--font-ui); color: var(--sp-soft);
+      background: transparent; border: 0; border-bottom: 2px solid transparent;
+      padding: 12px 12px 10px; cursor: pointer;
     }
-    nav.tabs button.active { color: var(--text); background: var(--card); border-color: var(--line); }
-    section { display: none; padding: 20px 32px 48px; }
+    nav.tabs button.active { color: var(--sp-ink); border-bottom-color: var(--sp-green); }
+    section { display: none; max-width: 1240px; margin: 0 auto; padding: 22px 28px 56px; }
     section.active { display: block; }
-    .legend { display: flex; flex-wrap: wrap; gap: 14px; margin: 8px 0 16px; color: var(--muted); font-size: 12px; }
-    .legend span { display: flex; align-items: center; gap: 6px; }
-    .dot { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
-    svg.arch { width: 100%; height: auto; background: var(--bg2); border: 1px solid var(--line); border-radius: 16px; }
+    .figcap {
+      font-family: var(--font-display); font-size: 22px; margin: 0 0 6px;
+    }
+    .figcap span { color: var(--sp-green); font-weight: 700; margin-right: 8px; }
+    .note { color: var(--sp-muted); margin: 0 0 16px; max-width: 820px; }
+    .legend { display: flex; flex-wrap: wrap; gap: 14px; margin: 0 0 14px; color: var(--sp-muted); font-size: 12px; font-weight: 600; }
+    .legend i { width: 11px; height: 11px; border-radius: 2px; display: inline-block; margin-right: 6px; vertical-align: -1px; }
+    svg.arch {
+      width: 100%; height: auto;
+      background: var(--sp-strong);
+      border: 1px solid var(--sp-line);
+      box-shadow: 0 16px 42px rgb(33 44 51 / 0.05);
+    }
     .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
-    .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
-    .card h3 { margin: 0 0 8px; font-size: 15px; }
-    .card h3 em { font-style: normal; color: var(--muted); font-weight: 500; font-size: 12px; margin-left: 6px; }
+    .card {
+      border: 1px solid var(--sp-line); background: var(--sp-strong);
+      box-shadow: 0 16px 42px rgb(33 44 51 / 0.05);
+      border-radius: 8px; padding: 16px 16px 8px;
+    }
+    .card h3 { margin: 0 0 10px; font-size: 15px; }
+    .card h3 em { font-style: normal; color: var(--sp-soft); font-weight: 500; font-size: 12px; margin-left: 6px; }
     table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
-    th { color: var(--muted); font-weight: 600; }
-    code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: #c7d2fe; }
-    .path { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 10px 0 18px; }
-    .box { background: var(--bg2); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; min-width: 90px; }
-    .box b { display: block; font-size: 12px; }
-    .box small { color: var(--muted); }
-    .arrow { color: var(--muted); }
-    footer { padding: 8px 32px 32px; color: var(--muted); font-size: 12px; }
-    a { color: #93c5fd; }
+    th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--sp-line); vertical-align: top; }
+    th { color: var(--sp-soft); font-weight: 600; width: 28%; }
+    .path { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 18px; }
+    .box {
+      background: rgb(251 249 242 / 0.86); border: 1px solid var(--sp-line);
+      border-radius: 6px; padding: 8px 10px; min-width: 92px;
+    }
+    .box b { display: block; font-size: 12.5px; }
+    .box small { color: var(--sp-soft); font-size: 11px; }
+    .arrow { color: var(--sp-green); font-weight: 700; }
+    footer {
+      max-width: 1240px; margin: 0 auto; padding: 0 28px 40px;
+      color: var(--sp-soft); font-size: 12px; border-top: 1px solid var(--sp-line);
+      padding-top: 18px;
+    }
   </style>
 </head>
 <body>
   <header>
-    <h1>ViKnow2 Online Prod · 阿里云部署图</h1>
-    <p>
-      地域 <code>cn-hangzhou</code>，ACK <code>viknow2-online-prod</code>（<code>c0790f80e575446b796a1fbdbf1d8d0d3</code>），
-      VPC <code>vpc-bp1k0fydp48xawwnezmqs</code> / <code>10.200.0.0/16</code>。
-      图根据 236 上 <code>deploy/ack/*.yaml</code>、线上 inventory，以及 2026-09-18 公网探测汇总。
-      <strong>无 ACK kubeconfig，未直接列 Pod</strong>；未改任何云资源。
+    <div class="kicker">
+      <span class="mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+      Specimen sheet · Nature Muted 8
+    </div>
+    <h1>ViKnow2 online prod,<br />composed as a figure.</h1>
+    <p class="lede">
+      阿里云杭州 ACK <code>viknow2-online-prod</code> 的只读部署图。视觉系统取自
+      <a href="https://scipalette.fantasticjoe.com/">SciPalette</a>
+      （纸色、柏树绿、麦田色），图层色用 Nature Muted 8。
+      无 kubeconfig，未列实时 Pod；未改云资源。
     </p>
+    <div class="swatches" title="Nature Muted 8">
+      <b style="background:#4E79A7"></b><b style="background:#F28E2B"></b>
+      <b style="background:#E15759"></b><b style="background:#76B7B2"></b>
+      <b style="background:#59A14F"></b><b style="background:#EDC948"></b>
+      <b style="background:#B07AA1"></b><b style="background:#FF9DA7"></b>
+    </div>
     <div class="meta">
-      <span class="chip ok">ai.qingxiang.tech → 200（236 Nginx）</span>
-      <span class="chip ok">viknow.ai:8088 → 200（236 Nginx）</span>
-      <span class="chip ok">langfuse.ai /api/public/health → 200 v3.163.0（ALB HTTP）</span>
-      <span class="chip info">:8443 /v1/models → 401（网关在线需鉴权）</span>
+      <span class="chip">ai.qingxiang.tech → 200 · 236 Nginx</span>
+      <span class="chip">viknow.ai:8088 → 200</span>
+      <span class="chip">langfuse health OK v3.163.0 · ALB</span>
+      <span class="chip info">:8443 /v1/models → 401</span>
       <span class="chip warn">HTTPS :443 未通</span>
-      <span class="chip warn">GPU 仍在 236，ACK 无推理池</span>
+      <span class="chip warn">GPU 仍在 236</span>
     </div>
   </header>
 
   <nav class="tabs">
-    <button class="active" data-tab="overview">总览</button>
-    <button data-tab="traffic">流量路径</button>
-    <button data-tab="ack">ACK 工作负载</button>
-    <button data-tab="data">数据与镜像</button>
-    <button data-tab="notes">缺口与漂移</button>
+    <button class="active" data-tab="overview">Fig. 1 总览</button>
+    <button data-tab="traffic">Fig. 2 流量</button>
+    <button data-tab="ack">Fig. 3 工作负载</button>
+    <button data-tab="data">Fig. 4 数据面</button>
+    <button data-tab="notes">Notes 缺口</button>
   </nav>
 
   <section id="overview" class="active">
+    <p class="figcap"><span>Fig. 1</span>Deployment topology</p>
+    <p class="note">VPC <code>10.200.0.0/16</code> · 集群 <code>c0790f80e575446b796a1fbdbf1d8d0d3</code> · 资源组 <code>rg-acfmxcqmfgej3ry</code>。探测日 2026-09-18。</p>
     <div class="legend">
-      <span><i class="dot" style="background:var(--user)"></i>用户入口</span>
-      <span><i class="dot" style="background:var(--edge)"></i>236 边缘 / GPU</span>
-      <span><i class="dot" style="background:var(--ack)"></i>ACK 集群</span>
-      <span><i class="dot" style="background:var(--app)"></i>app 池</span>
-      <span><i class="dot" style="background:var(--data)"></i>data 池</span>
-      <span><i class="dot" style="background:var(--cloud)"></i>托管云服务</span>
-      <span><i class="dot" style="background:var(--idle)"></i>已规划未用 / 备案绕行</span>
+      <span><i style="background:#4E79A7"></i>用户入口</span>
+      <span><i style="background:#F28E2B"></i>236 边缘 / GPU</span>
+      <span><i style="background:#76B7B2"></i>ALB</span>
+      <span><i style="background:#59A14F"></i>ACK app 池</span>
+      <span><i style="background:#B07AA1"></i>ACK data 池</span>
+      <span><i style="background:#EDC948"></i>托管云服务</span>
+      <span><i style="background:#E15759"></i>绕行 / 残留</span>
     </div>
-    <svg class="arch" viewBox="0 0 1280 820" role="img" aria-label="阿里云 online prod 部署总览">
+    <svg class="arch" viewBox="0 0 1280 800" role="img" aria-label="SciPalette 风格阿里云部署总览">
       <defs>
-        <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-          <path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b"/>
+        <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 1.2 L 9 5 L 0 8.8" fill="none" stroke="#4f6d5f" stroke-width="1.4"/>
         </marker>
       </defs>
-      <rect x="24" y="18" width="1232" height="70" rx="12" fill="#17233a" stroke="#2a3b5c"/>
-      <text x="44" y="48" fill="#7dd3fc" font-size="16" font-weight="700">用户 / 公网</text>
-      <text x="44" y="70" fill="#93a0bf" font-size="12">DNS A → 36.103.198.236（Web 三级/二级域名）；Langfuse 主机走 ALB HTTP</text>
-      <rect x="520" y="32" width="210" height="42" rx="8" fill="#0b1220" stroke="#7dd3fc"/>
-      <text x="625" y="58" text-anchor="middle" fill="#e8eefc" font-size="13">浏览器 / API 调用方</text>
 
-      <rect x="24" y="108" width="600" height="220" rx="14" fill="#1a160c" stroke="#fbbf24"/>
-      <text x="44" y="136" fill="#fbbf24" font-size="16" font-weight="700">236 边缘机 · 推理 + 反代</text>
-      <text x="44" y="156" fill="#93a0bf" font-size="12">36.103.198.236 · 容器 viknow-ai-alb-proxy（nginx 1.29.4）监听 :80 / :8088</text>
-      <rect x="44" y="176" width="260" height="64" rx="8" fill="#0b1220" stroke="#fbbf24"/>
-      <text x="58" y="202" fill="#e8eefc" font-size="13">Nginx 反代 Web</text>
-      <text x="58" y="222" fill="#93a0bf" font-size="11">ai.qingxiang.tech:80</text>
-      <text x="58" y="236" fill="#93a0bf" font-size="11">viknow.ai.qingxiang.tech:8088</text>
-      <rect x="320" y="176" width="280" height="64" rx="8" fill="#0b1220" stroke="#fbbf24"/>
-      <text x="336" y="202" fill="#e8eefc" font-size="13">模型网关 / Actio（GPU 全在此）</text>
-      <text x="336" y="222" fill="#93a0bf" font-size="11">:8443 LLM/ASR · :8601 Embed · :8602 Rerank</text>
-      <text x="336" y="236" fill="#93a0bf" font-size="11">:8703 Actio split/ASR · ACK 无 GPU 池</text>
-      <rect x="44" y="252" width="556" height="56" rx="8" fill="#0b1220" stroke="#64748b"/>
-      <text x="58" y="276" fill="#e8eefc" font-size="13">DNAT 上游</text>
-      <text x="58" y="294" fill="#93a0bf" font-size="11">proxy_pass http://115.29.178.3:15174  →  ACK NodePort 30542（Host 改写为该 IP 以绕过备案拦截）</text>
+      <rect x="24" y="20" width="1232" height="68" rx="4" fill="#fbf9f2" stroke="#dadcd6"/>
+      <rect x="24" y="20" width="8" height="68" fill="#4E79A7"/>
+      <text x="48" y="46" fill="#212c33" font-family="Georgia, 'Noto Serif SC', serif" font-size="18">Users / public edge</text>
+      <text x="48" y="68" fill="#4f6d5f" font-size="12">DNS A → 36.103.198.236；Langfuse 主机走 ALB HTTP</text>
+      <rect x="980" y="34" width="250" height="40" rx="4" fill="#f8f5ec" stroke="#4E79A7"/>
+      <text x="1105" y="59" text-anchor="middle" fill="#212c33" font-size="13">浏览器 / API 调用方</text>
 
-      <rect x="656" y="108" width="600" height="220" rx="14" fill="#101828" stroke="#64748b"/>
-      <text x="676" y="136" fill="#94a3b8" font-size="16" font-weight="700">阿里云 ALB Ingress</text>
-      <text x="676" y="156" fill="#93a0bf" font-size="12">AlbConfig viknow2-online-alb · Internet · :80 HTTP · 交换机 hangzhou-k + hangzhou-i</text>
-      <rect x="676" y="176" width="270" height="64" rx="8" fill="#0b1220" stroke="#4ade80"/>
-      <text x="690" y="202" fill="#e8eefc" font-size="13">langfuse-public  Ingress</text>
-      <text x="690" y="222" fill="#93a0bf" font-size="11">langfuse.ai.qingxiang.tech → svc/langfuse:3000</text>
-      <text x="690" y="236" fill="#4ade80" font-size="11">2026-09-18 health OK v3.163.0</text>
-      <rect x="960" y="176" width="270" height="64" rx="8" fill="#0b1220" stroke="#64748b"/>
-      <text x="974" y="202" fill="#e8eefc" font-size="13">viknow-public Ingress</text>
-      <text x="974" y="222" fill="#93a0bf" font-size="11">ai / viknow.ai → svc/viknow:5174</text>
-      <text x="974" y="236" fill="#fca5a5" font-size="11">现网 Web 不走这条，备案曾拦截</text>
-      <rect x="676" y="252" width="554" height="56" rx="8" fill="#0b1220" stroke="#64748b"/>
-      <text x="690" y="276" fill="#e8eefc" font-size="13">TLS / :443</text>
-      <text x="690" y="294" fill="#fca5a5" font-size="11">公网 HTTPS 探测失败（EOF / handshake timeout），备案后才切 setup-viknow-ai-dns.sh --via-alb</text>
+      <rect x="24" y="106" width="604" height="214" rx="4" fill="#fbf9f2" stroke="#dadcd6"/>
+      <rect x="24" y="106" width="8" height="214" fill="#F28E2B"/>
+      <text x="48" y="132" fill="#212c33" font-family="Georgia, 'Noto Serif SC', serif" font-size="17">236 边缘机 · 推理 + 反代</text>
+      <text x="48" y="152" fill="#4f6d5f" font-size="11">36.103.198.236 · viknow-ai-alb-proxy · nginx 1.29.4 · :80 / :8088</text>
+      <rect x="48" y="168" width="268" height="62" rx="3" fill="#f8f5ec" stroke="#dadcd6"/>
+      <text x="60" y="192" fill="#212c33" font-size="13">Nginx 反代 Web</text>
+      <text x="60" y="210" fill="#4f6d5f" font-size="11">ai.qingxiang.tech:80 · viknow.ai:8088</text>
+      <rect x="328" y="168" width="276" height="62" rx="3" fill="#f8f5ec" stroke="#dadcd6"/>
+      <text x="340" y="192" fill="#212c33" font-size="13">模型网关 / Actio（GPU 全在此）</text>
+      <text x="340" y="210" fill="#4f6d5f" font-size="11">:8443 LLM · :8601 Embed · :8602 Rerank · :8703</text>
+      <rect x="48" y="242" width="556" height="58" rx="3" fill="#f8f5ec" stroke="#dadcd6"/>
+      <text x="60" y="266" fill="#212c33" font-size="13">DNAT 上游</text>
+      <text x="60" y="284" fill="#4f6d5f" font-size="11">proxy_pass http://115.29.178.3:15174 → NodePort 30542（Host 改写绕过备案）</text>
 
-      <rect x="24" y="348" width="1232" height="268" rx="14" fill="#0f241c" stroke="#34d399"/>
-      <text x="44" y="376" fill="#34d399" font-size="16" font-weight="700">ACK viknow2-online-prod · 资源组 rg-acfmxcqmfgej3ry</text>
-      <text x="44" y="396" fill="#93a0bf" font-size="12">命名空间规划 viknow-app / viknow-data / viknow-inference / viknow-video（后两个空，GPU 与视频池暂缓）</text>
+      <rect x="652" y="106" width="604" height="214" rx="4" fill="#fbf9f2" stroke="#dadcd6"/>
+      <rect x="652" y="106" width="8" height="214" fill="#76B7B2"/>
+      <text x="676" y="132" fill="#212c33" font-family="Georgia, 'Noto Serif SC', serif" font-size="17">阿里云 ALB Ingress</text>
+      <text x="676" y="152" fill="#4f6d5f" font-size="11">viknow2-online-alb · Internet · HTTP/80 · 交换机 hangzhou-k + i</text>
+      <rect x="676" y="168" width="276" height="62" rx="3" fill="#f8f5ec" stroke="#59A14F"/>
+      <text x="688" y="192" fill="#212c33" font-size="13">langfuse-public</text>
+      <text x="688" y="210" fill="#4f6d5f" font-size="11">health OK v3.163.0 · svc/langfuse:3000</text>
+      <rect x="964" y="168" width="268" height="62" rx="3" fill="#f8f5ec" stroke="#E15759"/>
+      <text x="976" y="192" fill="#212c33" font-size="13">viknow-public Ingress</text>
+      <text x="976" y="210" fill="#9b2c2c" font-size="11">现网 Web 不走这条，备案曾拦截</text>
+      <rect x="676" y="242" width="556" height="58" rx="3" fill="#f8f5ec" stroke="#dadcd6"/>
+      <text x="688" y="266" fill="#212c33" font-size="13">TLS / :443</text>
+      <text x="688" y="284" fill="#9b2c2c" font-size="11">公网 HTTPS 探测失败；备案后才切 --via-alb</text>
 
-      <rect x="44" y="412" width="430" height="184" rx="10" fill="#0b1220" stroke="#60a5fa"/>
-      <text x="60" y="436" fill="#60a5fa" font-size="14" font-weight="700">default 节点池 = app 池</text>
-      <text x="60" y="454" fill="#93a0bf" font-size="11">ecs.g7.xlarge ×2 · taint app:NoSchedule</text>
-      <text x="60" y="478" fill="#e8eefc" font-size="13">ns viknow-app</text>
-      <text x="60" y="500" fill="#cbd5e1" font-size="12">viknow ×1 · :5174 NodePort 30542 · 4–8Gi · bwrap</text>
-      <text x="60" y="518" fill="#cbd5e1" font-size="12">langfuse-web :3000 · worker :3030 · v3.163.0</text>
-      <text x="60" y="536" fill="#cbd5e1" font-size="12">配置真源 deploy/ack/runtime/ + Secret viknow-env</text>
-      <text x="60" y="560" fill="#93a0bf" font-size="11">userns=65536（沙箱）· Langfuse 追踪关闭</text>
-      <text x="60" y="576" fill="#93a0bf" font-size="11">np3dec3322d0954f0b9a2318f45e0c9c27</text>
+      <rect x="24" y="340" width="1232" height="262" rx="4" fill="#fbf9f2" stroke="#dadcd6"/>
+      <rect x="24" y="340" width="8" height="262" fill="#59A14F"/>
+      <text x="48" y="366" fill="#212c33" font-family="Georgia, 'Noto Serif SC', serif" font-size="17">ACK viknow2-online-prod</text>
+      <text x="48" y="386" fill="#4f6d5f" font-size="11">ns 规划 app / data / inference / video（后两个空，GPU 与视频池暂缓）</text>
 
-      <rect x="490" y="412" width="430" height="184" rx="10" fill="#0b1220" stroke="#c084fc"/>
-      <text x="506" y="436" fill="#c084fc" font-size="14" font-weight="700">viknow-data 节点池 = data 池</text>
-      <text x="506" y="454" fill="#93a0bf" font-size="11">ecs.r7.large ×1 · taint data:NoSchedule</text>
-      <text x="506" y="478" fill="#e8eefc" font-size="13">ns viknow-data</text>
-      <text x="506" y="500" fill="#cbd5e1" font-size="12">neo4j-0 bolt 7687 · PVC 50Gi · DozerDB 5.26.3.0</text>
-      <text x="506" y="518" fill="#cbd5e1" font-size="12">clickhouse-0 8123/9000 · PVC 50+20Gi · OLAP</text>
-      <text x="506" y="536" fill="#cbd5e1" font-size="12">redis-langfuse 6379 · 512Mi · 与 Tair 隔离</text>
-      <text x="506" y="560" fill="#fca5a5" font-size="11">postgres.yaml 残留 · 业务库已改 RDS</text>
-      <text x="506" y="576" fill="#93a0bf" font-size="11">VPC Registry litesense/* · Secret acr-litesense</text>
+      <rect x="48" y="402" width="430" height="180" rx="3" fill="#f8f5ec" stroke="#59A14F"/>
+      <text x="64" y="426" fill="#59A14F" font-size="14" font-weight="700">default = app 池</text>
+      <text x="64" y="444" fill="#4f6d5f" font-size="11">ecs.g7.xlarge ×2 · taint app:NoSchedule</text>
+      <text x="64" y="468" fill="#212c33" font-size="13">ns viknow-app</text>
+      <text x="64" y="488" fill="#212c33" font-size="12">viknow ×1 · :5174 NodePort 30542 · 4–8Gi · bwrap</text>
+      <text x="64" y="506" fill="#212c33" font-size="12">langfuse-web :3000 · worker :3030 · v3.163.0</text>
+      <text x="64" y="524" fill="#4f6d5f" font-size="11">runtime ConfigMap + Secret viknow-env</text>
+      <text x="64" y="542" fill="#4f6d5f" font-size="11">userns=65536 · Langfuse 追踪关闭</text>
+      <text x="64" y="560" fill="#4f6d5f" font-size="11">np3dec3322d0954f0b9a2318f45e0c9c27</text>
 
-      <rect x="936" y="412" width="300" height="184" rx="10" fill="#0b1220" stroke="#64748b"/>
-      <text x="952" y="436" fill="#94a3b8" font-size="14" font-weight="700">ack-system 系统池</text>
-      <text x="952" y="454" fill="#93a0bf" font-size="11">npacd9ad710bba42018ef6d342344a159d</text>
-      <text x="952" y="478" fill="#cbd5e1" font-size="12">ecs.c7.xlarge ×2</text>
-      <text x="952" y="496" fill="#cbd5e1" font-size="12">ACK 系统组件 / ALB Ingress Controller</text>
-      <text x="952" y="528" fill="#94a3b8" font-size="12">未建</text>
-      <text x="952" y="546" fill="#cbd5e1" font-size="12">viknow-inference GPU 池 — 暂缓</text>
-      <text x="952" y="564" fill="#cbd5e1" font-size="12">viknow-video 池 — 暂缓</text>
+      <rect x="494" y="402" width="430" height="180" rx="3" fill="#f8f5ec" stroke="#B07AA1"/>
+      <text x="510" y="426" fill="#B07AA1" font-size="14" font-weight="700">viknow-data = data 池</text>
+      <text x="510" y="444" fill="#4f6d5f" font-size="11">ecs.r7.large ×1 · taint data:NoSchedule</text>
+      <text x="510" y="468" fill="#212c33" font-size="13">ns viknow-data</text>
+      <text x="510" y="488" fill="#212c33" font-size="12">neo4j-0 bolt 7687 · PVC 50Gi · DozerDB 5.26.3.0</text>
+      <text x="510" y="506" fill="#212c33" font-size="12">clickhouse-0 8123/9000 · PVC 50+20Gi · OLAP</text>
+      <text x="510" y="524" fill="#212c33" font-size="12">redis-langfuse 6379 · 512Mi · 与 Tair 隔离</text>
+      <text x="510" y="542" fill="#9b2c2c" font-size="11">postgres.yaml 残留 · 业务库已改 RDS</text>
+      <text x="510" y="560" fill="#4f6d5f" font-size="11">VPC Registry litesense/* · acr-litesense</text>
 
-      <rect x="24" y="636" width="1232" height="164" rx="14" fill="#2a1b10" stroke="#fb923c"/>
-      <text x="44" y="664" fill="#fb923c" font-size="16" font-weight="700">托管云服务（同 VPC，白名单 10.200.0.0/16）</text>
-      <rect x="44" y="680" width="290" height="100" rx="8" fill="#0b1220" stroke="#fb923c"/>
-      <text x="58" y="706" fill="#e8eefc" font-size="13">RDS PostgreSQL 18 Serverless</text>
-      <text x="58" y="726" fill="#93a0bf" font-size="11">pgm-bp1w599n2k4myby5:5432</text>
-      <text x="58" y="742" fill="#93a0bf" font-size="11">库 viknow + langfuse；JuiceFS schema</text>
-      <text x="58" y="758" fill="#93a0bf" font-size="11">vector 0.8.1.2 · pg_textsearch 1.3.1</text>
-      <rect x="350" y="680" width="290" height="100" rx="8" fill="#0b1220" stroke="#fb923c"/>
-      <text x="364" y="706" fill="#e8eefc" font-size="13">Tair 云原生 Redis 7.0 1G</text>
-      <text x="364" y="726" fill="#93a0bf" font-size="11">r-bp1906dbd6175a24:6379 · db0 ViKnow 队列</text>
-      <text x="364" y="742" fill="#93a0bf" font-size="11">Langfuse 不复用，走 ACK redis-langfuse</text>
-      <text x="364" y="758" fill="#fca5a5" font-size="11">tt-bp1logor6p50p15b1 DynamoDB 工作区已废弃</text>
-      <rect x="656" y="680" width="290" height="100" rx="8" fill="#0b1220" stroke="#fb923c"/>
-      <text x="670" y="706" fill="#e8eefc" font-size="13">OSS · oss-cn-hangzhou</text>
-      <text x="670" y="726" fill="#93a0bf" font-size="11">juicefs-viknow ← JuiceFS 对象层</text>
-      <text x="670" y="742" fill="#93a0bf" font-size="11">langfuse-viknow ← events/media</text>
-      <text x="670" y="758" fill="#93a0bf" font-size="11">内网 oss-cn-hangzhou-internal · virtual-hosted</text>
-      <rect x="962" y="680" width="270" height="100" rx="8" fill="#0b1220" stroke="#fb923c"/>
-      <text x="976" y="706" fill="#e8eefc" font-size="13">ACR 个人版 litesense</text>
-      <text x="976" y="726" fill="#93a0bf" font-size="11">公网 registry.cn-hangzhou（推送）</text>
-      <text x="976" y="742" fill="#93a0bf" font-size="11">VPC registry-vpc（ACK pull）</text>
-      <text x="976" y="758" fill="#93a0bf" font-size="11">app / neo4j / ch / redis / langfuse</text>
+      <rect x="940" y="402" width="292" height="180" rx="3" fill="#f8f5ec" stroke="#dadcd6"/>
+      <text x="956" y="426" fill="#4f6d5f" font-size="14" font-weight="700">ack-system</text>
+      <text x="956" y="444" fill="#4f6d5f" font-size="11">ecs.c7.xlarge ×2</text>
+      <text x="956" y="468" fill="#212c33" font-size="12">ACK 系统组件 / ALB Controller</text>
+      <text x="956" y="500" fill="#4f6d5f" font-size="12">未建</text>
+      <text x="956" y="520" fill="#212c33" font-size="12">viknow-inference GPU 池 — 暂缓</text>
+      <text x="956" y="538" fill="#212c33" font-size="12">viknow-video 池 — 暂缓</text>
+      <text x="956" y="560" fill="#4f6d5f" font-size="11">npacd9ad710bba42018ef6d342344a159d</text>
 
-      <line x1="640" y1="88" x2="640" y2="108" stroke="#64748b" marker-end="url(#arr)"/>
-      <line x1="174" y1="328" x2="174" y2="348" stroke="#64748b" marker-end="url(#arr)"/>
-      <line x1="810" y1="328" x2="810" y2="348" stroke="#64748b" marker-end="url(#arr)"/>
-      <line x1="640" y1="616" x2="640" y2="636" stroke="#64748b" marker-end="url(#arr)"/>
+      <rect x="24" y="622" width="1232" height="158" rx="4" fill="#fbf9f2" stroke="#dadcd6"/>
+      <rect x="24" y="622" width="8" height="158" fill="#EDC948"/>
+      <text x="48" y="648" fill="#212c33" font-family="Georgia, 'Noto Serif SC', serif" font-size="17">Managed cloud · same VPC whitelist 10.200.0.0/16</text>
+      <rect x="48" y="664" width="286" height="96" rx="3" fill="#f8f5ec" stroke="#dadcd6"/>
+      <text x="62" y="688" fill="#212c33" font-size="13">RDS PostgreSQL 18 Serverless</text>
+      <text x="62" y="706" fill="#4f6d5f" font-size="11">pgm-bp1w599n2k4myby5:5432</text>
+      <text x="62" y="722" fill="#4f6d5f" font-size="11">库 viknow + langfuse · JuiceFS schema</text>
+      <text x="62" y="738" fill="#4f6d5f" font-size="11">vector 0.8.1.2 · pg_textsearch 1.3.1</text>
+      <rect x="350" y="664" width="286" height="96" rx="3" fill="#f8f5ec" stroke="#dadcd6"/>
+      <text x="364" y="688" fill="#212c33" font-size="13">Tair 云原生 Redis 7.0 1G</text>
+      <text x="364" y="706" fill="#4f6d5f" font-size="11">r-bp1906dbd6175a24:6379 · db0 ViKnow</text>
+      <text x="364" y="722" fill="#4f6d5f" font-size="11">Langfuse 走 ACK redis-langfuse</text>
+      <text x="364" y="738" fill="#9b2c2c" font-size="11">tt-bp1logor6p50p15b1 已废弃</text>
+      <rect x="652" y="664" width="286" height="96" rx="3" fill="#f8f5ec" stroke="#dadcd6"/>
+      <text x="666" y="688" fill="#212c33" font-size="13">OSS · oss-cn-hangzhou</text>
+      <text x="666" y="706" fill="#4f6d5f" font-size="11">juicefs-viknow ← JuiceFS</text>
+      <text x="666" y="722" fill="#4f6d5f" font-size="11">langfuse-viknow ← events/media</text>
+      <text x="666" y="738" fill="#4f6d5f" font-size="11">internal endpoint · virtual-hosted</text>
+      <rect x="954" y="664" width="278" height="96" rx="3" fill="#f8f5ec" stroke="#dadcd6"/>
+      <text x="968" y="688" fill="#212c33" font-size="13">ACR 个人版 litesense</text>
+      <text x="968" y="706" fill="#4f6d5f" font-size="11">公网 registry.cn-hangzhou 推送</text>
+      <text x="968" y="722" fill="#4f6d5f" font-size="11">VPC registry-vpc ACK pull</text>
+      <text x="968" y="738" fill="#4f6d5f" font-size="11">app / neo4j / ch / redis / langfuse</text>
     </svg>
   </section>
 
   <section id="traffic">
-    <h2 style="margin-top:0">现网流量（2026-09-18 探测）</h2>
-    <p style="color:var(--muted)">Web 主路径仍是 236 Nginx → NAT，不是 ALB。Langfuse 公网 HTTP 已打到 ALB 且 health OK。</p>
-
+    <p class="figcap"><span>Fig. 2</span>Observed traffic, 2026-09-18</p>
+    <p class="note">Web 主路径仍是 236 Nginx → NAT，不是 ALB。Langfuse 公网 HTTP 已打到 ALB 且 health OK。</p>
     <div class="path">
       <div class="box"><b>用户</b><small>浏览器</small></div><span class="arrow">→ :80</span>
       <div class="box"><b>ai.qingxiang.tech</b><small>236 Nginx</small></div><span class="arrow">→</span>
@@ -251,24 +331,23 @@
       <div class="box"><b>clickhouse</b></div>
       <div class="box"><b>OSS langfuse-viknow</b></div>
     </div>
-
     <div class="grid">
       <article class="card">
         <h3>236 Nginx 反代 <em>viknow-ai-alb-proxy</em></h3>
         <table>
-          <tr><th>监听</th><td><code>:8088</code> server_name viknow.ai.qingxiang.tech</td></tr>
-          <tr><th>监听</th><td><code>:80</code> server_name ai.qingxiang.tech</td></tr>
+          <tr><th>监听</th><td><code>:8088</code> viknow.ai.qingxiang.tech</td></tr>
+          <tr><th>监听</th><td><code>:80</code> ai.qingxiang.tech</td></tr>
           <tr><th>上游</th><td><code>http://115.29.178.3:15174</code></td></tr>
-          <tr><th>Host</th><td>改写为 <code>115.29.178.3</code>（绕过公网 Host 备案拦截）</td></tr>
-          <tr><th>Server</th><td>响应头 <code>nginx/1.29.4</code></td></tr>
+          <tr><th>Host</th><td>改写为 <code>115.29.178.3</code></td></tr>
+          <tr><th>Server</th><td><code>nginx/1.29.4</code></td></tr>
         </table>
       </article>
       <article class="card">
         <h3>ALB <em>viknow2-online-alb</em></h3>
         <table>
           <tr><th>类型</th><td>Internet，监听 HTTP/80</td></tr>
-          <tr><th>交换机</th><td><code>vsw-bp1u1rmkslqf69762edau</code>（k，集群）<br/><code>vsw-bp1c8hnf11qhco6d5dhs9</code>（i）</td></tr>
-          <tr><th>IngressClass</th><td><code>alb</code> / <code>ingress.k8s.alibabacloud/alb</code></td></tr>
+          <tr><th>交换机</th><td><code>vsw-bp1u1rmkslqf69762edau</code>（k）<br/><code>vsw-bp1c8hnf11qhco6d5dhs9</code>（i）</td></tr>
+          <tr><th>IngressClass</th><td><code>alb</code></td></tr>
           <tr><th>现网</th><td>Langfuse HTTP 可用；ViKnow Web 仍走 236；HTTPS 不通</td></tr>
         </table>
       </article>
@@ -276,14 +355,15 @@
   </section>
 
   <section id="ack">
-    <h2 style="margin-top:0">ACK 工作负载（来自 deploy/ack manifests + inventory）</h2>
+    <p class="figcap"><span>Fig. 3</span>ACK workloads</p>
+    <p class="note">来自 <code>deploy/ack</code> manifests 与线上 inventory，不是实时 <code>kubectl get</code>。</p>
     <div class="grid">
       <article class="card">
         <h3>节点池</h3>
         <table>
           <tr><th>控制台名</th><th>角色</th><th>规格</th></tr>
           <tr><td>ack-system</td><td>系统</td><td>ecs.c7.xlarge ×2</td></tr>
-          <tr><td>default</td><td>app（文档「app 池」）</td><td>ecs.g7.xlarge ×2，taint app</td></tr>
+          <tr><td>default</td><td>app 池</td><td>ecs.g7.xlarge ×2，taint app</td></tr>
           <tr><td>viknow-data</td><td>数据</td><td>ecs.r7.large ×1，taint data</td></tr>
         </table>
       </article>
@@ -291,9 +371,9 @@
         <h3>viknow-app</h3>
         <table>
           <tr><td>Service viknow</td><td>NodePort 5174:30542</td></tr>
-          <tr><td>Deploy viknow</td><td>1 副本，:5174，privileged，runtime 配置</td></tr>
+          <tr><td>Deploy viknow</td><td>1 副本，privileged，runtime 配置</td></tr>
           <tr><td>Service langfuse</td><td>NodePort :3000</td></tr>
-          <tr><td>Deploy langfuse-web/worker</td><td>v3.163.0，envFrom langfuse-env</td></tr>
+          <tr><td>Deploy langfuse-web/worker</td><td>v3.163.0</td></tr>
           <tr><td>Ingress</td><td>langfuse-public、viknow-public</td></tr>
         </table>
       </article>
@@ -310,65 +390,66 @@
     <article class="card" style="margin-top:14px">
       <h3>发布约定</h3>
       <table>
-        <tr><th>改配置</th><td><code>deploy/ack/runtime/</code> + <code>bootstrap-viknow-app-config.sh</code>（不读 config/online）</td></tr>
-        <tr><th>只换镜像</th><td><code>deploy/ack/deploy-viknow-app.sh</code> / Gitea <code>deploy-ack.yml</code></td></tr>
-        <tr><th>镜像格式</th><td>推送 <code>registry.cn-hangzhou.aliyuncs.com/litesense/viknow2-app:&lt;sha12&gt;</code>；Pod 用 VPC Registry</td></tr>
-        <tr><th>排障要点</th><td>Service 必须保持 NodePort 30542，否则 236/ALB 全 502</td></tr>
+        <tr><th>改配置</th><td><code>deploy/ack/runtime/</code> + <code>bootstrap-viknow-app-config.sh</code></td></tr>
+        <tr><th>只换镜像</th><td><code>deploy-viknow-app.sh</code> / Gitea <code>deploy-ack.yml</code></td></tr>
+        <tr><th>镜像</th><td>公网推送，Pod 用 VPC Registry</td></tr>
+        <tr><th>排障</th><td>Service 必须保持 NodePort 30542</td></tr>
       </table>
     </article>
   </section>
 
   <section id="data">
-    <h2 style="margin-top:0">数据面与镜像</h2>
+    <p class="figcap"><span>Fig. 4</span>Data plane and images</p>
     <div class="grid">
       <article class="card">
         <h3>RDS / Tair / OSS</h3>
         <table>
-          <tr><th>RDS</th><td>PG18 Serverless，<code>pgm-bp1w599n2k4myby5.rwlb.rds.aliyuncs.com:5432</code>，库 viknow + langfuse</td></tr>
-          <tr><th>Tair</th><td>云原生 Redis 7 <code>r-bp1906dbd6175a24</code>，仅 ViKnow</td></tr>
-          <tr><th>OSS</th><td><code>juicefs-viknow</code>（JuiceFS）、<code>langfuse-viknow</code>（Langfuse S3）</td></tr>
-          <tr><th>JuiceFS</th><td><code>JUICEFS_STORAGE=oss</code> + RDS schema <code>viknow_juicefs</code></td></tr>
+          <tr><th>RDS</th><td>PG18 Serverless，<code>pgm-bp1w599n2k4myby5</code>，库 viknow + langfuse</td></tr>
+          <tr><th>Tair</th><td>Redis 7 <code>r-bp1906dbd6175a24</code>，仅 ViKnow</td></tr>
+          <tr><th>OSS</th><td><code>juicefs-viknow</code>、<code>langfuse-viknow</code></td></tr>
+          <tr><th>JuiceFS</th><td><code>JUICEFS_STORAGE=oss</code> + schema <code>viknow_juicefs</code></td></tr>
         </table>
       </article>
       <article class="card">
-        <h3>ACR litesense（已推送，inventory）</h3>
+        <h3>ACR litesense</h3>
         <table>
-          <tr><td>viknow2-app</td><td>a0c964696168 等（线上 tag 随 CI 变）</td></tr>
+          <tr><td>viknow2-app</td><td>a0c964696168 等（CI 滚动）</td></tr>
           <tr><td>viknow2-neo4j</td><td>5.26.3.0</td></tr>
           <tr><td>viknow2-clickhouse</td><td>latest</td></tr>
           <tr><td>viknow2-redis</td><td>8</td></tr>
           <tr><td>viknow2-langfuse / worker</td><td>v3.163.0</td></tr>
-          <tr><td>viknow2-pgvector-textsearch</td><td>备用，ACK PG 已下线</td></tr>
-          <tr><td>viknow2-minio</td><td>备用，线上不用 MinIO</td></tr>
+          <tr><td>pgvector / minio</td><td>备用；线上 PG 在 RDS，不用 MinIO</td></tr>
         </table>
       </article>
     </div>
   </section>
 
   <section id="notes">
-    <h2 style="margin-top:0">这次摸底的缺口</h2>
+    <p class="figcap"><span>Notes</span>Gaps in this survey</p>
     <div class="grid">
       <article class="card">
-        <h3>无法从 Cloud Agent 直连 ACK API</h3>
-        <p>236 上 <code>kubectl</code> 无 context，无 <code>aliyun</code> CLI，无 AccessKey。节点/Pod Ready 以 2026-08-31 inventory 与今日公网探测为准，不是 <code>kubectl get pods</code>。</p>
+        <h3>无 ACK API</h3>
+        <p>236 上 kubectl 无 context，无 aliyun CLI，无 AccessKey。节点状态以 inventory + 公网探测为准。</p>
       </article>
       <article class="card">
         <h3>文档漂移</h3>
-        <p><code>deploy/ack/runtime/viknow-env.env.example</code> 仍写废弃 Tair <code>tt-bp1logor6p50p15b1</code>。inventory 与线上 Secret 已切到 <code>r-bp1906dbd6175a24</code>。仓库里 <code>postgres.yaml</code> 未删。</p>
+        <p><code>viknow-env.env.example</code> 仍写废弃 Tair <code>tt-bp1logor6p50p15b1</code>。线上已切 <code>r-bp1906dbd6175a24</code>。<code>postgres.yaml</code> 未从仓库删除。</p>
       </article>
       <article class="card">
-        <h3>相对 8 月底 inventory 的变化</h3>
-        <p>Langfuse 公网 HTTP health 已是 200（当时写「Ingress 待备案」）。ViKnow Web 仍走 236 DNAT。HTTPS 仍不通。236 上 GPU/Actio/网关端口仍在听。</p>
+        <h3>相对 8 月底</h3>
+        <p>Langfuse HTTP health 已是 200。ViKnow Web 仍走 236 DNAT。HTTPS 仍不通。</p>
       </article>
       <article class="card">
-        <h3>未写入本图的密钥</h3>
-        <p>密码、AK/SK、kubeconfig 原文不在此文件。真源仍是 236 本地 <code>config/online/infrastructure-inventory.md</code> / <code>deploy.env</code>。</p>
+        <h3>视觉来源</h3>
+        <p>站点气质来自 SciPalette / 《麦田与柏树》：纸色 <code>#f8f5ec</code>、墨 <code>#212c33</code>、柏树绿 <code>#4f6d5f</code>。分类色为 Nature Muted 8。</p>
       </article>
     </div>
   </section>
 
   <footer>
-    探测日 2026-09-18 · 跳板仓 <code>docs/aliyun-architecture.html</code> · 只读摸底，无云资源变更。
+    探测日 2026-09-18 · <code>docs/aliyun-architecture.html</code> · 风格参考
+    <a href="https://scipalette.fantasticjoe.com/">SciPalette</a>
+    （Cormorant / Source Sans / Nature Muted 8）。只读摸底，无密钥、无云资源变更。
   </footer>
   <script>
     const buttons = document.querySelectorAll("nav.tabs button");

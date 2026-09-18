@@ -29,6 +29,14 @@
 
 ## 变更记录（倒序）
 
+### 2026-09-18 部署图改为 SciPalette 视觉系统
+
+- 环境：跳板仓 `docs/aliyun-architecture.html`
+- 对象：同一张阿里云 online prod 部署图（无架构事实变更）
+- 动作：按 [SciPalette](https://scipalette.fantasticjoe.com/) 纸色/柏树绿/衬线标题，分类色用 Nature Muted 8（`#4E79A7`…）。未改云资源。
+- 结果：成功
+- 残留：无
+
 ### 2026-09-18 只读摸底阿里云 online prod 并画 HTML 部署图
 
 - 环境：Cloud Agent 跳板 + SSH `cursor-agent@36.103.198.236`；业务仓 `/home/cursor-agent/work/viknow2` 当时在 `main` `1876d8c`

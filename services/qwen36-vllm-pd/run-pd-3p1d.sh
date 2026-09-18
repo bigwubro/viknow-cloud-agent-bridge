@@ -2,9 +2,12 @@
 # One 3P+1D group behind 127.0.0.1:8500. Does not touch viknow2-test.
 set -euo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-IMAGE="${VLLM_IMAGE:-vllm-viknow:0.26.0-lmcache0.5.4-mmfix-r44688}"
+# Official 0.29.0. Custom vllm-viknow:0.26.0-lmcache0.5.4-mmfix-r44688 is left on disk.
+IMAGE="${VLLM_IMAGE:-vllm/vllm-openai:v0.29.0}"
 MODEL=/root/.cache/models/Qwen/Qwen3___6-35B-A3B-FP8
 SERVED=Qwen/Qwen3.6-35B-A3B-FP8
+# P and D must share this so NIXL page size matches.
+SPEC='{"method":"mtp","num_speculative_tokens":1}'
 
 # GPU0/1/2 prefill :8510/:8511/:8512, GPU3 decode :8513, proxy :8520, nginx :8500
 
@@ -24,6 +27,7 @@ COMMON=(
   --reasoning-parser qwen3
   --reasoning-config '{"reasoning_start_str":"<think>","reasoning_end_str":"</think>"}'
   --default-chat-template-kwargs '{"enable_thinking": false}'
+  --speculative-config "${SPEC}"
   --log-error-stack
   --uvicorn-log-level warning
 )
@@ -60,6 +64,7 @@ start_engine() {
     --device /dev/nvidia-caps/nvidia-cap2 \
     -v /data/twj/models:/root/.cache/models:ro \
     -v "${DIR}/sitecustomize.py:/usr/lib/python3.12/sitecustomize.py:ro" \
+    -v "${DIR}/sitecustomize.py:/usr/lib/python3.13/sitecustomize.py:ro" \
     -e NVIDIA_VISIBLE_DEVICES="${ALL_GPUS}" \
     -e PYTHONHASHSEED=0 \
     -e PYTHONUNBUFFERED=1 \

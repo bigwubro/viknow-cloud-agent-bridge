@@ -14,7 +14,8 @@
 - 3 卡出词 `:8513`
 - 代理 `:8520` 对三路预填充 least-inflight，出词固定一台
 - 四卡互相可见，保证 NIXL CUDA IPC
-- MTP 不要开：P/D 都开 MTP-1 时短请求正常，Workload B 长前缀在 D 侧 NIXL pull 触发 `SSM can only have one local block`，出词引擎直接死掉
+- 现网镜像：官方 `vllm/vllm-openai:v0.29.0`。自制 `vllm-viknow:0.26.0-lmcache0.5.4-mmfix-r44688` 留在磁盘，不删。
+- MTP-1：P/D 同开 `method=mtp, num_speculative_tokens=1`。0.26 上长前缀会炸 D；0.29 用来验收这条是否已过。
 
 启动会停掉现网 `vllm-vlm`（四卡混跑）。回滚：`./stop-pd-restore-dp4.sh`。
 

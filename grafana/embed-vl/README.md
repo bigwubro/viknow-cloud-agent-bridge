@@ -13,3 +13,5 @@ Grafana 8091 上这三张看板的 `Scheduler: running / waiting` 已重画：
 - 左轴绿色 running、红色 waiting，`or vector(0)` 保证永远有线
 - 右轴虚线 QPS，对照真实流量
 - 已写入 236 Grafana DB，并放在本目录
+
+这三张单独挂在 Grafana Dashboards 根列表（General），和 Reranker / Qwen3.6 同一层，不进 `ViKnow` 文件夹。`/var/lib/grafana/dashboards` 的 file provider 会把 JSON 收进 ViKnow，所以 embedding 文件已从那里拿掉，并用 Grafana API `folderId=0` 再存一次，文件夹视图才能列出来。

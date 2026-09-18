@@ -278,7 +278,6 @@
         <circle cx="0" cy="-8" r="10" fill="#8c4fff"/>
         <text y="22" text-anchor="middle" font-size="10" font-weight="700" fill="#1d1d1d">ALB</text>
         <text y="36" text-anchor="middle" font-size="8" fill="#5f6b7a">langfuse.ai</text>
-        <text y="62" text-anchor="middle" font-size="8" fill="#7a7a7a">viknow 未切</text>
       </g>
 
       <rect x="470" y="232" width="976" height="586" rx="4" fill="none" stroke="#f28e2b" stroke-width="2" stroke-dasharray="8 5"/>
@@ -362,32 +361,33 @@
       <polyline points="666,560 800,560 800,400 934,400" fill="none" stroke="#1d1d1d" stroke-width="1.8" marker-end="url(#arr)"/>
 
       <!-- ⑤ viknow → 236 GPU（ALB 下方进入 236 再上） -->
-      <polyline points="614,530 270,530 270,250 266,250" fill="none" stroke="#1d1d1d" stroke-width="1.8" marker-end="url(#arr)"/>
+      <polyline points="614,510 270,510 270,250 266,250" fill="none" stroke="#1d1d1d" stroke-width="1.8" marker-end="url(#arr)"/>
 
       <!-- ⑥ langfuse-web → worker → CH / redis -->
       <polyline points="664,400 720,400 720,710 664,710" fill="none" stroke="#1d1d1d" stroke-width="1.8" marker-end="url(#arr)"/>
       <polyline points="720,540 934,540" fill="none" stroke="#1d1d1d" stroke-width="1.8" marker-end="url(#arr)"/>
       <polyline points="720,680 934,680" fill="none" stroke="#1d1d1d" stroke-width="1.8" marker-end="url(#arr)"/>
 
-      <!-- ⑦ viknow → RDS / Tair / OSS（app 池右侧上到服务行上方） -->
+      <!-- ⑦ viknow → RDS / Tair / OSS（躲开 ACR 下拉） -->
       <polyline points="666,545 780,545 780,100 720,100" fill="none" stroke="#1d1d1d" stroke-width="1.8"/>
-      <line x1="780" y1="100" x2="1140" y2="100" stroke="#1d1d1d" stroke-width="1.8"/>
+      <line x1="780" y1="100" x2="900" y2="100" stroke="#1d1d1d" stroke-width="1.8"/>
+      <line x1="1088" y1="100" x2="1140" y2="100" stroke="#1d1d1d" stroke-width="1.8"/>
       <line x1="720" y1="100" x2="720" y2="112" stroke="#1d1d1d" stroke-width="1.8" marker-end="url(#arr)"/>
       <line x1="860" y1="100" x2="860" y2="114" stroke="#1d1d1d" stroke-width="1.8" marker-end="url(#arr)"/>
       <line x1="1140" y1="100" x2="1140" y2="112" stroke="#1d1d1d" stroke-width="1.8" marker-end="url(#arr)"/>
 
       <!-- ⑧ ALB viknow-public 未切 -->
-      <polyline points="428,500 500,500 500,545 610,545" fill="none" stroke="#7a7a7a" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#arrG)"/>
+      <polyline points="428,500 500,500 500,535 610,535" fill="none" stroke="#7a7a7a" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#arrG)"/>
 
       <!-- ⑨ Actio → OSS（底边 + 右侧） -->
-      <polyline points="266,720 266,800 1432,800 1432,128 1156,128" fill="none" stroke="#1d1d1d" stroke-width="1.8" marker-end="url(#arr)"/>
+      <polyline points="202,720 202,800 1432,800 1432,128 1156,128" fill="none" stroke="#1d1d1d" stroke-width="1.8" marker-end="url(#arr)"/>
 
       <g font-weight="700" font-size="11">
         <g transform="translate(1020,208)"><circle r="11" fill="#c2410c"/><text y="4" text-anchor="middle" fill="#fff">1</text></g>
         <g transform="translate(108,455)"><circle r="11" fill="#1d1d1d"/><text y="4" text-anchor="middle" fill="#fff">2</text></g>
         <g transform="translate(360,280)"><circle r="11" fill="#8c4fff"/><text y="4" text-anchor="middle" fill="#fff">3</text></g>
         <g transform="translate(800,480)"><circle r="11" fill="#1d1d1d"/><text y="4" text-anchor="middle" fill="#fff">4</text></g>
-        <g transform="translate(360,530)"><circle r="11" fill="#1d1d1d"/><text y="4" text-anchor="middle" fill="#fff">5</text></g>
+        <g transform="translate(360,510)"><circle r="11" fill="#1d1d1d"/><text y="4" text-anchor="middle" fill="#fff">5</text></g>
         <g transform="translate(720,620)"><circle r="11" fill="#1d1d1d"/><text y="4" text-anchor="middle" fill="#fff">6</text></g>
         <g transform="translate(780,220)"><circle r="11" fill="#1d1d1d"/><text y="4" text-anchor="middle" fill="#fff">7</text></g>
         <g transform="translate(500,500)"><circle r="11" fill="#7a7a7a"/><text y="4" text-anchor="middle" fill="#fff">8</text></g>

@@ -19,7 +19,7 @@ COMMON=(
   --enable-prefix-caching
   --mamba-cache-mode align
   --max-model-len 156000
-  --gpu-memory-utilization 0.82
+  --gpu-memory-utilization 0.75
   --enable-auto-tool-choice
   --tool-call-parser qwen3_coder
   --async-scheduling
@@ -50,13 +50,13 @@ start_engine() {
   local name="$1" gpu_devices="$2" cuda_visible="$3" port="$4" role="$5" nixl_port="$6"
   local kv extra=()
   if [[ "$role" == p ]]; then
-    kv='{"kv_connector":"NixlPushConnector","kv_role":"kv_producer","kv_load_failure_policy":"fail","kv_connector_extra_config":{"kv_lease_duration":120,"num_threads":16}}'
-    extra+=(--scheduling-policy fcfs --max-num-seqs 128 --max-num-batched-tokens 32768 --max-num-partial-prefills 1)
+    kv='{"kv_connector":"NixlConnector","kv_role":"kv_producer","kv_load_failure_policy":"fail","kv_connector_extra_config":{"kv_lease_duration":120,"num_threads":8}}'
+    extra+=(--scheduling-policy fcfs --max-num-seqs 64 --max-num-batched-tokens 16384 --max-num-partial-prefills 1)
   else
-    # Decode waits for P WRITE. FCFS so finished pushes enter one batch.
-    # Larger seq budget so prefix KV can stay on D and P can keep prefilling.
-    kv='{"kv_connector":"NixlPushConnector","kv_role":"kv_consumer","kv_load_failure_policy":"fail","kv_connector_extra_config":{"num_threads":16}}'
-    extra+=(--max-num-seqs 128 --max-num-batched-tokens 32768)
+    # Pull/READ is the working path. NixlPushConnector hung 1+1 on this
+    # hybrid Mamba model (D never received WRITE). Keep proven flags.
+    kv='{"kv_connector":"NixlConnector","kv_role":"kv_consumer","kv_load_failure_policy":"fail","kv_connector_extra_config":{"num_threads":8}}'
+    extra+=(--max-num-seqs 64 --max-num-batched-tokens 16384)
   fi
   docker rm -f "$name" 2>/dev/null || true
   # Pair GPUs must both be visible: --gpus device=N alone hides the peer,

@@ -88,3 +88,20 @@ UCX worker 的 intra-node lane 是 `device(cuda_ipc/cuda)`，AM 是 `sm/sysv/cma
 | 80 | 180s，14:38 UTC | 394/394 | 1.857 | 39.98s / 66.65s | 43.1s |
 
 按 c8–c32 线性插值，c20 中位应约 11.6s，测到 11.81s。吞吐已经到天花板的约 91%（1.69 / 1.86）。1 条失败是 HTTP 500，不是超时。出词侧日志多数时刻 `Running: 0`、`Waiting=Deferred`，仍在等远程 KV。prefix 命中约 45%，四卡平均功率约 976W。其他容器未动。
+
+## CUDA IPC GET（2026-09-18 18:55 UTC）
+
+无 NVLink 时 UCX 默认关掉 `cuda_ipc` GET。`NixlConnector` 是 pull/`ucp_get`，所以数据面一直是 `software emulation | sysv/memory`。现网加上 `UCX_CUDA_IPC_ENABLE_GET_ZCOPY=on` 和 `UCX_CUDA_IPC_BW=50000MBs` 后，出词侧协议表变为：
+
+`remote memory read by ucp_get*(multi) into cuda/GPU0 from cuda/dev[0]` → `0..inf | zero-copy | cuda_ipc/cuda`
+
+NIXL 单次仍约 258MB。出词侧累计：平均 xfer **10–11ms**（原先无争用 0.30–0.35s，高压 1–13s），表观约 **24GB/s**。c8 窗口里 115 次传输全部 <25ms。出词侧 `queue` 均值约 24ms，decode 约 1.2s；日志多数是 `Running>0`、`Waiting=0`，不再长期 `Deferred`。
+
+短请求 `1+1` 回 `2`（约 1.1s）。同一套 B：
+
+| 并发 | 窗口 | 成功 | 每秒完成 | 中位 / 95 分位 | 对照（sysv GET） |
+|---|---|---|---|---|---|
+| 8 | 90s，18:57 UTC | 227/227 | **2.453** | **3.39s / 4.25s** | 1.447 / 5.42s |
+| 20 | 90s，18:59 UTC | 256/256 | **2.643** | **7.46s / 7.87s** | 1.691 / 11.81s |
+
+KV 不再是排队主体。吞吐从约 1.86 抬到约 2.6 QPS，卡点回到两路预填充计算。`viknow2-test` 等其他容器未停。

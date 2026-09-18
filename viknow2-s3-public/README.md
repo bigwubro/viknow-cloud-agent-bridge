@@ -17,7 +17,7 @@ App SDK **authenticated** access:
 
 Do not PUT to MinIO `:19000`.
 
-Keep uploads on `knowledge/libraries/...` as today. For a fixed public URL, **after** a successful upload run `CopyObject` to `public/{scope}/{publish_id}/{filename}` and build `public_url` (see Feishu appendix B.3).
+Upload stays on `knowledge/libraries/...`. **Upload = public**: right after each successful `PutObject`, `CopyObject` to `public/{library_id}/{publish_id}/{asset_id}.{ext}` and return `public_url` in the upload response (Feishu appendix B).
 
 ## Public static objects (`public/` prefix)
 

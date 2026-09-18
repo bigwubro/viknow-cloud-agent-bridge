@@ -17,7 +17,7 @@ App SDK **authenticated** access:
 
 Do not PUT to MinIO `:19000`.
 
-Upload stays on `knowledge/libraries/...`. **Upload = public**: right after each successful `PutObject`, `CopyObject` to `public/{library_id}/{publish_id}/{asset_id}.{ext}` and return `public_url` in the upload response (Feishu appendix B). Persist `public_key` in your DB.
+Upload stays on `knowledge/libraries/...`. **Upload = public**: after each successful `PutObject`, `CopyObject` to `public/{library_id}/{asset_id}.{ext}` and return `public_url` (Feishu appendix B). Persist `public_key` in your DB.
 
 **Delete asset**: in the same request, `DeleteObject(public_key)` then `DeleteObject(source_key)` before dropping DB / calling `DELETE /api/v1/knowledge/indexes` (ViKnow does not remove S3 objects). On re-upload with the same `asset_id`, delete the previous `public_key` before copying a new one.
 
@@ -27,10 +27,8 @@ For **fixed, unsigned URLs** (like OSS public-read on a prefix):
 
 | Item | Value |
 |------|--------|
-| Key | `public/{scope}/{publish_id}/{filename}` |
-| Example scope | `library_id` or tenant id |
-| `publish_id` | UUID / random id (avoid guessable paths) |
-| Public URL (path-style) | `http://<host>:19191/viknow/public/{scope}/{publish_id}/{filename}` |
+| Key | `public/{library_id}/{asset_id}.<ext>` |
+| Public URL (path-style) | `http://<host>:19191/viknow/public/{library_id}/{asset_id}.<ext>` |
 
 Rules:
 

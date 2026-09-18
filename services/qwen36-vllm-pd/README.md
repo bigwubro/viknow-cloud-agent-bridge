@@ -10,4 +10,4 @@
 
 同一套 B 对照见 `loadtests/workload-b-vs-sf/RESULTS_PD.md`。出词侧不要开 MTP：Mamba 块会对不齐，回包乱码。
 
-出词卡慢的主因不是 184 token 的 decode，而是 NIXL 从预填充卡 READ 约 246MB KV。只改 `UCX_TLS` 不够：NIXL UCX 默认 `ucx_error_handling_mode=peer`，会拒掉 `sm`（没有 peer failure handler），只剩 `tcp` 做 AM，VRAM 就走 `cuda_copy+tcp`（约 330MB/s）。`sitecustomize.py` 把该参数改成 `none`，`UCX_TLS` 为 `sm,self,cuda_ipc,cuda_copy`（必须留 `cuda_copy` 才能让 UCX 认出 VRAM，但不能放 `tcp`）。主机 `yama ptrace_scope=1`，容器还要 `CAP_SYS_PTRACE`、`seccomp=unconfined`、对端 GPU 可见，并挂上 `/dev/nvidia-caps`。这台机器的 NVIDIA runtime 只允许 `compute,utility`，不能再加 `ipc` 能力。
+出词卡慢的主因不是 184 token 的 decode，而是 NIXL 从预填充卡 READ 约 246MB KV。NIXL UCX 默认 `ucx_error_handling_mode=peer`，会拒掉 `sm`，只剩 `tcp` 做 AM，VRAM 就走 `cuda_copy+tcp`（约 330MB/s）。`sitecustomize.py` 把该参数改成 `none`，`UCX_TLS=sm,self,cuda_ipc,cuda_copy`（必须留 `cuda_copy` 才能注册 VRAM，不能放 `tcp`）。UCX 会加载 `cuda_ipc` lane，但 NIXL READ 是 `ucp_get`，这套 UCX 1.21 对 CUDA→CUDA get 选的是 `software emulation / sysv/memory`，无争用大约 700MB/s，不是 NVLink P2P。主机 `yama ptrace_scope=1`，容器还要 `SYS_PTRACE`、对端 GPU 可见、`/dev/nvidia-caps`。这台机器的 NVIDIA runtime 只允许 `compute,utility`。

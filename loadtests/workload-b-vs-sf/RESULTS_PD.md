@@ -42,3 +42,22 @@ Prometheus 里 `nixl_xfer_time` 的「MB/s」是 `总字节 / 各次耗时之和
 | 32 | 180s，12:48 UTC | 284/284 | 1.467 | 23.98s / 24.76s | 1.465 / 23.48s |
 
 端到端没有压下来：出词卡仍在等 KV，不在算 184 个 token。要再压，必须提高这条跨卡拷贝的墙钟带宽（真正走通 CUDA IPC / P2P），或让出词侧少拉共享前缀（现在 246MB 一次都没减）。
+
+## NIXL 去掉 tcp 之后（2026-09-18 13:46–13:54 UTC）
+
+根因不是 `UCX_TLS` 列表里有没有 `cuda_ipc`。NIXL UCX 默认 `ucx_error_handling_mode=peer`，会拒掉 `sm`，只剩 `tcp` 做 AM，VRAM 就跟着 `cuda_copy+tcp` 走，墙钟大约 **330MB/s**。`sitecustomize.py` 把该参数改成 `none`，`UCX_TLS=sm,self,cuda_ipc,cuda_copy`（必须留 `cuda_copy`，否则 `registerMem` 会把 VRAM 当成 host）。
+
+UCX worker 的 intra-node lane 是 `device(cuda_ipc/cuda)`，AM 是 `sm/sysv/cma`，**不再有 tcp**。但 NIXL 出词侧是 `ucp_get`（READ）。这套 UCX 1.21 的 `cuda_ipc` 不做 RMA get，协议表选的是：
+
+`remote memory read ... cuda/GPU0 from cuda/dev[0]` → `0..inf | software emulation | sysv/memory`
+
+也就是：GPU→host→sysv shm→host→GPU，不再走网卡 tcp。`get_zcopy` / `put_zcopy` 都一样。无争用大约 **680–770MB/s**（225MB / 0.30–0.35s）。还不是 NVLink/P2P 的数 GB/s，描述符仍有 50–120 个。
+
+短请求 `1+1` 回 `2`，约 0.9–1.0s。同一套 B：
+
+| 并发 | 窗口 | 成功 | 每秒完成 | 中位 / 95 分位 | NIXL xfer（约） | 对照（tcp 路径 12:45 档） |
+|---|---|---|---|---|---|---|
+| 8 | 90s，13:48 UTC | 136/136 | **1.447** | **5.42s / 6.42s** | ~1.0s | 1.175 / 6.82s，xfer ~2.6s |
+| 32 | 180s，13:51 UTC | 360/360 | **1.821** | **17.72s / 18.93s** | ~6.5s | 1.467 / 23.98s，xfer ~13s |
+
+出词侧 decode 仍是约 1.3–1.8s。省下来的是跨卡 KV，不是 184 个 token。再往上要真 P2P，得换一条不是 `ucp_get` 的路径（NIXL send/recv 或 GDR），或者减少描述符 / 少拉共享前缀。

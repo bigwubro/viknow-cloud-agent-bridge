@@ -5,7 +5,7 @@
 
 本文件仅为跳板仓摘要，勿与飞书正文分叉；变更请只改飞书并写 §9 变更记录。
 
-- 标准 **boto3 / AWS S3 SDK** + 自定义 Endpoint，无 ViKnow 存储 SDK
+- 标准 **boto3**（[预签名用户指南](https://boto3.amazonaws.com/v1/documentation/api/latest/guide/s3-presigned-urls.html) · [`generate_presigned_url`](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/client/generate_presigned_url.html)）+ 自定义 Endpoint，无 ViKnow 存储 SDK；飞书 **§1.2** 有完整官方链接表
 - Bucket `viknow`，**path-style**，SigV4
 - 私有 Key：`knowledge/libraries/{library_id}/{asset_id}.{ext}`（上传与存储唯一路径）
 - 对外打开文件：**服务端** `generate_presigned_url` → `access_url` + `expires_at`（§1.6），**不使用** `public/` 固定外链

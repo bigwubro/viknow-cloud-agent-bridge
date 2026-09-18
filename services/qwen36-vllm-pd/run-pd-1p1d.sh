@@ -38,7 +38,7 @@ COMMON=(
 UCX_INTRANODE_TLS=tcp,sm,cuda_ipc,cuda_copy,self
 
 start_engine() {
-  local name="$1" gpu="$2" port="$3" role="$4" nixl_port="$5"
+  local name="$1" gpu_devices="$2" cuda_visible="$3" port="$4" role="$5" nixl_port="$6"
   local kv extra=()
   if [[ "$role" == p ]]; then
     kv='{"kv_connector":"NixlConnector","kv_role":"kv_producer","kv_load_failure_policy":"fail","kv_connector_extra_config":{"kv_lease_duration":120,"num_threads":8}}'
@@ -51,11 +51,17 @@ start_engine() {
     extra+=(--max-num-seqs 64 --max-num-batched-tokens 16384)
   fi
   docker rm -f "$name" 2>/dev/null || true
+  # Pair GPUs must both be visible: --gpus device=N alone hides the peer,
+  # so UCX cannot open CUDA IPC and falls back to ~330MB/s host+tcp.
+  # CUDA_VISIBLE_DEVICES lists the compute GPU first (TP1 uses device 0).
   docker run -d \
     --name "$name" \
-    --gpus "device=${gpu}" \
+    --gpus "device=${gpu_devices}" \
     --network host \
     --ipc host \
+    --pid host \
+    --ulimit memlock=-1 \
+    --ulimit stack=67108864 \
     -v /data/twj/models:/root/.cache/models:ro \
     -e PYTHONHASHSEED=0 \
     -e VLLM_USE_DEEP_GEMM=0 \
@@ -63,26 +69,29 @@ start_engine() {
     -e VLLM_NIXL_SIDE_CHANNEL_HOST=127.0.0.1 \
     -e VLLM_NIXL_SIDE_CHANNEL_PORT="${nixl_port}" \
     -e VLLM_SSM_CONV_STATE_LAYOUT=DS \
+    -e CUDA_VISIBLE_DEVICES="${cuda_visible}" \
     -e UCX_TLS="${UCX_INTRANODE_TLS}" \
     -e UCX_MEMTYPE_CACHE=n \
     -e UCX_RNDV_SCHEME=put_zcopy \
-    -e UCX_RNDV_THRESH=8192 \
+    -e UCX_RNDV_THRESH=0 \
     -e CUDA_DEVICE_MAX_CONNECTIONS=8 \
     "$IMAGE" \
     "${COMMON[@]}" \
     --port "${port}" \
     --kv-transfer-config "${kv}" \
     "${extra[@]}"
-  echo "started ${name} gpu=${gpu} port=${port} role=${role}"
+  echo "started ${name} gpus=${gpu_devices} visible=${cuda_visible} port=${port} role=${role}"
 }
 
 echo "Stopping unified DP4 container vllm-vlm to free GPU 0-3 and :8500"
 docker stop vllm-vlm 2>/dev/null || true
 
-start_engine qwen36-p0 0 8510 p 5600
-start_engine qwen36-d1 1 8511 d 5601
-start_engine qwen36-p2 2 8512 p 5602
-start_engine qwen36-d3 3 8513 d 5603
+# Pair A: physical 0/1 visible to both; P computes on 0, D on 1.
+# Pair B: physical 2/3 visible to both; P computes on 2, D on 3.
+start_engine qwen36-p0 0,1 0,1 8510 p 5600
+start_engine qwen36-d1 0,1 1,0 8511 d 5601
+start_engine qwen36-p2 2,3 0,1 8512 p 5602
+start_engine qwen36-d3 2,3 1,0 8513 d 5603
 
 wait_http() {
   local url="$1" n=0

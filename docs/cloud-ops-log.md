@@ -29,6 +29,15 @@
 
 ## 变更记录（倒序）
 
+### 2026-09-18 飞书 wiki 用画板 PlantUML 绘制 online prod 架构
+
+- 环境：Cloud Agent 云主机 Chrome 扫码登录 `castmeta.feishu.cn`；wiki 节点 `V0Wrw2T9viBVbdkKvfCcALJznrb`（docx `OqL9dcJZOoM6vWxGWbEcFV3Mnoh`）
+- 对象：飞书文档 / 画板 `T6kQwuqHYh19GTbuwpkcbzyenZT`（只读 token，非密钥）
+- 动作：删除静态 PNG；在嵌入画板中用 PlantUML 生成嵌套架构（236 / Cloud / Region / VPC / ACK / ①–⑨）；尝试 OpenAPI 写画板节点因缺 `board:whiteboard:node:create` 未走 API。未改阿里云资源。
+- 结果：成功（画板可编辑，非图片块）
+- 证据：wiki URL 可打开；画板内可见 Aliyun Cloud → Region → VPC → ACK 分区与连线
+- 残留：浏览器 Feishu 登录会话仍可能有效；ViKnow 应用 `FEISHU_APP_*` 仍无 docx/board 写权限
+
 ### 2026-09-18 总览折线改成穿过盒子，去掉盒边断口
 
 - 环境：`docs/aliyun-architecture.html` Fig. 1

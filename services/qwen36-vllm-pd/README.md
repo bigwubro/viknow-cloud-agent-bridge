@@ -10,4 +10,4 @@
 
 同一套 B 对照见 `loadtests/workload-b-vs-sf/RESULTS_PD.md`。出词侧不要开 MTP：Mamba 块会对不齐，回包乱码。
 
-出词卡慢的主因是 NIXL 传约 246MB KV。`NixlPushConnector` 用 WRITE/`put`，不再用 READ/`ucp_get`（后者在这套 UCX 1.21 上会落到 `sysv` 软件模拟）。`sitecustomize.py` 设 `ucx_error_handling_mode=none` 和 `num_workers=4`。`UCX_TLS=sm,self,cuda_ipc,cuda_copy`，不放 `tcp`。只占用 GPU 0–3 与 `:8500`，不碰其他已有容器。
+出词卡慢的主因是 NIXL 传约 246MB KV。现网仍是 `NixlConnector` pull/`ucp_get`：这套 UCX 1.21 对 CUDA→CUDA get 选 `sysv` 软件模拟（约 700MB/s）。试过 `NixlPushConnector` WRITE，短请求会挂死，已退回 pull。`sitecustomize.py` 设 `ucx_error_handling_mode=none`。只占用 GPU 0–3 与 `:8500`，不碰其他已有容器。

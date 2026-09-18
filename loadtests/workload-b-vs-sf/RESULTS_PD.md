@@ -123,3 +123,50 @@ KV 不再是排队主体。吞吐从约 1.86 抬到约 2.6 QPS，卡点回到两
 | P queue 均值 | 1.63s | 0.54s |
 
 调度上一步能并进更多预填充（Waiting 掉下去了），但单卡仍约 2.5 万 token/s。Workload B 每条都是大约 1.8 万未命中，并进只是把同一块算力摊开，QPS 几乎不动。出词仍约 1.17s，NIXL 约 10ms。其他容器未停。
+
+## 3P+1D（2026-09-18 19:47 UTC）
+
+四卡改成 GPU0/1/2 预填充、GPU3 出词。代理对三路 P least-inflight，handshake 仍走 `NixlConnector` pull。四卡互相可见。CUDA IPC GET 仍在：`ucp_get*(multi) into cuda/GPU0 from cuda/dev[0]` → `zero-copy | cuda_ipc/cuda`。镜像和 batched-tokens 未改（P 32768 / D 16384）。`1+1` 回 `1+1=2`（0.85s）。未 OOM。`viknow2-test` 等其他容器未停。
+
+同一套 B，c20 × 90s：
+
+| 项 | 两路 1P+1D（19:19） | 3P+1D（19:47） |
+|---|---|---|
+| 成功 | 257/257 | **340/340** |
+| 每秒完成 | 2.697 | **3.630** |
+| 中位 / 95 分位 | 7.43s / 8.19s | **5.36s / 8.03s** |
+| prefix hit | 约 45% | 44.3% |
+| P 分配 | 两路 | 119 / 113 / 110 |
+| P prefill 均值 | 4.36s | 约 2.56s |
+| P queue 均值 | 0.54s | 约 0.10s |
+| D decode 均值 | 约 1.17s | 2.17s |
+| D queue / NIXL | 约 20ms / 10ms | 45ms / 13ms（342 次，338 次 <25ms） |
+| D KV 峰值 | — | 12.9%，Waiting=0 |
+
+吞吐 **+35%**（3.630 / 2.697），中位 **−28%**。三张 P 理论约 1.5×（约 4.05 QPS），测到 3.63，大约拿到理想值的九成。缺的部分在单张出词卡：并发 decode 从约 10 路升到峰值 17 路，decode 从 1.17s 升到 2.17s。c20 时 D 显存不是墙。Little `20/3.630≈5.51s`，和中位 5.36s 对齐。80 并发 10s 仍不够（按 3.63 QPS 外推约 22s）。
+
+### 单条端到端怎么拆（c20）
+
+代理先打完 P（`max_tokens=1`），再把 `kv_transfer_params` 交给 D，两段串行。客户端 340 条：中位 **5.37s**，均值 5.41s，p95 8.03s。引擎直方图加权均值：
+
+| 段 | 均值 | 约占客户端 5.41s |
+|---|---|---|
+| P 排队 | 0.10s | 2% |
+| P 预填充 | 2.54s | 47% |
+| P 侧其余（分词/回包） | 0.38s | 7% |
+| 代理/HTTP | 约 0.10s | 2% |
+| D 排队 | 0.04s | 1% |
+| NIXL CUDA IPC | 0.013s（p95 24ms） | <1% |
+| D 出词 184 token | 2.15s（ITL 约 11.9ms） | 40% |
+
+P 三段 e2e 均值 3.03s + D e2e 均值 2.29s ≈ 5.32s，和客户端 5.41s 对齐。空载 `1+1` 只有 0.85s，上面这张表是 c20 热请求。
+
+## MTP-1 试开（2026-09-18 20:09 UTC）
+
+P/D 都加 `--speculative-config '{"method":"mtp","num_speculative_tokens":1}'`。四卡块大小都是 **2112**（关 MTP 时 2096）。短请求 `1+1` 回 `1+1=2`（冷 6.7s，热 0.14s），CUDA IPC 仍在。
+
+同一套 B，c20：257/257 **全部 HTTP 500**。出词引擎在 NIXL pull 做 prefix-cache 对齐时断言失败：
+
+`AssertionError: SSM can only have one local block`（`nixl/base_worker.py` `_apply_prefix_caching`）
+
+短上下文只有一块 GDN state，长前缀（约 30k）会变成多块，0.26 的 hybrid SSM + MTP + NIXL 这条路径不支持。出词容器随后退出。已从启动项去掉 MTP，恢复无投机的 3P+1D。

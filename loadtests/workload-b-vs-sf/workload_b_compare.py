@@ -175,6 +175,29 @@ def tokenize_local(text: str) -> int:
     return int(payload["count"])
 
 
+# SF probe: LINE*1000 → usage.prompt 31011
+LINE_TOKS = 31.011
+
+
+def estimate_tokens(text: str) -> int:
+    n_line = text.count(LINE)
+    rest = text.replace(LINE, "")
+    return int(round(n_line * LINE_TOKS + max(len(rest), 0) * 0.6))
+
+
+def build_shared_offline() -> tuple[str, int]:
+    """Build B shared prefix without touching :8500."""
+    shared_target = max(200, TARGET_PROMPT - UNIQUE_TOKENS)
+    text = HEAD
+    while estimate_tokens(text) < shared_target:
+        text += LINE * 40
+        if text.count(LINE) > 4000:
+            break
+    while estimate_tokens(text) > shared_target + 80 and text.count(LINE) > 0:
+        text = text[: text.rfind(LINE)]
+    return text, estimate_tokens(text)
+
+
 def build_shared(shared_path: Path | None = None) -> tuple[str, int]:
     shared_target = max(200, TARGET_PROMPT - UNIQUE_TOKENS)
     if shared_path and shared_path.exists():
@@ -182,7 +205,7 @@ def build_shared(shared_path: Path | None = None) -> tuple[str, int]:
         tok = tokenize_local(text)
         if abs(tok - shared_target) <= 200:
             return text, tok
-    text = HEAD
+    text, _ = build_shared_offline()
     n = 1
     while tokenize_local(text) < shared_target:
         text += LINE * 40
@@ -760,9 +783,37 @@ def cmd_run(args: argparse.Namespace) -> None:
             flush=True,
         )
     else:
-        if not shared_path.exists():
-            raise SystemExit(f"sf needs {shared_path} from a prior local calibrate/run")
-        shared = shared_path.read_text(encoding="utf-8")
+        if shared_path.exists():
+            shared = shared_path.read_text(encoding="utf-8")
+            est = estimate_tokens(shared)
+            if abs(est - (TARGET_PROMPT - UNIQUE_TOKENS)) > 2000:
+                shared, est = build_shared_offline()
+                shared_path.write_text(shared, encoding="utf-8")
+        else:
+            shared, est = build_shared_offline()
+            shared_path.write_text(shared, encoding="utf-8")
+        write_json(
+            out_dir / "calibrate.json",
+            {
+                "mode": "offline_no_8500",
+                "shared_estimate": estimate_tokens(shared),
+                "unique_estimate": estimate_tokens(unique_block("calibrate")),
+                "line_count": shared.count(LINE),
+            },
+        )
+        print(
+            json.dumps(
+                {
+                    "event": "calibrate_offline",
+                    "shared_estimate": estimate_tokens(shared),
+                    "unique_estimate": estimate_tokens(unique_block("calibrate")),
+                    "line_count": shared.count(LINE),
+                    "note": "no :8500 tokenize or chat",
+                },
+                ensure_ascii=False,
+            ),
+            flush=True,
+        )
 
     summary = []
     for i, c in enumerate(concs):
@@ -775,7 +826,7 @@ def cmd_run(args: argparse.Namespace) -> None:
             accept_sf=args.i_accept_sf_cost,
         )
         summary.append(rec)
-        if i + 1 < len(concs) and target == "local" and COOLDOWN_SEC > 0:
+        if i + 1 < len(concs) and COOLDOWN_SEC > 0:
             print(json.dumps({"event": "cooldown", "sec": COOLDOWN_SEC}), flush=True)
             time.sleep(COOLDOWN_SEC)
     write_json(out_dir / f"summary_{target}.json", summary)

@@ -33,6 +33,12 @@ case "$cmd" in
   sf-full)
     python3 -u "$PY" run --target sf --concurrency 1,8,32,80 --duration 600 --i-accept-sf-cost "$@"
     ;;
+  sf-only)
+    # SiliconFlow B sweep, no :8500
+    export SF_BUDGET_CNY="${SF_BUDGET_CNY:-200}"
+    export COOLDOWN_SEC="${COOLDOWN_SEC:-15}"
+    python3 -u "$PY" run --target sf --concurrency 1,8,32,80 --duration 600 --i-accept-sf-cost "$@"
+    ;;
   report)
     python3 -u "$PY" report --dir "$OUT" "$@"
     ;;

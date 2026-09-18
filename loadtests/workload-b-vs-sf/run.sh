@@ -7,6 +7,10 @@ OUT="${VIKNOW_OUT_DIR:-$DIR/out}"
 export VIKNOW_OUT_DIR="$OUT"
 export LLM_TARGET_PROMPT_TOKENS="${LLM_TARGET_PROMPT_TOKENS:-30000}"
 export LLM_UNIQUE_TOKENS="${LLM_UNIQUE_TOKENS:-13500}"
+if [ -z "${SILICONFLOW_API_KEY:-}" ] && [ -f /home/cursor-agent/.secrets/sf_probe.key ]; then
+  SILICONFLOW_API_KEY="$(tr -d '\n' < /home/cursor-agent/.secrets/sf_probe.key)"
+  export SILICONFLOW_API_KEY
+fi
 mkdir -p "$OUT"
 
 cmd="${1:-plan}"
@@ -35,8 +39,11 @@ case "$cmd" in
   demo)
     python3 -u "$PY" report --demo-morning
     ;;
+  probe)
+    python3 -u "$DIR/probe_sf.py"
+    ;;
   *)
-    echo "usage: $0 {plan|estimate|local|sf-align|sf-full|report|demo}"
+    echo "usage: $0 {plan|estimate|local|sf-align|sf-full|report|demo|probe}"
     exit 2
     ;;
 esac

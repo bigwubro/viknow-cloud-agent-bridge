@@ -164,10 +164,19 @@ SILICONFLOW_API_KEY=sk-... ./run.sh sf-full
 
 ---
 
-## 8. 明确不做
+## 8. 硅基探活（已做，不是完整 B）
+
+用你给的 key，从 236 打 `Qwen/Qwen3.6-35B-A3B`：短请求 80 并发、3 万 prompt 32 并发都是 200，**0 个 429**。回包没有 RPM/TPM 剩余额度头。完整 B（3 万 + 184 输出 + 10 分钟）还没跑。
+
+key 只放在 236 的 `/home/cursor-agent/.secrets/sf_probe.key`，不进仓库。
+
+---
+
+## 9. 明确不做
 
 - 不改 :8500 的 DP/TP、batched-tokens、gpu-mem
 - 不打 :5180 / 知识库 / 视觉
 - 不跑工作负载 A
 - 不把硅基延迟和 236 延迟比胜负
 - 不把密钥写进仓库
+- 不把探活 key 写进 git / 日志全文

@@ -39,7 +39,10 @@ COMMON=(
 # map the peer process and silently falls back to cuda_copy+tcp.
 # This host nvidia-container-runtime only allows compute,utility — do
 # not set NVIDIA_DRIVER_CAPABILITIES=ipc or the container fails to start.
-UCX_INTRANODE_TLS=sm,self,cuda_ipc,cuda_copy,tcp
+# Bind-mount /dev/nvidia-caps (ipc cap is not in the runtime allowlist).
+# Do not list tcp: UCX then keeps GPU READ on cuda_ipc instead of tcp+cuda_copy.
+# sm+self provide active messages for NIXL intra-agent setup.
+UCX_INTRANODE_TLS=sm,self,cuda_ipc,cuda_copy
 
 start_engine() {
   local name="$1" gpu_devices="$2" cuda_visible="$3" port="$4" role="$5" nixl_port="$6"
@@ -68,6 +71,8 @@ start_engine() {
     --security-opt seccomp=unconfined \
     --ulimit memlock=-1 \
     --ulimit stack=67108864 \
+    --device /dev/nvidia-caps/nvidia-cap1 \
+    --device /dev/nvidia-caps/nvidia-cap2 \
     -v /data/twj/models:/root/.cache/models:ro \
     -e NVIDIA_VISIBLE_DEVICES="${gpu_devices}" \
     -e PYTHONHASHSEED=0 \

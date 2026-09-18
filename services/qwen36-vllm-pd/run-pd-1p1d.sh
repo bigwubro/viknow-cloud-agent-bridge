@@ -35,13 +35,14 @@ COMMON=(
 # in-flight NIXL READ, so D sat in WAITING_FOR_REMOTE_KVS for 12-40s.
 # NIXL UCX defaults ucx_error_handling_mode=peer, which rejects sm (no peer
 # failure handler). sitecustomize.py forces mode=none so sm can be AM.
-# Do not list tcp or cuda_copy: those two are the 330MB/s host fallback.
-# gdr_copy is not built in this image. Data plane must pick cuda_ipc.
+# cuda_copy must stay in TLS: without it NIXL/UCX treat VRAM as host and
+# registerMem fails. Do not list tcp — that is the 330MB/s host fallback.
+# gdr_copy is not built in this image. Data plane should pick cuda_ipc.
 # Host yama ptrace_scope=1: without CAP_SYS_PTRACE, UCX cuda_ipc cannot
 # map the peer process. This host nvidia-container-runtime only allows
 # compute,utility — do not set NVIDIA_DRIVER_CAPABILITIES=ipc.
 # Bind-mount /dev/nvidia-caps (ipc cap is not in the runtime allowlist).
-UCX_INTRANODE_TLS=sm,self,cuda_ipc
+UCX_INTRANODE_TLS=sm,self,cuda_ipc,cuda_copy
 
 start_engine() {
   local name="$1" gpu_devices="$2" cuda_visible="$3" port="$4" role="$5" nixl_port="$6"
@@ -90,7 +91,6 @@ start_engine() {
     -e UCX_PROTO_ENABLE=y \
     -e UCX_PROTO_INFO=y \
     -e UCX_LOG_LEVEL=info \
-    -e UCX_CUDA_IPC_ENABLE=y \
     -e CUDA_DEVICE_MAX_CONNECTIONS=8 \
     "$IMAGE" \
     "${COMMON[@]}" \

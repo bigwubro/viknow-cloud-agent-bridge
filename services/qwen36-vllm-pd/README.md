@@ -14,6 +14,7 @@
 - 3 卡出词 `:8513`
 - 代理 `:8520` 对三路预填充 least-inflight，出词固定一台
 - 四卡互相可见，保证 NIXL CUDA IPC
+- P/D 都开 MTP-1（`--speculative-config method=mtp,num_speculative_tokens=1`），避免只在出词侧开导致块大小对不齐
 
 启动会停掉现网 `vllm-vlm`（四卡混跑）。回滚：`./stop-pd-restore-dp4.sh`。
 

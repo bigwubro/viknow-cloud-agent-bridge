@@ -56,13 +56,14 @@ start_engine() {
   # CUDA_VISIBLE_DEVICES lists the compute GPU first (TP1 uses device 0).
   docker run -d \
     --name "$name" \
-    --gpus "device=${gpu_devices}" \
+    --gpus "'device=${gpu_devices}'" \
     --network host \
     --ipc host \
     --pid host \
     --ulimit memlock=-1 \
     --ulimit stack=67108864 \
     -v /data/twj/models:/root/.cache/models:ro \
+    -e NVIDIA_VISIBLE_DEVICES="${gpu_devices}" \
     -e PYTHONHASHSEED=0 \
     -e VLLM_USE_DEEP_GEMM=0 \
     -e VLLM_ENGINE_READY_TIMEOUT_S=1800 \

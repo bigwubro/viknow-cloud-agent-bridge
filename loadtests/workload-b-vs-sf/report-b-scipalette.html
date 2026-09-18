@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>工作负载 B 对照标本 — :8500 / 硅基 / Neolink</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&family=Noto+Serif+SC:wght@500;600;700&family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      color-scheme: light;
+      --sp-ink: #212c33;
+      --sp-muted: rgb(33 44 51 / 0.72);
+      --sp-soft: rgb(33 44 51 / 0.56);
+      --sp-paper: #f8f5ec;
+      --sp-strong: rgb(251 249 242 / 0.92);
+      --sp-wash: rgb(122 158 141 / 0.16);
+      --sp-line: #dadcd6;
+      --sp-green: #4f6d5f;
+      --sp-green-deep: #2f453d;
+      --sp-shadow-soft: 0 16px 42px rgb(33 44 51 / 0.05);
+      --font-display: "Cormorant Garamond", "Noto Serif SC", Georgia, serif;
+      --font-ui: "Source Sans 3", "Noto Sans SC", ui-sans-serif, system-ui, sans-serif;
+      --c8500: #4E79A7;
+      --csf: #F28E2B;
+      --cnl: #76B7B2;
+      --cdanger: #E15759;
+      --cgood: #59A14F;
+      --cgold: #EDC948;
+      --cpurp: #B07AA1;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; background: var(--sp-paper); color: var(--sp-ink); }
+    body {
+      font-family: var(--font-ui);
+      line-height: 1.55;
+      -webkit-font-smoothing: antialiased;
+      background:
+        radial-gradient(circle at top left, rgb(122 158 141 / 0.08), transparent 28%),
+        radial-gradient(circle at top right, rgb(79 109 95 / 0.05), transparent 22%),
+        var(--sp-paper);
+    }
+    a { color: var(--sp-green-deep); }
+    .wrap { max-width: 1080px; margin: 0 auto; padding: 28px 28px 72px; }
+    header.top {
+      display: flex; justify-content: space-between; align-items: flex-start; gap: 16px;
+      padding-bottom: 22px; border-bottom: 1px solid var(--sp-line); margin-bottom: 28px;
+    }
+    .brand { display: flex; gap: 12px; align-items: center; }
+    .mark {
+      width: 36px; height: 36px; border-radius: 10px;
+      background: linear-gradient(135deg, var(--sp-green), var(--c8500));
+      box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.25);
+    }
+    .brand small {
+      display: block; letter-spacing: 0.14em; text-transform: uppercase;
+      font-size: 11px; font-weight: 700; color: var(--sp-green);
+    }
+    .brand strong { font-family: var(--font-display); font-size: 22px; font-weight: 600; }
+    .meta { text-align: right; color: var(--sp-soft); font-size: 13px; }
+    h1 {
+      font-family: var(--font-display); font-weight: 600;
+      font-size: clamp(34px, 5vw, 52px); line-height: 1.12; margin: 0 0 12px;
+    }
+    .lede { max-width: 720px; color: var(--sp-muted); font-size: 17px; margin: 0 0 22px; }
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 28px; }
+    .chip {
+      display: inline-flex; align-items: center; gap: 8px;
+      border: 1px solid rgb(79 109 95 / 0.24); border-radius: 999px;
+      background: rgb(122 158 141 / 0.14); color: var(--sp-green);
+      font-weight: 700; font-size: 12px; padding: 5px 10px;
+    }
+    .swatch { width: 10px; height: 10px; border-radius: 99px; display: inline-block; }
+    .kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin: 8px 0 32px; }
+    .panel {
+      border: 1px solid var(--sp-line); background: var(--sp-strong);
+      box-shadow: var(--sp-shadow-soft); border-radius: 16px; padding: 18px 18px 16px;
+    }
+    .kpis .panel { padding: 16px 18px 14px; }
+    .k { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--sp-green); font-weight: 700; }
+    .v { font-family: var(--font-display); font-size: 34px; line-height: 1.05; margin: 6px 0 4px; }
+    .s { color: var(--sp-soft); font-size: 13px; }
+    h2 {
+      font-family: var(--font-display); font-size: 28px; font-weight: 600;
+      margin: 36px 0 8px;
+    }
+    h3 { font-size: 15px; margin: 0 0 8px; }
+    .figcap { color: var(--sp-soft); font-size: 13px; margin: 0 0 14px; }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    svg.chart { width: 100%; height: auto; display: block; }
+    table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+    th, td { padding: 8px 8px; border-bottom: 1px solid var(--sp-line); text-align: right; }
+    th:first-child, td:first-child { text-align: left; }
+    th { color: var(--sp-green); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 700; }
+    .note {
+      border-left: 3px solid var(--sp-green);
+      padding: 2px 0 2px 12px; color: var(--sp-muted); font-size: 13.5px;
+    }
+    .methods { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    footer {
+      margin-top: 40px; padding-top: 16px; border-top: 1px solid var(--sp-line);
+      color: var(--sp-soft); font-size: 12px;
+    }
+    .palette { display: flex; height: 18px; border-radius: 99px; overflow: hidden; margin: 10px 0 0; }
+    .palette i { flex: 1; display: block; }
+    @media (max-width: 820px) {
+      .kpis, .grid2, .methods { grid-template-columns: 1fr; }
+      .meta { text-align: left; }
+      header.top { flex-direction: column; }
+      .wrap { padding: 20px 16px 48px; }
+    }
+    @media print {
+      body { background: white; }
+      .panel { box-shadow: none; break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <div class="brand">
+        <div class="mark" aria-hidden="true"></div>
+        <div>
+          <small>Workload B · specimen sheet</small>
+          <strong>Qwen3.6-35B-A3B 供给对照</strong>
+        </div>
+      </div>
+      <div class="meta">
+        2026-09-18 · 236 四卡 / 硅基 / Neolink<br />
+        画风：SciPalette · Nature Muted 8
+      </div>
+    </header>
+
+    <h1>同样的 B，三条供给线。</h1>
+    <p class="lede">
+      共享前缀 + 独特尾巴，约 3.3 万 prompt、184 completion，thinking 关。
+      236 只算四卡摊销、不含电。硅基是这把 key 的实付。Neolink 无刊例，百炼华北 2 <code>qwen3.6-flash</code> 只作参考。
+      成功只计 HTTP 200；云端有 TPM / 429 / 500，不能假设无限扩到 236 的 QPS。
+    </p>
+    <div class="chips">
+      <span class="chip"><i class="swatch" style="background:#4E79A7"></i>:8500 DP4×TP1</span>
+      <span class="chip"><i class="swatch" style="background:#F28E2B"></i>硅基 Qwen3.6-35B-A3B</span>
+      <span class="chip"><i class="swatch" style="background:#76B7B2"></i>Neolink qwen3.6-flash</span>
+      <span class="chip">1 / 8 / 32 / 80 × 10 min</span>
+      <span class="chip">卡费 only</span>
+    </div>
+    <div class="palette" title="Nature Muted 8">
+      <i style="background:#4E79A7"></i><i style="background:#F28E2B"></i>
+      <i style="background:#E15759"></i><i style="background:#76B7B2"></i>
+      <i style="background:#59A14F"></i><i style="background:#EDC948"></i>
+      <i style="background:#B07AA1"></i><i style="background:#FF9DA7"></i>
+    </div>
+
+    <div class="kpis">
+      <div class="panel">
+        <div class="k">买得到的成功 QPS</div>
+        <div class="v">1.62 · 0.24 · 4.13</div>
+        <div class="s">:8500 c80 · 硅基顶 · Neolink 顶</div>
+      </div>
+      <div class="panel">
+        <div class="k">1000 条成功 B</div>
+        <div class="v">¥3.91 · 60.7 · 40.7</div>
+        <div class="s">236 mid 卡 · 硅基实付 · 百炼参考</div>
+      </div>
+      <div class="panel">
+        <div class="k">等效 TPM 顶</div>
+        <div class="v">3.2 · 0.47 · 8.3 M</div>
+        <div class="s">墙分别是变慢 / 429 / 500</div>
+      </div>
+    </div>
+
+    <h2>Fig. 1　成功吞吐与延迟</h2>
+    <p class="figcap">QPS 与 p50 只统计 HTTP 200。Neolink c≥32 的 500 不进 p50，所以中位仍停在 2.5s。</p>
+    <div class="grid2">
+      <div class="panel">
+        <h3>成功 QPS</h3>
+        <svg class="chart" id="qps" viewBox="0 0 460 260" role="img" aria-label="成功 QPS 折线"></svg>
+      </div>
+      <div class="panel">
+        <h3>e2e p50（成功）</h3>
+        <svg class="chart" id="p50" viewBox="0 0 460 260" role="img" aria-label="e2e p50 折线"></svg>
+      </div>
+    </div>
+
+    <h2>Fig. 2　工作点单价与供给上限</h2>
+    <p class="figcap">左：¥/成功条。236 用该档实测 QPS 摊卡费。右：等效 TPM = 成功 QPS × 每条 token × 60。</p>
+    <div class="grid2">
+      <div class="panel">
+        <h3>¥ / 成功条（236 = 卡费）</h3>
+        <svg class="chart" id="cost" viewBox="0 0 460 260" role="img" aria-label="单价柱状图"></svg>
+      </div>
+      <div class="panel">
+        <h3>各档等效 TPM</h3>
+        <svg class="chart" id="tpm" viewBox="0 0 460 260" role="img" aria-label="TPM 柱状图"></svg>
+      </div>
+    </div>
+
+    <h2>表 1　三边实测</h2>
+    <div class="panel" style="overflow:auto">
+      <table>
+        <thead>
+          <tr>
+            <th>并发</th>
+            <th>:8500 QPS / p50</th>
+            <th>硅基 QPS / p50</th>
+            <th>Neolink QPS / p50</th>
+            <th>硅基墙</th>
+            <th>Neolink 墙</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>1</td><td>0.314 / 3.08s</td><td>0.097 / 8.7s</td><td>0.381 / 2.52s</td><td>17 次 429 后成功</td><td>无</td></tr>
+          <tr><td>8</td><td>0.840 / 9.62s</td><td>0.081 / 21.7s</td><td>2.974 / 2.48s</td><td>失败 52，全 429</td><td>无</td></tr>
+          <tr><td>32</td><td>1.260 / 25.8s</td><td>0.134 / 42.8s</td><td>4.035 / 2.50s</td><td>失败 256，全 429</td><td>20345 × 500</td></tr>
+          <tr><td>80</td><td>1.619 / 50.2s</td><td>0.237 / 98.4s</td><td>4.133 / 2.59s</td><td>失败 521，全 429</td><td>51817 × 500</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2>表 2　卡费口径下的 ¥/条</h2>
+    <div class="panel" style="overflow:auto;margin-top:12px">
+      <table>
+        <thead>
+          <tr>
+            <th>并发</th>
+            <th>:8500 QPS</th>
+            <th>236 mid 卡</th>
+            <th>236 dear 卡</th>
+            <th>硅基实付</th>
+            <th>百炼参考</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>1</td><td>0.314</td><td>0.0202</td><td>0.0740</td><td>0.0607</td><td>0.0408</td></tr>
+          <tr><td>8</td><td>0.840</td><td>0.0075</td><td>0.0277</td><td>0.0605</td><td>0.0407</td></tr>
+          <tr><td>32</td><td>1.260</td><td>0.0050</td><td>0.0184</td><td>0.0607</td><td>0.0408</td></tr>
+          <tr><td>80</td><td>1.619</td><td>0.0039</td><td>0.0144</td><td>0.0608</td><td>0.0407</td></tr>
+        </tbody>
+      </table>
+      <p class="figcap" style="margin:10px 0 0">mid = 36 万 / 3 年 / 60%，忙时 ¥22.82/h。比硅基便宜要成功 QPS &gt; 0.104。dear 在 c=1 仍贵，c≥8 才便宜。</p>
+    </div>
+
+    <h2>表 3　达标要几份供给</h2>
+    <p class="figcap">限流按线性叠加，只看数量级。不能把云端失败 QPS 套进 236 卡费。</p>
+    <div class="panel" style="overflow:auto">
+      <table>
+        <thead>
+          <tr>
+            <th>目标成功 QPS</th>
+            <th>:8500</th>
+            <th>硅基这档账号</th>
+            <th>Neolink</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>1.62（现网 c80）</td>
+            <td>1 套四卡 · ¥22.8/h</td>
+            <td>约 7 把 key；若买得到 ≈ ¥354/h</td>
+            <td>1 把就够；百炼参考 ≈ ¥237/h</td>
+          </tr>
+          <tr>
+            <td>4.13（Neolink 顶）</td>
+            <td>约 2.6 套四卡（10–12 卡）</td>
+            <td>约 17 把 key</td>
+            <td>1 把，单价仍约 ¥0.041</td>
+          </tr>
+          <tr>
+            <td>0.24（硅基顶）</td>
+            <td>四卡空转，单条变贵</td>
+            <td>1 把 · ¥0.0607/条</td>
+            <td>1 把，浪费限额</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2>怎么读</h2>
+    <div class="methods">
+      <div class="panel">
+        <h3>统计</h3>
+        <p class="note">一行 = 一次 <code>one_call</code>。成功只认 HTTP 200。QPS / p50 只用成功行。硅基 429 最多重试 6 次，救回来的算成功，也计入「撞过限」。Neolink 500 不重试，一次一行失败。</p>
+      </div>
+      <div class="panel">
+        <h3>钱</h3>
+        <p class="note">236：购卡 / (年×365.25×24×利用率)，不含电。硅基 CN ¥1.80 / ¥10.80 每百万，四档实付 ¥22.76。Neolink 刊例未知；百炼 ¥1.2 / ¥7.2 每百万不是发票。</p>
+      </div>
+      <div class="panel">
+        <h3>限流</h3>
+        <p class="note">硅基这账号成功 QPS 顶 0.24（0.47M TPM），从 c=1 就撞 429。Neolink 顶 4.13（8.3M TPM），靠近百炼常见 10M 档。236 没有账号 TPM，顶是四卡。</p>
+      </div>
+      <div class="panel">
+        <h3>适用</h3>
+        <p class="note">QPS &lt; 0.1 且卡闲：买 token。0.3–1.6 且四卡吃饱：自建卡费便宜一个数量级，硅基到不了。要 4 QPS 且 p50≈2.5s：这次只有 Neolink，钱跟它的 token 走。</p>
+      </div>
+    </div>
+
+    <footer>
+      窗口：硅基 03:02–03:47 UTC · Neolink 05:47–06:35 UTC · :8500 06:47–07:28 UTC。
+      配色 Nature Muted 8（#4E79A7 #F28E2B #E15759 #76B7B2 #59A14F #EDC948 #B07AA1 #FF9DA7），版式取 SciPalette 纸色 / Cormorant Garamond。
+      重算 <code>python3 cost_compare.py</code>。不改 :8500，不打 :5180。
+    </footer>
+  </div>
+
+  <script>
+    const C = { a: "#4E79A7", b: "#F28E2B", c: "#76B7B2", ink: "#212c33", mute: "rgba(33,44,51,.56)", line: "#dadcd6" };
+    const xs = [1, 8, 32, 80];
+    const qps = { a: [0.314, 0.840, 1.260, 1.619], b: [0.097, 0.081, 0.134, 0.237], c: [0.381, 2.974, 4.035, 4.133] };
+    const p50 = { a: [3.08, 9.62, 25.79, 50.22], b: [8.7, 21.7, 42.8, 98.4], c: [2.52, 2.48, 2.50, 2.59] };
+    const cost = { a: [0.0202, 0.0075, 0.0050, 0.0039], b: [0.0607, 0.0605, 0.0607, 0.0608], c: [0.0408, 0.0407, 0.0408, 0.0407] };
+    const tpm = { a: [0.62, 1.66, 2.50, 3.21], b: [0.19, 0.16, 0.26, 0.47], c: [0.76, 5.89, 8.05, 8.27] };
+
+    function svgEl(name, attrs) {
+      const el = document.createElementNS("http://www.w3.org/2000/svg", name);
+      for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+      return el;
+    }
+    function lineChart(id, series, ymax, yfmt) {
+      const svg = document.getElementById(id);
+      const W = 460, H = 260, L = 48, R = 16, T = 16, B = 36;
+      const iw = W - L - R, ih = H - T - B;
+      const xAt = i => L + (i / 3) * iw;
+      const yAt = v => T + (1 - v / ymax) * ih;
+      svg.appendChild(svgEl("rect", { x: 0, y: 0, width: W, height: H, fill: "transparent" }));
+      for (let t = 0; t <= 4; t++) {
+        const y = T + (t / 4) * ih;
+        svg.appendChild(svgEl("line", { x1: L, y1: y, x2: W - R, y2: y, stroke: C.line, "stroke-width": 1 }));
+        const lab = svgEl("text", { x: L - 8, y: y + 4, "text-anchor": "end", fill: C.mute, "font-size": 11, "font-family": "Source Sans 3, sans-serif" });
+        lab.textContent = yfmt(ymax * (1 - t / 4));
+        svg.appendChild(lab);
+      }
+      xs.forEach((lab, i) => {
+        const t = svgEl("text", { x: xAt(i), y: H - 12, "text-anchor": "middle", fill: C.mute, "font-size": 11, "font-family": "Source Sans 3, sans-serif" });
+        t.textContent = "c=" + lab;
+        svg.appendChild(t);
+      });
+      for (const [key, color] of [["a", C.a], ["b", C.b], ["c", C.c]]) {
+        const d = series[key].map((v, i) => `${i ? "L" : "M"}${xAt(i).toFixed(1)},${yAt(v).toFixed(1)}`).join(" ");
+        svg.appendChild(svgEl("path", { d, fill: "none", stroke: color, "stroke-width": 2.4, "stroke-linecap": "round", "stroke-linejoin": "round" }));
+        series[key].forEach((v, i) => {
+          svg.appendChild(svgEl("circle", { cx: xAt(i), cy: yAt(v), r: 3.6, fill: "#fbf9f2", stroke: color, "stroke-width": 2 }));
+        });
+      }
+    }
+    function groupedBars(id, series, ymax, yfmt) {
+      const svg = document.getElementById(id);
+      const W = 460, H = 260, L = 48, R = 16, T = 16, B = 36;
+      const iw = W - L - R, ih = H - T - B;
+      for (let t = 0; t <= 4; t++) {
+        const y = T + (t / 4) * ih;
+        svg.appendChild(svgEl("line", { x1: L, y1: y, x2: W - R, y2: y, stroke: C.line, "stroke-width": 1 }));
+        const lab = svgEl("text", { x: L - 8, y: y + 4, "text-anchor": "end", fill: C.mute, "font-size": 11, "font-family": "Source Sans 3, sans-serif" });
+        lab.textContent = yfmt(ymax * (1 - t / 4));
+        svg.appendChild(lab);
+      }
+      const groupW = iw / 4;
+      xs.forEach((lab, i) => {
+        const gx = L + i * groupW;
+        [["a", C.a], ["b", C.b], ["c", C.c]].forEach(([key, color], k) => {
+          const h = (series[key][i] / ymax) * ih;
+          const bw = groupW * 0.22;
+          const x = gx + groupW * 0.16 + k * (bw + 4);
+          svg.appendChild(svgEl("rect", { x, y: T + ih - h, width: bw, height: Math.max(h, 0.5), fill: color, rx: 2 }));
+        });
+        const t = svgEl("text", { x: gx + groupW / 2, y: H - 12, "text-anchor": "middle", fill: C.mute, "font-size": 11, "font-family": "Source Sans 3, sans-serif" });
+        t.textContent = "c=" + lab;
+        svg.appendChild(t);
+      });
+    }
+    lineChart("qps", qps, 4.5, v => v.toFixed(1));
+    lineChart("p50", p50, 110, v => v.toFixed(0) + "s");
+    groupedBars("cost", cost, 0.08, v => v.toFixed(2));
+    groupedBars("tpm", tpm, 9, v => v.toFixed(0) + "M");
+  </script>
+</body>
+</html>

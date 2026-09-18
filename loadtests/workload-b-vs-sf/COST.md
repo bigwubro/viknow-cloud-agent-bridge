@@ -71,4 +71,4 @@ dear 在 **c=1** 仍比硅基贵（卡很闲）；c≥8 才便宜。
 - 业务 QPS 要到 4、还要 p50≈2.5s：这次只有 Neolink 做得到，钱按它的 token（刊例未知），不是按 236 的 1.62 去外推。
 - 不要把云端失败 QPS 套进 236 卡费，也不要假设硅基无限 TPM。
 
-重算：`python3 cost_compare.py`。压测见 `RESULTS_LOCAL.md` / `RESULTS_SF.md` / `RESULTS_NL.md`。
+HTML 标本：`report-b-scipalette.html`（SciPalette 纸色 + Nature Muted 8）。重算：`python3 cost_compare.py`。

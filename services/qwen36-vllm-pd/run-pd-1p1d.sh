@@ -37,7 +37,8 @@ COMMON=(
 # failure handler). sitecustomize.py forces mode=none so sm can be AM.
 # cuda_copy must stay in TLS: without it NIXL/UCX treat VRAM as host and
 # registerMem fails. Do not list tcp — that is the 330MB/s host fallback.
-# gdr_copy is not built in this image. Data plane should pick cuda_ipc.
+# gdr_copy is not built in this image. Decode NIXL READ is ucp_get, so
+# UCX_RNDV_SCHEME=get_zcopy (put_zcopy left GET on sysv software emulation).
 # Host yama ptrace_scope=1: without CAP_SYS_PTRACE, UCX cuda_ipc cannot
 # map the peer process. This host nvidia-container-runtime only allows
 # compute,utility — do not set NVIDIA_DRIVER_CAPABILITIES=ipc.
@@ -86,7 +87,7 @@ start_engine() {
     -e CUDA_VISIBLE_DEVICES="${cuda_visible}" \
     -e UCX_TLS="${UCX_INTRANODE_TLS}" \
     -e UCX_MEMTYPE_CACHE=n \
-    -e UCX_RNDV_SCHEME=put_zcopy \
+    -e UCX_RNDV_SCHEME=get_zcopy \
     -e UCX_RNDV_THRESH=0 \
     -e UCX_PROTO_ENABLE=y \
     -e UCX_PROTO_INFO=y \

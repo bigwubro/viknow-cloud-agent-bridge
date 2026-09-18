@@ -56,7 +56,7 @@ start_engine() {
   # CUDA_VISIBLE_DEVICES lists the compute GPU first (TP1 uses device 0).
   docker run -d \
     --name "$name" \
-    --gpus "'device=${gpu_devices}'" \
+    --gpus '"device='"${gpu_devices}"'"' \
     --network host \
     --ipc host \
     --pid host \

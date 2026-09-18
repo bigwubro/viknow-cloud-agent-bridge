@@ -26,10 +26,6 @@ COMMON=(
   --default-chat-template-kwargs '{"enable_thinking": false}'
   --log-error-stack
   --uvicorn-log-level warning
-  # Same MTP on P and D so Mamba/GDN page size stays aligned (2096 vs 2128
-  # garbled output when only D had MTP). method=mtp is the vLLM recipe for
-  # Qwen3.6-35B-A3B; MTP-1 first for acceptance on this hybrid PD path.
-  --speculative-config '{"method":"mtp","num_speculative_tokens":1}'
 )
 
 # Same UCX / NIXL pull path as run-pd-1p1d.sh. All four GPUs stay visible so

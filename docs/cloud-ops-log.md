@@ -29,6 +29,14 @@
 
 ## 变更记录（倒序）
 
+### 2026-09-18 总览折线改成穿过盒子，去掉盒边断口
+
+- 环境：`docs/aliyun-architecture.html` Fig. 1
+- 对象：同一套 online prod 拓扑，只改画法
+- 动作：Nginx / ALB / GPU / ACR 顶栏改为一条连续直角折线从盒中穿过；去掉箭头造成的短 stub 和 ACR 处故意留的缺口。未改云资源。
+- 结果：成功
+- 残留：无
+
 ### 2026-09-18 总览补回 ④–⑨ 直角折线
 
 - 环境：`docs/aliyun-architecture.html` Fig. 1

@@ -186,7 +186,7 @@
 
   <section id="overview" class="active">
     <p class="figcap"><span>Fig. 1</span>Application Architecture</p>
-    <p class="note">层级用嵌套框表达。①–⑨ 都用直角折线，按通道走（入口粗线，依赖细线，⑧ 虚线未切）。探测日 2026-09-18。</p>
+    <p class="note">层级用嵌套框表达。①–⑨ 都用直角折线，中间站从盒子里穿过，不在盒边断开。探测日 2026-09-18。</p>
     <div class="legend">
       <span><i style="background:#1d1d1d;width:18px;height:3px;border-radius:0;vertical-align:middle"></i>② Web</span>
       <span><i style="background:#8c4fff;width:18px;height:3px;border-radius:0;vertical-align:middle"></i>③ Langfuse</span>
@@ -196,16 +196,16 @@
     </div>
     <svg class="arch" viewBox="0 0 1520 900" role="img" aria-label="阿里云 online prod 分层架构">
       <defs>
-        <marker id="arr" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="8" markerHeight="8" orient="auto">
+        <marker id="arr" viewBox="0 0 12 12" refX="9" refY="6" markerWidth="6" markerHeight="6" orient="auto">
           <path d="M 0 1 L 10 6 L 0 11 z" fill="#1d1d1d"/>
         </marker>
-        <marker id="arrP" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="8" markerHeight="8" orient="auto">
+        <marker id="arrP" viewBox="0 0 12 12" refX="9" refY="6" markerWidth="6" markerHeight="6" orient="auto">
           <path d="M 0 1 L 10 6 L 0 11 z" fill="#8c4fff"/>
         </marker>
-        <marker id="arrO" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="8" markerHeight="8" orient="auto">
+        <marker id="arrO" viewBox="0 0 12 12" refX="9" refY="6" markerWidth="6" markerHeight="6" orient="auto">
           <path d="M 0 1 L 10 6 L 0 11 z" fill="#c2410c"/>
         </marker>
-        <marker id="arrG" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="8" markerHeight="8" orient="auto">
+        <marker id="arrG" viewBox="0 0 12 12" refX="9" refY="6" markerWidth="6" markerHeight="6" orient="auto">
           <path d="M 0 1 L 10 6 L 0 11 z" fill="#7a7a7a"/>
         </marker>
       </defs>
@@ -270,8 +270,8 @@
       </g>
 
       <rect x="348" y="184" width="1118" height="656" rx="4" fill="none" stroke="#8c4fff" stroke-width="2"/>
-      <text x="390" y="206" fill="#8c4fff" font-size="13" font-weight="700">VPC  10.200.0.0/16</text>
-      <text x="390" y="222" fill="#8c4fff" font-size="10">vsw hangzhou-k · 白名单同 VPC</text>
+      <text x="430" y="206" fill="#8c4fff" font-size="13" font-weight="700">VPC  10.200.0.0/16</text>
+      <text x="430" y="222" fill="#8c4fff" font-size="10">vsw hangzhou-k · 白名单同 VPC</text>
 
       <g transform="translate(400,470)">
         <rect x="-28" y="-34" width="56" height="56" rx="6" fill="#f4edff" stroke="#8c4fff"/>
@@ -346,41 +346,41 @@
         <text y="50" text-anchor="middle" font-size="9" fill="#64748b">全走 236 网关</text>
       </g>
 
-      <!-- ① ACR → ACK -->
-      <line x1="1000" y1="172" x2="1000" y2="244" stroke="#c2410c" stroke-width="2" marker-end="url(#arrO)"/>
+      <!-- 连线在节点之下：从盒子中心穿过去，中间站不打断、不单独画箭头 -->
+      <g fill="none" stroke-linejoin="miter" stroke-linecap="butt">
+        <!-- ① ACR → ACK -->
+        <line x1="1000" y1="140" x2="1000" y2="244" stroke="#c2410c" stroke-width="2" marker-end="url(#arrO)"/>
 
-      <!-- ② Users → 236 Nginx → ViKnow -->
-      <line x1="78" y1="455" x2="148" y2="455" stroke="#1d1d1d" stroke-width="2.2" marker-end="url(#arr)"/>
-      <polyline points="256,455 256,560 614,560" fill="none" stroke="#1d1d1d" stroke-width="2.2" marker-end="url(#arr)"/>
+        <!-- ② Users → Nginx → ViKnow：一条线穿过 Nginx -->
+        <polyline points="70,455 202,455 256,455 256,560 618,560" stroke="#1d1d1d" stroke-width="2.2" marker-end="url(#arr)"/>
 
-      <!-- ③ Users → ALB → langfuse-web -->
-      <polyline points="48,437 48,88 360,88 360,470 372,470" fill="none" stroke="#8c4fff" stroke-width="2.2" marker-end="url(#arrP)"/>
-      <polyline points="428,448 428,400 616,400" fill="none" stroke="#8c4fff" stroke-width="2.2" marker-end="url(#arrP)"/>
+        <!-- ③ Users → ALB → langfuse-web：一条线穿过 ALB -->
+        <polyline points="48,437 48,88 400,88 400,470 428,470 428,400 618,400" stroke="#8c4fff" stroke-width="2.2" marker-end="url(#arrP)"/>
 
-      <!-- ④ viknow → neo4j（池缝 x=800） -->
-      <polyline points="666,560 800,560 800,400 934,400" fill="none" stroke="#1d1d1d" stroke-width="1.8" marker-end="url(#arr)"/>
+        <!-- ④ viknow → neo4j -->
+        <polyline points="666,560 800,560 800,400 934,400" stroke="#1d1d1d" stroke-width="1.8" marker-end="url(#arr)"/>
 
-      <!-- ⑤ viknow → 236 GPU（ALB 下方进入 236 再上） -->
-      <polyline points="614,510 270,510 270,250 266,250" fill="none" stroke="#1d1d1d" stroke-width="1.8" marker-end="url(#arr)"/>
+        <!-- ⑤ viknow → 236 GPU：接到 GPU 盒右缘再进入 -->
+        <polyline points="614,510 266,510 266,253 210,253" stroke="#1d1d1d" stroke-width="1.8"/>
 
-      <!-- ⑥ langfuse-web → worker → CH / redis -->
-      <polyline points="664,400 720,400 720,710 664,710" fill="none" stroke="#1d1d1d" stroke-width="1.8" marker-end="url(#arr)"/>
-      <polyline points="720,540 934,540" fill="none" stroke="#1d1d1d" stroke-width="1.8" marker-end="url(#arr)"/>
-      <polyline points="720,680 934,680" fill="none" stroke="#1d1d1d" stroke-width="1.8" marker-end="url(#arr)"/>
+        <!-- ⑥ langfuse-web → worker → CH / redis -->
+        <polyline points="664,400 720,400 720,710 664,710" stroke="#1d1d1d" stroke-width="1.8"/>
+        <polyline points="720,540 934,540" stroke="#1d1d1d" stroke-width="1.8" marker-end="url(#arr)"/>
+        <polyline points="720,680 934,680" stroke="#1d1d1d" stroke-width="1.8" marker-end="url(#arr)"/>
 
-      <!-- ⑦ viknow → RDS / Tair / OSS（躲开 ACR 下拉） -->
-      <polyline points="666,545 780,545 780,100 720,100" fill="none" stroke="#1d1d1d" stroke-width="1.8"/>
-      <line x1="780" y1="100" x2="900" y2="100" stroke="#1d1d1d" stroke-width="1.8"/>
-      <line x1="1088" y1="100" x2="1140" y2="100" stroke="#1d1d1d" stroke-width="1.8"/>
-      <line x1="720" y1="100" x2="720" y2="112" stroke="#1d1d1d" stroke-width="1.8" marker-end="url(#arr)"/>
-      <line x1="860" y1="100" x2="860" y2="114" stroke="#1d1d1d" stroke-width="1.8" marker-end="url(#arr)"/>
-      <line x1="1140" y1="100" x2="1140" y2="112" stroke="#1d1d1d" stroke-width="1.8" marker-end="url(#arr)"/>
+        <!-- ⑦ viknow → RDS / Tair / OSS：顶栏一条贯通，再垂直接进图标 -->
+        <polyline points="666,545 780,545 780,100 1140,100" stroke="#1d1d1d" stroke-width="1.8"/>
+        <line x1="780" y1="100" x2="720" y2="100" stroke="#1d1d1d" stroke-width="1.8"/>
+        <line x1="720" y1="100" x2="720" y2="140" stroke="#1d1d1d" stroke-width="1.8"/>
+        <line x1="860" y1="100" x2="860" y2="140" stroke="#1d1d1d" stroke-width="1.8"/>
+        <line x1="1140" y1="100" x2="1140" y2="140" stroke="#1d1d1d" stroke-width="1.8"/>
 
-      <!-- ⑧ ALB viknow-public 未切 -->
-      <polyline points="428,500 500,500 500,535 610,535" fill="none" stroke="#7a7a7a" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#arrG)"/>
+        <!-- ⑧ ALB 底边接到 viknow -->
+        <polyline points="400,492 400,535 610,535" stroke="#7a7a7a" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#arrG)"/>
 
-      <!-- ⑨ Actio → OSS（底边 + 右侧） -->
-      <polyline points="202,720 202,800 1432,800 1432,128 1156,128" fill="none" stroke="#1d1d1d" stroke-width="1.8" marker-end="url(#arr)"/>
+        <!-- ⑨ Actio 底边接到 OSS 图标 -->
+        <polyline points="202,720 202,800 1432,800 1432,128 1140,128" stroke="#1d1d1d" stroke-width="1.8"/>
+      </g>
 
       <g font-weight="700" font-size="11">
         <g transform="translate(1020,208)"><circle r="11" fill="#c2410c"/><text y="4" text-anchor="middle" fill="#fff">1</text></g>

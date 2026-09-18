@@ -73,7 +73,7 @@ start_engine() {
     --device /dev/nvidia-caps/nvidia-cap1 \
     --device /dev/nvidia-caps/nvidia-cap2 \
     -v /data/twj/models:/root/.cache/models:ro \
-    -v "${DIR}/sitecustomize.py:/usr/local/lib/python3.12/dist-packages/sitecustomize.py:ro" \
+    -v "${DIR}/sitecustomize.py:/usr/lib/python3.12/sitecustomize.py:ro" \
     -e NVIDIA_VISIBLE_DEVICES="${gpu_devices}" \
     -e PYTHONHASHSEED=0 \
     -e PYTHONUNBUFFERED=1 \

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>工作负载 B 对照标本 — :8500 / 硅基 / Neolink</title>
+  <title>Qwen3.6 长上下文：自建四卡与云端 API 对照报告</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&family=Noto+Serif+SC:wght@500;600;700&family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -122,28 +122,29 @@
       <div class="brand">
         <div class="mark" aria-hidden="true"></div>
         <div>
-          <small>Workload B · specimen sheet</small>
-          <strong>Qwen3.6-35B-A3B 供给对照</strong>
+          <small>测试报告 · 2026-09-18</small>
+          <strong>Qwen3.6-35B 自建与云端对照</strong>
         </div>
       </div>
       <div class="meta">
-        2026-09-18 · 236 四卡 / 硅基流动 / Neolink<br />
-        视觉规范：SciPalette · Nature Muted 8
+        自建四卡 · 硅基流动 · Neolink<br />
+        版式参照 SciPalette
       </div>
     </header>
 
-    <h1>同一工作负载 B 的三路供给对照</h1>
+    <h1>长上下文问答：自建四卡和两家云端 API 比什么</h1>
     <p class="lede">
-      数据集为共享前缀加独特后缀，约 3.3 万 prompt、184 completion，关闭 thinking。
-      236 仅计入四卡购卡摊销，不含电费。硅基流动按本测试账号实付结算。Neolink 未公布刊例，百炼华北 2 <code>qwen3.6-flash</code> 仅作参考单价。
-      成功请求定义为 HTTP 200；云端存在 TPM、429 与 500 约束，不宜将硅基或 Neolink 的吞吐外推为与 236 同等可获得的 QPS。
+      每条请求约 3.3 万输入 token、184 个输出 token。各请求共用同一段长上下文，仅末尾不同；关闭模型思考模式。
+      对照三处服务：本机四张 GPU 上的自建接口、硅基流动的 <code>Qwen/Qwen3.6-35B-A3B</code>、Neolink 的 <code>qwen3.6-flash</code>（对标开源 35B-A3B）。
+      自建成本只计购卡摊销，不含电费。硅基流动按本次账号实付。Neolink 未公布单价，表中「参考价」取阿里云百炼华北 2 同名模型，不是 Neolink 发票。
+      成功指接口返回 HTTP 200。云端会限流或返回错误，不能假定随时买到与自建相同的每秒完成量。
     </p>
     <div class="chips">
-      <span class="chip"><i class="swatch" style="background:#4E79A7"></i>:8500 DP4×TP1</span>
-      <span class="chip"><i class="swatch" style="background:#F28E2B"></i>硅基 Qwen3.6-35B-A3B</span>
-      <span class="chip"><i class="swatch" style="background:#76B7B2"></i>Neolink qwen3.6-flash</span>
-      <span class="chip">1 / 8 / 32 / 80 × 10 min</span>
-      <span class="chip">仅计购卡摊销</span>
+      <span class="chip"><i class="swatch" style="background:#4E79A7"></i>自建四卡</span>
+      <span class="chip"><i class="swatch" style="background:#F28E2B"></i>硅基流动</span>
+      <span class="chip"><i class="swatch" style="background:#76B7B2"></i>Neolink</span>
+      <span class="chip">并发 1 / 8 / 32 / 80，每档 10 分钟</span>
+      <span class="chip">自建不含电费</span>
     </div>
     <div class="palette" title="Nature Muted 8">
       <i style="background:#4E79A7"></i><i style="background:#F28E2B"></i>
@@ -154,81 +155,86 @@
 
     <div class="kpis">
       <div class="panel">
-        <div class="k">可持续成功 QPS</div>
+        <div class="k">每秒最多完成多少条</div>
         <div class="v">1.62 · 0.24 · 4.13</div>
-        <div class="s">:8500 c80 · 硅基峰值 · Neolink 峰值</div>
+        <div class="s">自建并发 80 · 硅基流动 · Neolink</div>
       </div>
       <div class="panel">
-        <div class="k">1000 条成功请求成本</div>
+        <div class="k">完成 1000 条成功请求</div>
         <div class="v">¥3.91 · 60.7 · 40.7</div>
-        <div class="s">236 mid 摊销 · 硅基实付 · 百炼参考</div>
+        <div class="s">自建基准摊销 · 硅基实付 · 百炼参考价</div>
       </div>
       <div class="panel">
-        <div class="k">等效 TPM 上限</div>
+        <div class="k">每分钟最多处理多少 token</div>
         <div class="v">3.2 · 0.47 · 8.3 M</div>
-        <div class="s">约束分别为排队变慢、429、500</div>
+        <div class="s">自建变慢但仍成功 · 硅基限流 · Neolink 报错</div>
       </div>
     </div>
 
-    <h2>图 1　成功吞吐与延迟</h2>
-    <p class="figcap">QPS 与 p50 仅统计 HTTP 200。Neolink 在并发 ≥32 时的 500 不计入 p50，故成功请求中位数仍约 2.5 秒。</p>
+    <h2>图 1　完成速度与等待时间</h2>
+    <p class="figcap">仅统计返回成功的请求。每秒完成条数与延迟中位数均不含失败样本。横轴为同时发出的请求数。Neolink 在高并发下大量失败，成功请求的中位延迟仍约 2.5 秒。</p>
+    <p class="figcap" style="margin-top:-6px">
+      <span class="chip"><i class="swatch" style="background:#4E79A7"></i>自建</span>
+      <span class="chip"><i class="swatch" style="background:#F28E2B"></i>硅基流动</span>
+      <span class="chip"><i class="swatch" style="background:#76B7B2"></i>Neolink</span>
+    </p>
     <div class="grid2">
       <div class="panel">
-        <h3>成功 QPS</h3>
-        <svg class="chart" id="qps" viewBox="0 0 460 260" role="img" aria-label="成功 QPS 折线"></svg>
+        <h3>每秒成功完成请求数</h3>
+        <svg class="chart" id="qps" viewBox="0 0 460 260" role="img" aria-label="每秒成功完成请求数"></svg>
       </div>
       <div class="panel">
-        <h3>e2e p50（成功）</h3>
-        <svg class="chart" id="p50" viewBox="0 0 460 260" role="img" aria-label="e2e p50 折线"></svg>
+        <h3>成功请求延迟中位数（秒）</h3>
+        <svg class="chart" id="p50" viewBox="0 0 460 260" role="img" aria-label="延迟中位数"></svg>
       </div>
     </div>
 
-    <h2>图 2　工作点单价与供给上限</h2>
-    <p class="figcap">左图为单条成功请求成本：236 按该档实测成功 QPS 分摊购卡。右图等效 TPM = 成功 QPS × 单条 token 数 × 60。</p>
+    <h2>图 2　单条成本和每分钟处理量</h2>
+    <p class="figcap">左图：一条成功请求多少钱。自建按该并发下实际完成速度分摊购卡。右图：每分钟处理的 token 约数 = 每秒成功条数 × 单条 token 数 × 60。</p>
     <div class="grid2">
       <div class="panel">
-        <h3>单条成功成本（236 为购卡摊销）</h3>
-        <svg class="chart" id="cost" viewBox="0 0 460 260" role="img" aria-label="单价柱状图"></svg>
+        <h3>单条成功请求成本（元）</h3>
+        <svg class="chart" id="cost" viewBox="0 0 460 260" role="img" aria-label="单条成本柱状图"></svg>
       </div>
       <div class="panel">
-        <h3>各档等效 TPM</h3>
-        <svg class="chart" id="tpm" viewBox="0 0 460 260" role="img" aria-label="TPM 柱状图"></svg>
+        <h3>每分钟处理 token（百万）</h3>
+        <svg class="chart" id="tpm" viewBox="0 0 460 260" role="img" aria-label="每分钟 token 柱状图"></svg>
       </div>
     </div>
 
-    <h2>表 1　三边实测</h2>
+    <h2>表 1　三处服务实测结果</h2>
     <div class="panel" style="overflow:auto">
       <table>
         <thead>
           <tr>
             <th>并发</th>
-            <th>:8500 QPS / p50</th>
-            <th>硅基 QPS / p50</th>
-            <th>Neolink QPS / p50</th>
-            <th>硅基约束</th>
-            <th>Neolink 约束</th>
+            <th>自建 完成/秒 · 中位延迟</th>
+            <th>硅基流动</th>
+            <th>Neolink</th>
+            <th>硅基流动异常</th>
+            <th>Neolink 异常</th>
           </tr>
         </thead>
         <tbody>
-          <tr><td>1</td><td>0.314 / 3.08s</td><td>0.097 / 8.7s</td><td>0.381 / 2.52s</td><td>17 次 429 后重试成功</td><td>无</td></tr>
-          <tr><td>8</td><td>0.840 / 9.62s</td><td>0.081 / 21.7s</td><td>2.974 / 2.48s</td><td>失败 52，均为 429</td><td>无</td></tr>
-          <tr><td>32</td><td>1.260 / 25.8s</td><td>0.134 / 42.8s</td><td>4.035 / 2.50s</td><td>失败 256，均为 429</td><td>20345 次 HTTP 500</td></tr>
-          <tr><td>80</td><td>1.619 / 50.2s</td><td>0.237 / 98.4s</td><td>4.133 / 2.59s</td><td>失败 521，均为 429</td><td>51817 次 HTTP 500</td></tr>
+          <tr><td>1</td><td>0.314 / 3.08 秒</td><td>0.097 / 8.7 秒</td><td>0.381 / 2.52 秒</td><td>17 次限流后重试成功</td><td>无</td></tr>
+          <tr><td>8</td><td>0.840 / 9.62 秒</td><td>0.081 / 21.7 秒</td><td>2.974 / 2.48 秒</td><td>失败 52，均为限流</td><td>无</td></tr>
+          <tr><td>32</td><td>1.260 / 25.8 秒</td><td>0.134 / 42.8 秒</td><td>4.035 / 2.50 秒</td><td>失败 256，均为限流</td><td>20345 次服务端错误</td></tr>
+          <tr><td>80</td><td>1.619 / 50.2 秒</td><td>0.237 / 98.4 秒</td><td>4.133 / 2.59 秒</td><td>失败 521，均为限流</td><td>51817 次服务端错误</td></tr>
         </tbody>
       </table>
     </div>
 
-    <h2>表 2　购卡摊销口径下的单条成本</h2>
+    <h2>表 2　一条成功请求的成本（元）</h2>
     <div class="panel" style="overflow:auto;margin-top:12px">
       <table>
         <thead>
           <tr>
-            <th>并发</th>
-            <th>:8500 QPS</th>
-            <th>236 mid</th>
-            <th>236 dear</th>
-            <th>硅基实付</th>
-            <th>百炼参考</th>
+            <th>同时发出的请求数</th>
+            <th>自建每秒完成</th>
+            <th>自建（常用摊销）</th>
+            <th>自建（购卡贵、利用率低）</th>
+            <th>硅基流动实付</th>
+            <th>百炼参考价</th>
           </tr>
         </thead>
         <tbody>
@@ -238,68 +244,67 @@
           <tr><td>80</td><td>1.619</td><td>0.0039</td><td>0.0144</td><td>0.0608</td><td>0.0407</td></tr>
         </tbody>
       </table>
-      <p class="figcap" style="margin:10px 0 0">mid 假设购卡 36 万元、摊销 3 年、利用率 60%，忙时小时成本 ¥22.82。相对硅基实付，成功 QPS 高于 0.104 时自建单条成本更低。dear 口径在并发为 1 时仍高于硅基，并发 ≥8 后低于硅基。</p>
+      <p class="figcap" style="margin:10px 0 0">常用摊销：四卡购价 36 万元，按 3 年、每天使用 60% 时间分摊，使用中每小时约 22.82 元。自建每秒完成超过约 0.10 条时，单条成本低于硅基流动实付。购卡更贵且每天只使用 30% 时，并发为 1 仍贵于硅基流动，并发到 8 及以上才更低。</p>
     </div>
 
-    <h2>表 3　达到目标吞吐所需供给份数</h2>
-    <p class="figcap">假设限流可线性叠加，仅用于数量级估计。云端失败请求对应的 QPS 不得代入 236 摊销。</p>
+    <h2>表 3　要达到某一完成速度，大约需要几套资源</h2>
+    <p class="figcap">下表按「限流可叠加」做数量级估计，不是合同报价。失败请求不能算作自建机器的有效产出。</p>
     <div class="panel" style="overflow:auto">
       <table>
         <thead>
           <tr>
-            <th>目标成功 QPS</th>
-            <th>:8500</th>
-            <th>硅基本测试账号</th>
+            <th>目标：每秒完成多少条</th>
+            <th>自建四卡</th>
+            <th>硅基流动（本测试账号）</th>
             <th>Neolink</th>
           </tr>
         </thead>
         <tbody>
           <tr>
-            <td>1.62（:8500 并发 80）</td>
-            <td>1 套四卡，¥22.8/h</td>
-            <td>约 7 个同等账号；若可获得该吞吐，约 ¥354/h</td>
-            <td>1 个账号即可；按百炼参考约 ¥237/h</td>
+            <td>1.62（自建并发 80 时达到）</td>
+            <td>一套四卡即可，使用中约 22.8 元/小时</td>
+            <td>约 7 个同等账号；若能买到该速度，约 354 元/小时</td>
+            <td>1 个账号即可；按百炼参考价约 237 元/小时</td>
           </tr>
           <tr>
-            <td>4.13（Neolink 峰值）</td>
-            <td>约 2.6 套四卡（10–12 卡）</td>
+            <td>4.13（Neolink 本次峰值）</td>
+            <td>约 2.6 套四卡（10–12 张卡）</td>
             <td>约 17 个同等账号</td>
-            <td>1 个账号，单条仍约 ¥0.041</td>
+            <td>1 个账号，单条仍约 0.041 元</td>
           </tr>
           <tr>
-            <td>0.24（硅基峰值）</td>
-            <td>四卡利用率不足，单条摊销上升</td>
-            <td>1 个账号，¥0.0607/条</td>
-            <td>1 个账号，额度利用不充分</td>
+            <td>0.24（硅基流动本次峰值）</td>
+            <td>四卡吃不饱，单条摊销升高</td>
+            <td>1 个账号，每条 0.0607 元</td>
+            <td>1 个账号即可，额度有富余</td>
           </tr>
         </tbody>
       </table>
     </div>
 
-    <h2>口径与解读</h2>
+    <h2>阅读说明</h2>
     <div class="methods">
       <div class="panel">
-        <h3>统计口径</h3>
-        <p class="note">每条记录对应一次完整调用。成功仅计 HTTP 200；QPS 与 p50 只基于成功样本。硅基遇到 429 最多重试 6 次，重试后成功仍计为成功，并记入曾触发限流。Neolink 的 500 不重试，每次记一条失败。</p>
+        <h3>如何计成功和失败</h3>
+        <p class="note">每发出一次完整问答记一条。只有接口明确返回成功才计入完成速度和延迟。硅基流动遇到「请求过多」最多自动重试 6 次，重试成功仍算成功。Neolink 遇到服务端错误不重试，记一次失败。</p>
       </div>
       <div class="panel">
-        <h3>成本口径</h3>
-        <p class="note">236：购卡金额 /（年 × 365.25 × 24 × 利用率），不含电费。硅基流动中国区输入 / 输出为每百万 token ¥1.80 / ¥10.80，四档实付合计 ¥22.76。Neolink 刊例未知；百炼每百万 ¥1.2 / ¥7.2 不是其发票单价。</p>
+        <h3>钱怎么算</h3>
+        <p class="note">自建：购卡金额 ÷（使用年数 × 每年小时数 × 每天实际使用比例），不含电费。硅基流动中国区输入 / 输出为每百万 token 1.80 / 10.80 元，四个并发档合计实付 22.76 元。Neolink 价格未公布；百炼同档每百万 1.2 / 7.2 元仅供对照，不是 Neolink 账单。</p>
       </div>
       <div class="panel">
-        <h3>限流与容量</h3>
-        <p class="note">本硅基账号成功 QPS 上限为 0.24（约 0.47M TPM），并发为 1 时已出现 429。Neolink 成功 QPS 上限为 4.13（约 8.3M TPM），接近百炼常见 10M TPM 档。236 无账号级 TPM，上限由四卡算力决定。</p>
+        <h3>云端为什么加并发也快不起来</h3>
+        <p class="note">硅基流动本账号每秒最多完成约 0.24 条（约每分钟 47 万 token），并发为 1 时已出现限流。Neolink 每秒最多完成约 4.13 条（约每分钟 830 万 token），再提高并发只会增加服务端错误。自建没有账号额度上限，快慢取决于四张卡的算力。</p>
       </div>
       <div class="panel">
-        <h3>适用条件</h3>
-        <p class="note">目标 QPS 低于约 0.1 且加速卡利用率偏低时，采购 token 更经济。目标 QPS 在 0.3–1.6 且四卡保持满载时，自建摊销约低一个数量级，且本硅基账号无法达到该吞吐。若需约 4 QPS 且 p50 约 2.5 秒，本次仅 Neolink 满足，成本应按其 token 计费，不宜用 236 的 1.62 QPS 外推。</p>
+        <h3>什么情况下更划算</h3>
+        <p class="note">若业务每秒完成不到约 0.1 条、机器经常空闲，直接买云端按量计费更省事。若需要每秒 0.3–1.6 条且四卡能持续打满，自建单条成本大约低一个数量级，且本硅基账号达不到这个速度。若需要每秒约 4 条、且多数请求 2.5 秒内返回，本次只有 Neolink 做到，费用应按该平台计价，不能用自建的 1.62 条/秒去外推。</p>
       </div>
     </div>
 
     <footer>
-      观测窗口：硅基流动 03:02–03:47 UTC；Neolink 05:47–06:35 UTC；:8500 06:47–07:28 UTC。
-      配色为 Nature Muted 8，版式参照 SciPalette 纸色与 Cormorant Garamond。
-      数值复算：<code>python3 cost_compare.py</code>。本次未修改 :8500 启动参数，也未访问 :5180。
+      测试时间（世界时）：硅基流动 03:02–03:47；Neolink 05:47–06:35；自建 06:47–07:28。日期 2026-09-18。
+      自建服务参数未在本次测试中调整。配色为 Nature Muted 8。
     </footer>
   </div>
 
@@ -332,7 +337,7 @@
       }
       xs.forEach((lab, i) => {
         const t = svgEl("text", { x: xAt(i), y: H - 12, "text-anchor": "middle", fill: C.mute, "font-size": 11, "font-family": "Source Sans 3, sans-serif" });
-        t.textContent = "c=" + lab;
+        t.textContent = String(lab);
         svg.appendChild(t);
       });
       for (const [key, color] of [["a", C.a], ["b", C.b], ["c", C.c]]) {
@@ -364,7 +369,7 @@
           svg.appendChild(svgEl("rect", { x, y: T + ih - h, width: bw, height: Math.max(h, 0.5), fill: color, rx: 2 }));
         });
         const t = svgEl("text", { x: gx + groupW / 2, y: H - 12, "text-anchor": "middle", fill: C.mute, "font-size": 11, "font-family": "Source Sans 3, sans-serif" });
-        t.textContent = "c=" + lab;
+        t.textContent = String(lab);
         svg.appendChild(t);
       });
     }

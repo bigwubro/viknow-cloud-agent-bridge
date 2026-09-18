@@ -44,14 +44,14 @@ case "$cmd" in
     python3 -u "$PY" run --target sf --concurrency 1,8,32,80 --duration 600 --i-accept-sf-cost "$@"
     ;;
   neolink)
-    # same B dataset; default model qwen3.6-plus (no 35B-A3B on this key)
-    export NL_MODEL="${NL_MODEL:-qwen3.6-plus}"
+    # same B dataset; qwen3.6-flash 对标开源 Qwen3.6-35B-A3B
+    export NL_MODEL="${NL_MODEL:-qwen3.6-flash}"
     export COOLDOWN_SEC="${COOLDOWN_SEC:-15}"
     python3 -u "$PY" run --target neolink --concurrency 1,8,32,80 --duration 600 --i-accept-nl-cost "$@"
     ;;
   neolink-prepare)
     python3 -u "$PY" plan
-    echo "neolink prepared. wait for start. model=${NL_MODEL:-qwen3.6-plus}"
+    echo "neolink prepared. wait for start. model=${NL_MODEL:-qwen3.6-flash}"
     ;;
   report)
     python3 -u "$PY" report --dir "$OUT" "$@"

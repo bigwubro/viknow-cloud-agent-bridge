@@ -22,14 +22,12 @@ Qwen OpenAI 兼容：https://neolink.com/docs/instruction-manual/chat/04-qwen(op
 
 | 模型 ID | 短请求 |
 |---|---|
-| `qwen3.6-plus` | 200 |
-| `qwen3.6-flash` | 200 |
-| `qwen3.6-max-preview` | 200 |
+| `qwen3.6-flash` | 200（对标 35B-A3B） |
+| `qwen3.6-plus` | 200（闭源中档，不对标） |
+| `qwen3.6-max-preview` | 200（旗舰，不对标） |
 
-`Qwen/Qwen3.6-35B-A3B` / `qwen3.6-35b-a3b` / `qwen3.6-35b` 都是 **404 model_not_found**。  
-默认先用 **`qwen3.6-plus`**（3.6 里最接近通用对话档）。要换模型设 `NL_MODEL`。
-
-这和硅基的 35B-A3B **不是同一款权重**，延迟/QPS 不能当同构对比，只能比「同一套 B prompt 的账单和限流形态」。
+`Qwen/Qwen3.6-35B-A3B` 这个 HuggingFace 名在 Neolink 上 404。百炼把开源 **35B-A3B（35B/激活 3B）** 挂在服务名 **`qwen3.6-flash`** 上；`plus` / `max` 是另一档闭源。  
+默认改成 **`qwen3.6-flash`**。网关仍是百炼托管（还带视觉、1M 上下文），236 本地是 FP8 纯文本，账单和限流能比，serving 形态仍不完全同构。
 
 ## 价格
 
@@ -41,15 +39,12 @@ export NL_CNY_PER_M_IN=...
 export NL_CNY_PER_M_OUT=...
 ```
 
-百炼 CN 的 qwen3.6-plus 参考（不是 Neolink 牌价）：输入 $0.276 / M，输出 $1.651 / M（≤256k）。
+百炼 CN `qwen3.6-flash` 参考（不是 Neolink 牌价）：输入 $0.165 / M，输出 $0.99 / M（≤256k）。
 
 ## 跑法（等你点头）
 
 ```bash
-# 默认 qwen3.6-plus，1/8/32/80 × 10 分钟，同一套 3 万 B
-NL_MODEL=qwen3.6-plus ./run.sh neolink
-
-# 或换 flash / max
+# 默认 qwen3.6-flash，1/8/32/80 × 10 分钟，同一套 3 万 B
 NL_MODEL=qwen3.6-flash ./run.sh neolink
 ```
 

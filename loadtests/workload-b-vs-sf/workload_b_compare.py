@@ -57,7 +57,7 @@ SF_BASE = os.environ.get("SF_BASE", "https://api.siliconflow.cn/v1").rstrip("/")
 SF_MODEL = os.environ.get("SF_MODEL", "Qwen/Qwen3.6-35B-A3B")
 SF_KEY = os.environ.get("SILICONFLOW_API_KEY", "")
 NL_BASE = os.environ.get("NL_BASE", "https://neolink.com/api/v1").rstrip("/")
-NL_MODEL = os.environ.get("NL_MODEL", "qwen3.6-plus")
+NL_MODEL = os.environ.get("NL_MODEL", "qwen3.6-flash")
 NL_KEY = os.environ.get("NEOLINK_API_KEY", "")
 
 # 3万 prompt；独特尾巴按早上 B 的 8500/19000 ≈ 45% 同比拉长，共享约 55% 可缓存。

@@ -29,6 +29,14 @@
 
 ## 变更记录（倒序）
 
+### 2026-09-18 总览去掉交叉连线，只保留三条直角入口
+
+- 环境：`docs/aliyun-architecture.html` Fig. 1
+- 对象：同一套 online prod 拓扑，只改画法
+- 动作：删除 neo4j / GPU / ClickHouse / RDS / Tair / OSS / Actio / 未用 ALB 等交叉曲线；图上只保留 ① ACR、② Web、③ Langfuse 三条正交折线；④–⑨ 改标在组件上。未改云资源。
+- 结果：成功
+- 残留：无
+
 ### 2026-09-18 总览改为嵌套层级架构图（云 / VPC / ACK / 节点池）
 
 - 环境：`docs/aliyun-architecture.html` Fig. 1

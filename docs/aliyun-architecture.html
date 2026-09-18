@@ -157,8 +157,8 @@
     </div>
     <h1>ViKnow2 online prod,<br />composed as a figure.</h1>
     <p class="lede">
-      阿里云杭州 ACK 只读部署图。总览按云厂商架构图画法：<b>云 → 地域 → VPC → ACK → 节点池 → 工作负载</b>，编号为调用关系。
-      无 kubeconfig；未改云资源。
+      阿里云杭州 ACK 只读部署图。总览按云厂商架构图画法：<b>云 → 地域 → VPC → ACK → 节点池 → 工作负载</b>。
+      图上只画现网入口，池内依赖用编号标在组件上。无 kubeconfig；未改云资源。
     </p>
     <div class="swatches" title="Nature Muted 8">
       <b style="background:#4E79A7"></b><b style="background:#F28E2B"></b>
@@ -186,14 +186,23 @@
 
   <section id="overview" class="active">
     <p class="figcap"><span>Fig. 1</span>Application Architecture</p>
-    <p class="note">层级：阿里云 → 地域 cn-hangzhou → VPC → ACK 集群 → 节点池 → 工作负载。编号是调用关系。探测日 2026-09-18。</p>
+    <p class="note">层级用嵌套框表达。图上只画三条现网路径：① 镜像拉取、② Web（236 Nginx）、③ Langfuse（ALB）。④–⑨ 标在对应组件上，不再拉线。探测日 2026-09-18。</p>
+    <div class="legend">
+      <span><i style="background:#1d1d1d;width:18px;height:3px;border-radius:0;vertical-align:middle"></i>② Web · 236 Nginx</span>
+      <span><i style="background:#8c4fff;width:18px;height:3px;border-radius:0;vertical-align:middle"></i>③ Langfuse · ALB</span>
+      <span><i style="background:#c2410c;width:18px;height:3px;border-radius:0;vertical-align:middle"></i>① ACR → ACK</span>
+      <span>④–⑨ 标在组件上，不连线</span>
+    </div>
     <svg class="arch" viewBox="0 0 1520 900" role="img" aria-label="阿里云 online prod 分层架构">
       <defs>
         <marker id="arr" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="8" markerHeight="8" orient="auto">
           <path d="M 0 1 L 10 6 L 0 11 z" fill="#1d1d1d"/>
         </marker>
-        <marker id="arrG" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="8" markerHeight="8" orient="auto">
-          <path d="M 0 1 L 10 6 L 0 11 z" fill="#7a7a7a"/>
+        <marker id="arrP" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="8" markerHeight="8" orient="auto">
+          <path d="M 0 1 L 10 6 L 0 11 z" fill="#8c4fff"/>
+        </marker>
+        <marker id="arrO" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="8" markerHeight="8" orient="auto">
+          <path d="M 0 1 L 10 6 L 0 11 z" fill="#c2410c"/>
         </marker>
       </defs>
       <text x="24" y="28" fill="#1d1d1d" font-size="20" font-weight="700">Application Architecture</text>
@@ -255,22 +264,17 @@
         <text y="32" text-anchor="middle" font-size="10" fill="#1d1d1d">OSS</text>
         <text y="44" text-anchor="middle" font-size="8" fill="#5f6b7a">juicefs / langfuse</text>
       </g>
-      <g transform="translate(1280,128)">
-        <rect x="-18" y="-14" width="36" height="24" rx="3" fill="#8c4fff"/>
-        <text x="0" y="2" text-anchor="middle" fill="#fff" font-size="8">ALB</text>
-        <text y="28" text-anchor="middle" font-size="10" fill="#1d1d1d">Internet ALB</text>
-        <text y="40" text-anchor="middle" font-size="8" fill="#5f6b7a">HTTP/80</text>
-      </g>
 
       <rect x="348" y="184" width="1118" height="656" rx="4" fill="none" stroke="#8c4fff" stroke-width="2"/>
-      <text x="368" y="206" fill="#8c4fff" font-size="13" font-weight="700">VPC  10.200.0.0/16</text>
-      <text x="368" y="222" fill="#8c4fff" font-size="10">vsw hangzhou-k · 白名单同 VPC</text>
+      <text x="390" y="206" fill="#8c4fff" font-size="13" font-weight="700">VPC  10.200.0.0/16</text>
+      <text x="390" y="222" fill="#8c4fff" font-size="10">vsw hangzhou-k · 白名单同 VPC</text>
 
       <g transform="translate(400,470)">
         <rect x="-28" y="-34" width="56" height="56" rx="6" fill="#f4edff" stroke="#8c4fff"/>
         <circle cx="0" cy="-8" r="10" fill="#8c4fff"/>
         <text y="22" text-anchor="middle" font-size="10" font-weight="700" fill="#1d1d1d">ALB</text>
-        <text y="36" text-anchor="middle" font-size="8" fill="#5f6b7a">Ingress</text>
+        <text y="36" text-anchor="middle" font-size="8" fill="#5f6b7a">langfuse.ai</text>
+        <text y="62" text-anchor="middle" font-size="8" fill="#7a7a7a">viknow 未切</text>
       </g>
 
       <rect x="470" y="232" width="976" height="586" rx="4" fill="none" stroke="#f28e2b" stroke-width="2" stroke-dasharray="8 5"/>
@@ -339,33 +343,27 @@
         <text y="50" text-anchor="middle" font-size="9" fill="#64748b">全走 236 网关</text>
       </g>
 
-      <line x1="78" y1="455" x2="148" y2="455" stroke="#1d1d1d" stroke-width="2" marker-end="url(#arr)"/>
-      <line x1="256" y1="455" x2="372" y2="455" stroke="#1d1d1d" stroke-width="2"/>
-      <line x1="428" y1="455" x2="614" y2="555" stroke="#1d1d1d" stroke-width="2" marker-end="url(#arr)"/>
-      <path d="M 48 420 C 48 250, 400 250, 400 436" fill="none" stroke="#1d1d1d" stroke-width="1.8" marker-end="url(#arr)"/>
-      <line x1="428" y1="448" x2="616" y2="410" stroke="#1d1d1d" stroke-width="1.8" marker-end="url(#arr)"/>
-      <line x1="666" y1="560" x2="932" y2="400" stroke="#1d1d1d" stroke-width="1.6" marker-end="url(#arr)"/>
-      <path d="M 614 540 C 420 540, 300 360, 266 268" fill="none" stroke="#1d1d1d" stroke-width="1.6" marker-end="url(#arr)"/>
-      <line x1="664" y1="400" x2="932" y2="540" stroke="#1d1d1d" stroke-width="1.6" marker-end="url(#arr)"/>
-      <line x1="640" y1="428" x2="640" y2="682" stroke="#1d1d1d" stroke-width="1.4" marker-end="url(#arr)"/>
-      <line x1="664" y1="710" x2="932" y2="680" stroke="#1d1d1d" stroke-width="1.4" marker-end="url(#arr)"/>
-      <path d="M 640 530 C 640 200, 720 200, 720 168" fill="none" stroke="#1d1d1d" stroke-width="1.6" marker-end="url(#arr)"/>
-      <path d="M 655 530 C 780 220, 860 200, 860 168" fill="none" stroke="#1d1d1d" stroke-width="1.3" marker-end="url(#arr)"/>
-      <path d="M 655 545 C 900 240, 1140 200, 1140 172" fill="none" stroke="#1d1d1d" stroke-width="1.3" marker-end="url(#arr)"/>
-      <line x1="1000" y1="172" x2="1000" y2="232" stroke="#1d1d1d" stroke-width="1.6" marker-end="url(#arr)"/>
-      <line x1="400" y1="506" x2="614" y2="560" stroke="#7a7a7a" stroke-width="1.4" stroke-dasharray="5 4" marker-end="url(#arrG)"/>
-      <path d="M 266 690 C 500 820, 1100 200, 1140 172" fill="none" stroke="#1d1d1d" stroke-width="1.3" marker-end="url(#arr)"/>
+      <!-- ① ACR → ACK：短垂直线 -->
+      <line x1="1000" y1="172" x2="1000" y2="244" stroke="#c2410c" stroke-width="2" marker-end="url(#arrO)"/>
+
+      <!-- ② Users → 236 Nginx → ViKnow：ALB 下方横穿，不经过 Ingress -->
+      <line x1="78" y1="455" x2="148" y2="455" stroke="#1d1d1d" stroke-width="2.2" marker-end="url(#arr)"/>
+      <polyline points="256,455 256,560 614,560" fill="none" stroke="#1d1d1d" stroke-width="2.2" marker-end="url(#arr)"/>
+
+      <!-- ③ Users → ALB → langfuse-web：从 236 上方绕行，与 ② 分行 -->
+      <polyline points="48,437 48,130 360,130 360,470 372,470" fill="none" stroke="#8c4fff" stroke-width="2.2" marker-end="url(#arrP)"/>
+      <polyline points="428,448 428,400 616,400" fill="none" stroke="#8c4fff" stroke-width="2.2" marker-end="url(#arrP)"/>
 
       <g font-weight="700" font-size="11">
-        <g transform="translate(1000,200)"><circle r="11" fill="#1d1d1d"/><text y="4" text-anchor="middle" fill="#fff">1</text></g>
+        <g transform="translate(1020,208)"><circle r="11" fill="#c2410c"/><text y="4" text-anchor="middle" fill="#fff">1</text></g>
         <g transform="translate(108,455)"><circle r="11" fill="#1d1d1d"/><text y="4" text-anchor="middle" fill="#fff">2</text></g>
-        <g transform="translate(48,300)"><circle r="11" fill="#1d1d1d"/><text y="4" text-anchor="middle" fill="#fff">3</text></g>
-        <g transform="translate(800,470)"><circle r="11" fill="#1d1d1d"/><text y="4" text-anchor="middle" fill="#fff">4</text></g>
-        <g transform="translate(360,360)"><circle r="11" fill="#1d1d1d"/><text y="4" text-anchor="middle" fill="#fff">5</text></g>
-        <g transform="translate(800,560)"><circle r="11" fill="#1d1d1d"/><text y="4" text-anchor="middle" fill="#fff">6</text></g>
-        <g transform="translate(700,220)"><circle r="11" fill="#1d1d1d"/><text y="4" text-anchor="middle" fill="#fff">7</text></g>
-        <g transform="translate(500,540)"><circle r="11" fill="#1d1d1d"/><text y="4" text-anchor="middle" fill="#fff">8</text></g>
-        <g transform="translate(420,760)"><circle r="11" fill="#1d1d1d"/><text y="4" text-anchor="middle" fill="#fff">9</text></g>
+        <g transform="translate(180,130)"><circle r="11" fill="#8c4fff"/><text y="4" text-anchor="middle" fill="#fff">3</text></g>
+        <g transform="translate(1020,400)"><circle r="11" fill="#1d1d1d"/><text y="4" text-anchor="middle" fill="#fff">4</text></g>
+        <g transform="translate(266,230)"><circle r="11" fill="#1d1d1d"/><text y="4" text-anchor="middle" fill="#fff">5</text></g>
+        <g transform="translate(1020,540)"><circle r="11" fill="#1d1d1d"/><text y="4" text-anchor="middle" fill="#fff">6</text></g>
+        <g transform="translate(720,88)"><circle r="11" fill="#1d1d1d"/><text y="4" text-anchor="middle" fill="#fff">7</text></g>
+        <g transform="translate(400,510)"><circle r="11" fill="#7a7a7a"/><text y="4" text-anchor="middle" fill="#fff">8</text></g>
+        <g transform="translate(266,686)"><circle r="11" fill="#1d1d1d"/><text y="4" text-anchor="middle" fill="#fff">9</text></g>
       </g>
     </svg>
     <ol class="steps">
@@ -376,7 +374,7 @@
       <li><i>5</i><span><b>推理</b>　viknow 经 NAT 到 236 :8443/:8601/:8602/:8703。ACK 无 GPU 池。</span></li>
       <li><i>6</i><span><b>Langfuse 栈</b>　web → worker → ClickHouse / redis-langfuse（不共用 Tair）。</span></li>
       <li><i>7</i><span><b>业务数据面</b>　viknow → RDS、Tair、OSS juicefs-viknow。</span></li>
-      <li><i>8</i><span><b>未走的路径</b>　ALB viknow-public 已创建，现网 Web 仍走 ②（虚线）。</span></li>
+      <li><i>8</i><span><b>未走的路径</b>　ALB viknow-public 已创建，现网 Web 仍走 ②，图上不再画虚线。</span></li>
       <li><i>9</i><span><b>视频对象</b>　236 Actio 与 ACK 共用 OSS/JuiceFS 路径。</span></li>
     </ol>
   </section>

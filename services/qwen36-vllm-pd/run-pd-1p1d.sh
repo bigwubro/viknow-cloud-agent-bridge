@@ -33,7 +33,9 @@ COMMON=(
 # Intra-node P2P is OK (nvidia-smi topo -p2p r). Do not use UCX_TLS=all /
 # UCX_NET_DEVICES=all: that path measured ~330 MB/s and split across every
 # in-flight NIXL READ, so D sat in WAITING_FOR_REMOTE_KVS for 12-40s.
-UCX_INTRANODE_TLS=cuda_ipc,cuda_copy,gdr_copy,sm,self
+# tcp+sm are required for UCX active messages (NIXL intra-agent setup).
+# gdr_copy is not built in this image. Data plane should still pick cuda_ipc.
+UCX_INTRANODE_TLS=tcp,sm,cuda_ipc,cuda_copy,self
 
 start_engine() {
   local name="$1" gpu="$2" port="$3" role="$4" nixl_port="$5"

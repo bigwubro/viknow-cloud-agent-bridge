@@ -20,3 +20,106 @@ nginx `least_conn` 挂在 `127.0.0.1:8500`。NIXL 传 KV。出词侧关掉 MTP�
 并发 80：略差。预填充只剩两张卡，80 条在途仍堆在预填充侧，`80 / 1.50 ≈ 53` 秒，和混跑「在途 / 每秒完成」同一类上限。
 
 短请求冒烟：`1+1` 经 8500 回 `2`，约 1.35 秒。块大小未对齐时出词是乱码（预填充 2096 vs 出词 2128）。
+
+## 出词卡为什么慢（2026-09-18 12:18 之后）
+
+出词侧 `request_decode_time` 只有约 **1.3–1.8s**（184 token）。端到端里多出来的十几秒几乎全部是 `WAITING_FOR_REMOTE_KVS`：NIXL 从预填充卡 READ 约 **246MB** KV。出词卡日志在高压下经常是 `Running: 0`、`Waiting=Deferred`。
+
+| 场景 | 单次 NIXL | 表观带宽（总字节/各次耗时之和） | 说明 |
+|---|---|---|---|
+| 无争用（并发 1 / 短请求） | 0.23–0.75s | 约 330MB/s | 直方图里约 8% 的传输落在 0.5–0.75s，条数和并发 1 的请求数对得上 |
+| 并发 8（每张出词卡约 4 路） | 约 2.5–2.8s | 约 90MB/s | 4 路共享同一条约 330MB/s 的管道 |
+| 并发 32（每张出词卡约 16 路） | 约 13s | 约 18MB/s | 16×246MB / 330MB/s ≈ 12s，和队列时间对齐 |
+| 并发 80（每张出词卡约 40 路） | 30–40s | 约 7MB/s | 仍是同一条管道被均分，不是 decode |
+
+Prometheus 里 `nixl_xfer_time` 的「MB/s」是 `总字节 / 各次耗时之和`，传输重叠时会被除大，不能当成墙钟带宽。墙钟聚合带宽一直在约 **330MB/s**。GPU0–3 同 NUMA、`topo -p2p r` 为 OK，但没有 NVLink。`UCX_TLS=all` + `UCX_NET_DEVICES=all` 以及后来显式加上 `cuda_ipc`、同一对容器都能看见对端 GPU，测到的仍是这条 330MB/s 路径（主机中转 + 约 80–120 个描述符）。出词侧 prefix cache 命中约 44%，但每次仍传满 246MB，没有把共享前缀减下去。
+
+改过的启动项（`run-pd-1p1d.sh`）：出词侧 FCFS、NIXL `num_threads=8`、UCX `tcp,sm,cuda_ipc,cuda_copy,self`、同一对两张卡都可见。短请求 `1+1` 仍回 `2`（约 1.6s）。同一套 B：
+
+| 并发 | 窗口 | 成功 | 每秒完成 | 中位 / 95 分位 | 对照（改之前 11:18 档） |
+|---|---|---|---|---|---|
+| 8 | 90s，12:45 UTC | 109/109 | 1.175 | 6.82s / 7.93s | 1.161 / 6.73s |
+| 32 | 180s，12:48 UTC | 284/284 | 1.467 | 23.98s / 24.76s | 1.465 / 23.48s |
+
+端到端没有压下来：出词卡仍在等 KV，不在算 184 个 token。要再压，必须提高这条跨卡拷贝的墙钟带宽（真正走通 CUDA IPC / P2P），或让出词侧少拉共享前缀（现在 246MB 一次都没减）。
+
+## NIXL 去掉 tcp 之后（2026-09-18 13:46–13:54 UTC）
+
+根因不是 `UCX_TLS` 列表里有没有 `cuda_ipc`。NIXL UCX 默认 `ucx_error_handling_mode=peer`，会拒掉 `sm`，只剩 `tcp` 做 AM，VRAM 就跟着 `cuda_copy+tcp` 走，墙钟大约 **330MB/s**。`sitecustomize.py` 把该参数改成 `none`，`UCX_TLS=sm,self,cuda_ipc,cuda_copy`（必须留 `cuda_copy`，否则 `registerMem` 会把 VRAM 当成 host）。
+
+UCX worker 的 intra-node lane 是 `device(cuda_ipc/cuda)`，AM 是 `sm/sysv/cma`，**不再有 tcp**。但 NIXL 出词侧是 `ucp_get`（READ）。这套 UCX 1.21 的 `cuda_ipc` 不做 RMA get，协议表选的是：
+
+`remote memory read ... cuda/GPU0 from cuda/dev[0]` → `0..inf | software emulation | sysv/memory`
+
+也就是：GPU→host→sysv shm→host→GPU，不再走网卡 tcp。`get_zcopy` / `put_zcopy` 都一样。无争用大约 **680–770MB/s**（225MB / 0.30–0.35s）。还不是 NVLink/P2P 的数 GB/s，描述符仍有 50–120 个。
+
+短请求 `1+1` 回 `2`，约 0.9–1.0s。同一套 B：
+
+| 并发 | 窗口 | 成功 | 每秒完成 | 中位 / 95 分位 | NIXL xfer（约） | 对照（tcp 路径 12:45 档） |
+|---|---|---|---|---|---|---|
+| 8 | 90s，13:48 UTC | 136/136 | **1.447** | **5.42s / 6.42s** | ~1.0s | 1.175 / 6.82s，xfer ~2.6s |
+| 32 | 180s，13:51 UTC | 360/360 | **1.821** | **17.72s / 18.93s** | ~6.5s | 1.467 / 23.98s，xfer ~13s |
+
+出词侧 decode 仍是约 1.3–1.8s。省下来的是跨卡 KV，不是 184 个 token。再往上要真 P2P，得换一条不是 `ucp_get` 的路径（NIXL send/recv 或 GDR），或者减少描述符 / 少拉共享前缀。
+
+## 80 并发目标 10s（2026-09-18 14:38 UTC）
+
+只动 GPU 0–3 / `qwen36-*` / `:8500`。`viknow2-test`、`:8505`、`:8506`、rerank 等未停。
+
+单卡 P 在约 13k 独特 token 上能到约 **4.2 QPS**。两路预填充理论上约 8.5 QPS，按 Little 定律 `80/8.5≈9.4s`，**只有 NIXL 不再卡死时才够**。现网 pull/`ucp_get` 仍是 `sysv` 软件模拟。试过 `NixlPushConnector` WRITE：引擎能起，但 `1+1` 挂死 60s+，已退回 pull。
+
+同一套 B，c80 × 180s：
+
+| 并发 | 成功 | 每秒完成 | 中位 / 95 分位 | 对照 |
+|---|---|---|---|---|
+| 80 | 394/394 | **1.857** | **39.98s / 66.65s** | 旧 1P+1D 1.498 / 54.54s；混跑 DP4 1.619 / 50.22s |
+
+中位 40s，**没有到 10s**。吞吐仍被 NIXL 锁在约 1.86 QPS（`80/1.86≈43s`）。短请求 `1+1` 回 `2`（约 1.2s）。`:8500` 200。
+
+## 20 并发（2026-09-18 14:46 UTC）
+
+未改拓扑、未改启动项。现网仍是两路 1P+1D + NIXL pull（`ucp_get` / sysv 软件模拟）。同一套 B，c20 × 120s，`:8500` 全程 200。
+
+| 并发 | 窗口 | 成功/提交 | 每秒完成 | 中位 / 95 分位 | Little `c/QPS` |
+|---|---|---|---|---|---|
+| 8 | 90s，13:48 UTC | 136/136 | 1.447 | 5.42s / 6.42s | 5.5s |
+| **20** | **120s，14:46 UTC** | **222/223** | **1.691** | **11.81s / 12.57s** | **11.8s** |
+| 32 | 180s，13:51 UTC | 360/360 | 1.821 | 17.72s / 18.93s | 17.6s |
+| 80 | 180s，14:38 UTC | 394/394 | 1.857 | 39.98s / 66.65s | 43.1s |
+
+按 c8–c32 线性插值，c20 中位应约 11.6s，测到 11.81s。吞吐已经到天花板的约 91%（1.69 / 1.86）。1 条失败是 HTTP 500，不是超时。出词侧日志多数时刻 `Running: 0`、`Waiting=Deferred`，仍在等远程 KV。prefix 命中约 45%，四卡平均功率约 976W。其他容器未动。
+
+## CUDA IPC GET（2026-09-18 18:55 UTC）
+
+无 NVLink 时 UCX 默认关掉 `cuda_ipc` GET。`NixlConnector` 是 pull/`ucp_get`，所以数据面一直是 `software emulation | sysv/memory`。现网加上 `UCX_CUDA_IPC_ENABLE_GET_ZCOPY=on` 和 `UCX_CUDA_IPC_BW=50000MBs` 后，出词侧协议表变为：
+
+`remote memory read by ucp_get*(multi) into cuda/GPU0 from cuda/dev[0]` → `0..inf | zero-copy | cuda_ipc/cuda`
+
+NIXL 单次仍约 258MB。出词侧累计：平均 xfer **10–11ms**（原先无争用 0.30–0.35s，高压 1–13s），表观约 **24GB/s**。c8 窗口里 115 次传输全部 <25ms。出词侧 `queue` 均值约 24ms，decode 约 1.2s；日志多数是 `Running>0`、`Waiting=0`，不再长期 `Deferred`。
+
+短请求 `1+1` 回 `2`（约 1.1s）。同一套 B：
+
+| 并发 | 窗口 | 成功 | 每秒完成 | 中位 / 95 分位 | 对照（sysv GET） |
+|---|---|---|---|---|---|
+| 8 | 90s，18:57 UTC | 227/227 | **2.453** | **3.39s / 4.25s** | 1.447 / 5.42s |
+| 20 | 90s，18:59 UTC | 256/256 | **2.643** | **7.46s / 7.87s** | 1.691 / 11.81s |
+
+KV 不再是排队主体。吞吐从约 1.86 抬到约 2.6 QPS，卡点回到两路预填充计算。`viknow2-test` 等其他容器未停。
+
+## 预填充 batched-tokens 32768（2026-09-18 19:19 UTC）
+
+只改两路 P：`--max-num-batched-tokens 32768`，`max-num-partial-prefills` 仍为 1。出词仍 16384。镜像未换。CUDA IPC GET 仍在（`zero-copy | cuda_ipc`）。`1+1` 回 `2`（约 1.0s）。未 OOM。
+
+同一套 B，c20 × 90s：
+
+| 项 | P=16384（18:59） | P=32768（19:19） |
+|---|---|---|
+| 成功 | 256/256 | **257/257** |
+| 每秒完成 | 2.643 | **2.697** |
+| 中位 / 95 分位 | 7.46s / 7.87s | **7.43s / 8.19s** |
+| P Running / Waiting | 2–3 / 4–5 | **4–5 / 0–2** |
+| P prompt token/s | 约 2.3–2.5 万 | 约 2.3–2.7 万 |
+| P prefill 均值 | 2.13s | 4.36s |
+| P queue 均值 | 1.63s | 0.54s |
+
+调度上一步能并进更多预填充（Waiting 掉下去了），但单卡仍约 2.5 万 token/s。Workload B 每条都是大约 1.8 万未命中，并进只是把同一块算力摊开，QPS 几乎不动。出词仍约 1.17s，NIXL 约 10ms。其他容器未停。

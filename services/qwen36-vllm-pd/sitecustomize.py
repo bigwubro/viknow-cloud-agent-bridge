@@ -29,6 +29,7 @@ def _wrap_create_backend(api_mod) -> None:
         params = dict(initParams or {})
         if str(backend).upper() == "UCX":
             params.setdefault("ucx_error_handling_mode", "none")
+            params.setdefault("num_workers", "4")
             _emit(f"NIXL UCX create_backend init={params}")
         handle = orig(self, backend, params)
         try:

@@ -19,7 +19,7 @@ COMMON=(
   --enable-prefix-caching
   --mamba-cache-mode align
   --max-model-len 156000
-  --gpu-memory-utilization 0.75
+  --gpu-memory-utilization 0.82
   --enable-auto-tool-choice
   --tool-call-parser qwen3_coder
   --async-scheduling
@@ -37,8 +37,9 @@ COMMON=(
 # failure handler). sitecustomize.py forces mode=none so sm can be AM.
 # cuda_copy must stay in TLS: without it NIXL/UCX treat VRAM as host and
 # registerMem fails. Do not list tcp — that is the 330MB/s host fallback.
-# gdr_copy is not built in this image. Decode NIXL READ is ucp_get, so
-# UCX_RNDV_SCHEME=get_zcopy (put_zcopy left GET on sysv software emulation).
+# gdr_copy is not built in this image. Pull/READ uses ucp_get and stays on
+# sysv software emulation (~700MB/s). NixlPushConnector issues WRITE/put
+# so UCX_RNDV_SCHEME=put_zcopy can use the cuda_ipc device lane.
 # Host yama ptrace_scope=1: without CAP_SYS_PTRACE, UCX cuda_ipc cannot
 # map the peer process. This host nvidia-container-runtime only allows
 # compute,utility — do not set NVIDIA_DRIVER_CAPABILITIES=ipc.
@@ -49,14 +50,13 @@ start_engine() {
   local name="$1" gpu_devices="$2" cuda_visible="$3" port="$4" role="$5" nixl_port="$6"
   local kv extra=()
   if [[ "$role" == p ]]; then
-    kv='{"kv_connector":"NixlConnector","kv_role":"kv_producer","kv_load_failure_policy":"fail","kv_connector_extra_config":{"kv_lease_duration":120,"num_threads":8}}'
-    extra+=(--scheduling-policy priority --max-num-seqs 64 --max-num-batched-tokens 16384 --max-num-partial-prefills 1)
+    kv='{"kv_connector":"NixlPushConnector","kv_role":"kv_producer","kv_load_failure_policy":"fail","kv_connector_extra_config":{"kv_lease_duration":120,"num_threads":16}}'
+    extra+=(--scheduling-policy fcfs --max-num-seqs 128 --max-num-batched-tokens 32768 --max-num-partial-prefills 4)
   else
-    # Decode: FCFS so finished KV pulls enter the batch together. Keep
-    # async-scheduling so later pulls overlap with decode. num_threads
-    # raises UCX progress threads for concurrent READs.
-    kv='{"kv_connector":"NixlConnector","kv_role":"kv_consumer","kv_load_failure_policy":"fail","kv_connector_extra_config":{"num_threads":8}}'
-    extra+=(--max-num-seqs 64 --max-num-batched-tokens 16384)
+    # Decode waits for P WRITE. FCFS so finished pushes enter one batch.
+    # Larger seq budget so prefix KV can stay on D and P can keep prefilling.
+    kv='{"kv_connector":"NixlPushConnector","kv_role":"kv_consumer","kv_load_failure_policy":"fail","kv_connector_extra_config":{"num_threads":16}}'
+    extra+=(--max-num-seqs 128 --max-num-batched-tokens 32768)
   fi
   docker rm -f "$name" 2>/dev/null || true
   # Pair GPUs must both be visible: --gpus device=N alone hides the peer,
@@ -87,7 +87,7 @@ start_engine() {
     -e CUDA_VISIBLE_DEVICES="${cuda_visible}" \
     -e UCX_TLS="${UCX_INTRANODE_TLS}" \
     -e UCX_MEMTYPE_CACHE=n \
-    -e UCX_RNDV_SCHEME=get_zcopy \
+    -e UCX_RNDV_SCHEME=put_zcopy \
     -e UCX_RNDV_THRESH=0 \
     -e UCX_PROTO_ENABLE=y \
     -e UCX_PROTO_INFO=y \

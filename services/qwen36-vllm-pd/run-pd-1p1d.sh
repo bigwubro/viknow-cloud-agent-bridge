@@ -37,7 +37,8 @@ COMMON=(
 # gdr_copy is not built in this image. Data plane should pick cuda_ipc.
 # Host yama ptrace_scope=1: without CAP_SYS_PTRACE, UCX cuda_ipc cannot
 # map the peer process and silently falls back to cuda_copy+tcp.
-# NVIDIA_DRIVER_CAPABILITIES must include ipc or the driver hides IPC.
+# This host nvidia-container-runtime only allows compute,utility — do
+# not set NVIDIA_DRIVER_CAPABILITIES=ipc or the container fails to start.
 UCX_INTRANODE_TLS=sm,self,cuda_ipc,cuda_copy,tcp
 
 start_engine() {
@@ -69,7 +70,6 @@ start_engine() {
     --ulimit stack=67108864 \
     -v /data/twj/models:/root/.cache/models:ro \
     -e NVIDIA_VISIBLE_DEVICES="${gpu_devices}" \
-    -e NVIDIA_DRIVER_CAPABILITIES=compute,utility,ipc \
     -e PYTHONHASHSEED=0 \
     -e VLLM_USE_DEEP_GEMM=0 \
     -e VLLM_ENGINE_READY_TIMEOUT_S=1800 \

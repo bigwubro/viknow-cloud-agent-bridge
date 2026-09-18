@@ -160,3 +160,13 @@ KV 不再是排队主体。吞吐从约 1.86 抬到约 2.6 QPS，卡点回到两
 | D 出词 184 token | 2.15s（ITL 约 11.9ms） | 40% |
 
 P 三段 e2e 均值 3.03s + D e2e 均值 2.29s ≈ 5.32s，和客户端 5.41s 对齐。空载 `1+1` 只有 0.85s，上面这张表是 c20 热请求。
+
+## MTP-1 试开（2026-09-18 20:09 UTC）
+
+P/D 都加 `--speculative-config '{"method":"mtp","num_speculative_tokens":1}'`。四卡块大小都是 **2112**（关 MTP 时 2096）。短请求 `1+1` 回 `1+1=2`（冷 6.7s，热 0.14s），CUDA IPC 仍在。
+
+同一套 B，c20：257/257 **全部 HTTP 500**。出词引擎在 NIXL pull 做 prefix-cache 对齐时断言失败：
+
+`AssertionError: SSM can only have one local block`（`nixl/base_worker.py` `_apply_prefix_caching`）
+
+短上下文只有一块 GDN state，长前缀（约 30k）会变成多块，0.26 的 hybrid SSM + MTP + NIXL 这条路径不支持。出词容器随后退出。已从启动项去掉 MTP，恢复无投机的 3P+1D。

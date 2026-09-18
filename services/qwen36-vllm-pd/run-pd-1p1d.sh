@@ -54,6 +54,7 @@ start_engine() {
     -e VLLM_ENGINE_READY_TIMEOUT_S=1800 \
     -e VLLM_NIXL_SIDE_CHANNEL_HOST=127.0.0.1 \
     -e VLLM_NIXL_SIDE_CHANNEL_PORT="${nixl_port}" \
+    -e VLLM_SSM_CONV_STATE_LAYOUT=DS \
     -e UCX_TLS=all \
     -e UCX_NET_DEVICES=all \
     "$IMAGE" \

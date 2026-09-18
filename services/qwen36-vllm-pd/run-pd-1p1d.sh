@@ -54,7 +54,10 @@ start_engine() {
   local kv extra=()
   if [[ "$role" == p ]]; then
     kv='{"kv_connector":"NixlConnector","kv_role":"kv_producer","kv_load_failure_policy":"fail","kv_connector_extra_config":{"kv_lease_duration":120,"num_threads":8}}'
-    extra+=(--scheduling-policy fcfs --max-num-seqs 64 --max-num-batched-tokens 16384 --max-num-partial-prefills 1)
+    # 32768 lets one ~18k unique tail finish in a step and leaves room
+    # for a second prefill. Keep partial-prefills at the V1 default of 1:
+    # any other value raises NotImplementedError on this 0.26 image.
+    extra+=(--scheduling-policy fcfs --max-num-seqs 64 --max-num-batched-tokens 32768 --max-num-partial-prefills 1)
   else
     # Pull/READ is the working path. NixlPushConnector hung 1+1 on this
     # hybrid Mamba model (D never received WRITE). Keep proven flags.

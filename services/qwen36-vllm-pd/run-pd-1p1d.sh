@@ -33,16 +33,15 @@ COMMON=(
 # Intra-node P2P is OK (nvidia-smi topo -p2p r). Do not use UCX_TLS=all /
 # UCX_NET_DEVICES=all: that path measured ~330 MB/s and split across every
 # in-flight NIXL READ, so D sat in WAITING_FOR_REMOTE_KVS for 12-40s.
-# tcp+sm are required for UCX active messages (NIXL intra-agent setup).
-# gdr_copy is not built in this image. Data plane should pick cuda_ipc.
+# NIXL UCX defaults ucx_error_handling_mode=peer, which rejects sm (no peer
+# failure handler). sitecustomize.py forces mode=none so sm can be AM.
+# Do not list tcp or cuda_copy: those two are the 330MB/s host fallback.
+# gdr_copy is not built in this image. Data plane must pick cuda_ipc.
 # Host yama ptrace_scope=1: without CAP_SYS_PTRACE, UCX cuda_ipc cannot
-# map the peer process and silently falls back to cuda_copy+tcp.
-# This host nvidia-container-runtime only allows compute,utility — do
-# not set NVIDIA_DRIVER_CAPABILITIES=ipc or the container fails to start.
+# map the peer process. This host nvidia-container-runtime only allows
+# compute,utility — do not set NVIDIA_DRIVER_CAPABILITIES=ipc.
 # Bind-mount /dev/nvidia-caps (ipc cap is not in the runtime allowlist).
-# Do not list tcp: UCX then keeps GPU READ on cuda_ipc instead of tcp+cuda_copy.
-# sm+self provide active messages for NIXL intra-agent setup.
-UCX_INTRANODE_TLS=sm,self,cuda_ipc,cuda_copy
+UCX_INTRANODE_TLS=sm,self,cuda_ipc
 
 start_engine() {
   local name="$1" gpu_devices="$2" cuda_visible="$3" port="$4" role="$5" nixl_port="$6"
@@ -74,8 +73,10 @@ start_engine() {
     --device /dev/nvidia-caps/nvidia-cap1 \
     --device /dev/nvidia-caps/nvidia-cap2 \
     -v /data/twj/models:/root/.cache/models:ro \
+    -v "${DIR}/sitecustomize.py:/usr/local/lib/python3.12/dist-packages/sitecustomize.py:ro" \
     -e NVIDIA_VISIBLE_DEVICES="${gpu_devices}" \
     -e PYTHONHASHSEED=0 \
+    -e PYTHONUNBUFFERED=1 \
     -e VLLM_USE_DEEP_GEMM=0 \
     -e VLLM_ENGINE_READY_TIMEOUT_S=1800 \
     -e VLLM_NIXL_SIDE_CHANNEL_HOST=127.0.0.1 \
@@ -87,7 +88,9 @@ start_engine() {
     -e UCX_RNDV_SCHEME=put_zcopy \
     -e UCX_RNDV_THRESH=0 \
     -e UCX_PROTO_ENABLE=y \
+    -e UCX_PROTO_INFO=y \
     -e UCX_LOG_LEVEL=info \
+    -e UCX_CUDA_IPC_ENABLE=y \
     -e CUDA_DEVICE_MAX_CONNECTIONS=8 \
     "$IMAGE" \
     "${COMMON[@]}" \

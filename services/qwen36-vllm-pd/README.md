@@ -10,4 +10,4 @@
 
 同一套 B 对照见 `loadtests/workload-b-vs-sf/RESULTS_PD.md`。出词侧不要开 MTP：Mamba 块会对不齐，回包乱码。
 
-出词卡慢的主因不是 184 token 的 decode，而是 NIXL 从预填充卡 READ 约 246MB KV。只改 `UCX_TLS` 不够：主机 `yama ptrace_scope=1`，容器默认没有 `CAP_SYS_PTRACE`，UCX 的 `cuda_ipc` 会静默退回 `cuda_copy+tcp`（约 330MB/s）。这台机器的 NVIDIA runtime 只允许 `compute,utility`，不能再加 `ipc` 能力。现网同一对 P/D 都能看见两张卡，并加上 `SYS_PTRACE` 和 `seccomp=unconfined`。
+出词卡慢的主因不是 184 token 的 decode，而是 NIXL 从预填充卡 READ 约 246MB KV。只改 `UCX_TLS` 不够：NIXL UCX 默认 `ucx_error_handling_mode=peer`，会拒掉 `sm`（没有 peer failure handler），只剩 `tcp` 做 AM，VRAM 就走 `cuda_copy+tcp`（约 330MB/s）。`sitecustomize.py` 把该参数改成 `none`，`UCX_TLS` 只留 `sm,self,cuda_ipc`。主机 `yama ptrace_scope=1`，容器还要 `CAP_SYS_PTRACE`、`seccomp=unconfined`、对端 GPU 可见，并挂上 `/dev/nvidia-caps`。这台机器的 NVIDIA runtime 只允许 `compute,utility`，不能再加 `ipc` 能力。

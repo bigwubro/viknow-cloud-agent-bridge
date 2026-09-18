@@ -17,7 +17,7 @@ App SDK **authenticated** access:
 
 Do not PUT to MinIO `:19000`.
 
-Browser-facing file URLs for app uploads: use the **`public/` prefix** below; the app server builds a fixed `public_url` after `PutObject`.
+Keep uploads on `knowledge/libraries/...` as today. For a fixed public URL, **after** a successful upload run `CopyObject` to `public/{scope}/{publish_id}/{filename}` and build `public_url` (see Feishu appendix B.3).
 
 ## Public static objects (`public/` prefix)
 

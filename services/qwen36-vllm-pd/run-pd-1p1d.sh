@@ -39,7 +39,7 @@ start_engine() {
     extra+=(--max-num-seqs 16 --max-num-batched-tokens 16384 --max-num-partial-prefills 1)
   else
     kv='{"kv_connector":"NixlConnector","kv_role":"kv_consumer","kv_load_failure_policy":"fail"}'
-    extra+=(--max-num-seqs 64 --max-num-batched-tokens 2048
+    extra+=(--max-num-seqs 64 --max-num-batched-tokens 4096
             --speculative-config '{"method":"mtp","num_speculative_tokens":2}')
   fi
   docker rm -f "$name" 2>/dev/null || true

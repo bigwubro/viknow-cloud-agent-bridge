@@ -5,6 +5,8 @@ DIR="$(cd "$(dirname "$0")" && pwd)"
 PY="$DIR/workload_b_compare.py"
 OUT="${VIKNOW_OUT_DIR:-$DIR/out}"
 export VIKNOW_OUT_DIR="$OUT"
+export LLM_TARGET_PROMPT_TOKENS="${LLM_TARGET_PROMPT_TOKENS:-30000}"
+export LLM_UNIQUE_TOKENS="${LLM_UNIQUE_TOKENS:-13500}"
 mkdir -p "$OUT"
 
 cmd="${1:-plan}"

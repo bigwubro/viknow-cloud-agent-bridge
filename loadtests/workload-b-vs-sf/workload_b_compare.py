@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Workload B only: shared-prefix ~20k vs SiliconFlow token bill.
+"""Workload B only: shared-prefix ~30k vs SiliconFlow token bill.
 
 Default commands (plan / estimate / report --demo-morning) do not send
 chat completions. `run --target sf` requires --i-accept-sf-cost.
@@ -57,8 +57,11 @@ SF_BASE = os.environ.get("SF_BASE", "https://api.siliconflow.cn/v1").rstrip("/")
 SF_MODEL = os.environ.get("SF_MODEL", "Qwen/Qwen3.6-35B-A3B")
 SF_KEY = os.environ.get("SILICONFLOW_API_KEY", "")
 
-TARGET_PROMPT = int(os.environ.get("LLM_TARGET_PROMPT_TOKENS", "19000"))
-UNIQUE_TOKENS = int(os.environ.get("LLM_UNIQUE_TOKENS", "8500"))
+# 3万 prompt；独特尾巴按早上 B 的 8500/19000 ≈ 45% 同比拉长，共享约 55% 可缓存。
+TARGET_PROMPT = int(os.environ.get("LLM_TARGET_PROMPT_TOKENS", "30000"))
+UNIQUE_TOKENS = int(os.environ.get("LLM_UNIQUE_TOKENS", "13500"))
+# 早上 19k 目标 → usage 20878，chat template 大约 ×1.10
+USAGE_OVERHEAD = MORNING["prompt_tokens_avg"] / 19000.0
 MAX_TOKENS = int(os.environ.get("LLM_MAX_TOKENS", "184"))
 TIMEOUT = float(os.environ.get("LLM_TIMEOUT_SEC", "300"))
 COOLDOWN_SEC = int(os.environ.get("COOLDOWN_SEC", "60"))
@@ -173,10 +176,12 @@ def tokenize_local(text: str) -> int:
 
 
 def build_shared(shared_path: Path | None = None) -> tuple[str, int]:
+    shared_target = max(200, TARGET_PROMPT - UNIQUE_TOKENS)
     if shared_path and shared_path.exists():
         text = shared_path.read_text(encoding="utf-8")
-        return text, tokenize_local(text)
-    shared_target = max(200, TARGET_PROMPT - UNIQUE_TOKENS)
+        tok = tokenize_local(text)
+        if abs(tok - shared_target) <= 200:
+            return text, tok
     text = HEAD
     n = 1
     while tokenize_local(text) < shared_target:
@@ -524,14 +529,16 @@ def run_level(
 
 
 def cmd_plan(_: argparse.Namespace) -> None:
+    shared = TARGET_PROMPT - UNIQUE_TOKENS
     print(
-        """
+        f"""
 工作负载 B 对照（只出方案，不打流量）
 ================================
-数据集：早上 80×20m 同一套共享前缀 + 独特尾巴
-  目标 prompt 19000 / unique 8500
-  早上 tokenize 共享 10561 + 独特 8382，usage.prompt 均值 20878，completion 184
-  thinking 关，max_tokens=184，temperature=0，stream=false
+数据集：早上 B 同一套共享前缀 + 独特尾巴，长度先定 3 万
+  目标 prompt {TARGET_PROMPT} / unique {UNIQUE_TOKENS} / shared {shared}
+  可缓存比例 {shared / TARGET_PROMPT:.0%}（对齐早上 ~55%）
+  预计 usage.prompt ≈ {TARGET_PROMPT * USAGE_OVERHEAD:.0f}（早上 19k→20878 的模板开销）
+  thinking 关，max_tokens={MAX_TOKENS}，temperature=0，stream=false
 
 两端：
   236   http://127.0.0.1:8500  模型 Qwen/Qwen3.6-35B-A3B-FP8
@@ -541,7 +548,7 @@ def cmd_plan(_: argparse.Namespace) -> None:
 阶梯：并发 1 / 8 / 32 / 80，每档 10 分钟，档间冷却 60s
 顺序：先 236 四档，再硅基；硅基建议先 1+8
 
-硅基刹车：默认 SF_BUDGET_CNY=80，超了停
+硅基刹车：默认 SF_BUDGET_CNY={SF_BUDGET:.0f}，超了停
 硅基开关：没有 --i-accept-sf-cost 不会出网
 
 默认不跑。看完用 ./run.sh local 或 ./run.sh sf-align。
@@ -551,14 +558,16 @@ def cmd_plan(_: argparse.Namespace) -> None:
 
 def cmd_estimate(args: argparse.Namespace) -> None:
     duration = int(getattr(args, "duration", 600) or 600)
-    prompt = MORNING["prompt_tokens_avg"]
+    prompt = TARGET_PROMPT * USAGE_OVERHEAD
     completion = MORNING["completion_tokens_avg"]
     per = sf_bill(prompt, completion)
-    # QPS guesses from morning B + n1; labeled as estimates
-    guesses = {1: 0.33, 8: 1.00, 32: 2.00, 80: 2.50}
-    print("硅基花费预估（按早上 B 的 token，QPS 是经验值，不是承诺）")
+    # 19k 早上经验 QPS，按 prompt 变长同比下调（prefill 变重）
+    scale = 19000 / float(TARGET_PROMPT)
+    guesses = {1: 0.33 * scale, 8: 1.00 * scale, 32: 2.00 * scale, 80: 2.50 * scale}
+    print(f"硅基花费预估（prompt 目标 {TARGET_PROMPT}，usage 按早上 ×{USAGE_OVERHEAD:.2f}）")
     print(f"单条牌价：prompt {prompt:.0f} + completion {completion:.0f} → ¥{per['total_cny']:.4f}")
     print(f"每档 {duration}s，输入 ¥{SF_IN}/M 输出 ¥{SF_OUT}/M，缓存价={'同输入' if not SF_CACHE else SF_CACHE}")
+    print(f"QPS 按 19k 经验 × {scale:.2f}（3 万更长，请求数往少估；若 QPS 不掉，花费更高）")
     print(f"{'conc':>6} {'qps~':>8} {'reqs~':>8} {'cny~':>8}")
     total_cny = 0.0
     total_n = 0
@@ -569,14 +578,15 @@ def cmd_estimate(args: argparse.Namespace) -> None:
         total_n += n
         print(f"{c:6d} {qps:8.2f} {n:8d} {cny:8.1f}")
     print(f"{'sum':>6} {'':>8} {total_n:8d} {total_cny:8.1f}")
-    print(f"默认预算封顶 ¥{SF_BUDGET:.0f}。建议先 sf-align（1+8 ≈ ¥{guesses[1]*duration*per['total_cny']+guesses[8]*duration*per['total_cny']:.0f}）")
+    align = (guesses[1] + guesses[8]) * duration * per["total_cny"]
+    print(f"默认预算封顶 ¥{SF_BUDGET:.0f}。建议先 sf-align（1+8 ≈ ¥{align:.0f}）")
     print()
-    print("236 TCO 预览（用早上 TP4 B 的 2.65 QPS，现网 DP4 要以新跑为准）")
-    qps = MORNING["qps"]
+    qps30 = MORNING["qps"] * scale
+    print(f"236 TCO 预览（早上 2.65 QPS × {scale:.2f} ≈ {qps30:.2f}，现网 DP4 要以新跑为准）")
     print(f"{'scenario':<28} {'cny/h':>8} {'cny/req':>8} {'sf/req':>8} {'236/sf':>8}")
     for name, capex, years, util, kw in TCO_SCENARIOS:
         h = tco_hourly(capex, years, util, kw)
-        cny_req = tco_per_req(h["total_cny_h"], qps)
+        cny_req = tco_per_req(h["total_cny_h"], qps30)
         ratio = (cny_req / per["total_cny"]) if cny_req is not None else None
         print(
             f"{name:<28} {h['total_cny_h']:8.2f} {cny_req:8.4f} {per['total_cny']:8.4f} {ratio:8.2f}"
@@ -695,7 +705,7 @@ def cmd_report(args: argparse.Namespace) -> None:
                 },
             }
         )
-        print("DEMO：早上 TP4 80×20m B 套进同一张 TCO 表（不是新压测）")
+        print("DEMO：早上 TP4 80×20m B（19k，不是这次 3 万）套进 TCO 表，不是新压测")
         print_report([demo])
         return
     root = Path(args.dir)

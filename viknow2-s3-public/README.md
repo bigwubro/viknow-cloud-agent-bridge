@@ -36,29 +36,9 @@ Rules:
 
 - Only objects under `public/` may be read **without** Access Key.
 - `knowledge/libraries/**` stays **private** (403 without SigV4).
-- Upload still uses **PutObject with AK/SK**; only **GetObject** is anonymous for `public/`.
-- Do not rely on anonymous **ListBucket** (do not publish directory listings).
+- Upload still uses **PutObject with AK/SK** on the app server.
 
-### One-time / after gateway recreate
-
-On the gateway host (236 unit: `/home/cursor-agent/services/viknow-juicefs-s3-gateway`):
-
-```bash
-set -a && source .env && set +a
-GATEWAY_URL=http://127.0.0.1:19191 bash /path/to/setup-public-anonymous.sh
-```
-
-This runs `mc anonymous set download` on `viknow/public/` (via `minio/mc` container).
-
-Verify:
-
-```bash
-curl -s "http://<host>:19191/viknow/public/<scope>/<id>/<file>"   # 200 without Authorization
-curl -s -o /dev/null -w "%{http_code}\n" \
-  "http://<host>:19191/viknow/knowledge/libraries/..."            # 403
-```
-
-Production should expose **`https://<domain>/viknow/public/...`** (reverse proxy on 443), not raw `:19191` to end users.
+Gateway host setup for the `public/` prefix lives in `deploy/juicefs-s3-gateway/` (ops only; app integration见飞书附录 B).
 
 ## Compose
 

@@ -36,10 +36,10 @@ start_engine() {
   local kv extra=()
   if [[ "$role" == p ]]; then
     kv='{"kv_connector":"NixlConnector","kv_role":"kv_producer","kv_load_failure_policy":"fail","kv_connector_extra_config":{"kv_lease_duration":120}}'
-    extra+=(--max-num-seqs 16 --max-num-batched-tokens 16384 --max-num-partial-prefills 1)
+    extra+=(--max-num-seqs 64 --max-num-batched-tokens 16384 --max-num-partial-prefills 1)
   else
     kv='{"kv_connector":"NixlConnector","kv_role":"kv_consumer","kv_load_failure_policy":"fail"}'
-    extra+=(--max-num-seqs 64 --max-num-batched-tokens 4096
+    extra+=(--max-num-seqs 64 --max-num-batched-tokens 16384
             --speculative-config '{"method":"mtp","num_speculative_tokens":2}')
   fi
   docker rm -f "$name" 2>/dev/null || true

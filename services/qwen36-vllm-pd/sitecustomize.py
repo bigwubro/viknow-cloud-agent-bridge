@@ -3,9 +3,9 @@
 vLLM's NixlConnector only forwards num_threads into create_backend. The UCX
 plugin default is ucx_error_handling_mode=peer, which rejects sm/posix/sysv
 ("no peer failure handler") and leaves tcp as the only AM transport. tcp then
-carries VRAM via cuda_copy at ~330MB/s. Setting mode=none lets sm provide AM;
-run-pd-1p1d.sh keeps tcp and cuda_copy out of UCX_TLS so the data plane cannot
-fall back to host.
+carries VRAM via cuda_copy at ~330MB/s. Setting mode=none lets sm provide AM.
+run-pd-1p1d.sh keeps tcp out of UCX_TLS. cuda_copy stays only so UCX can
+detect VRAM; the device path should still be cuda_ipc.
 """
 from __future__ import annotations
 

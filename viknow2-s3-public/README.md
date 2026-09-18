@@ -3,7 +3,7 @@
 Uses the official JuiceFS image `juicedata/mount:ce-v1.2.4`, not `viknow2-app`.
 The container only runs `juicefs gateway` (MinIO S3 Gateway compatible).
 
-## Private knowledge objects (default)
+## Private knowledge objects (app default)
 
 App SDK **authenticated** access:
 
@@ -17,27 +17,18 @@ App SDK **authenticated** access:
 
 Do not PUT to MinIO `:19000`.
 
-Upload stays on `knowledge/libraries/...`. **Upload = public**: after each successful `PutObject`, `CopyObject` to `public/{library_id}/{asset_id}.{ext}` and return `public_url` (Feishu appendix B). Persist `public_key` in your DB.
+Upload stays on `knowledge/libraries/...` only. **No** `public/` copy, **no** anonymous prefix.
 
-**Delete asset**: in the same request, `DeleteObject(public_key)` then `DeleteObject(source_key)` before dropping DB / calling `DELETE /api/v1/knowledge/indexes` (ViKnow does not remove S3 objects). On re-upload with the same `asset_id`, delete the previous `public_key` before copying a new one.
+### Temporary share links (TTL presigned GET)
 
-## Public static objects (`public/` prefix)
+When the app must hand a URL to a browser or client, the **application server** calls `generate_presigned_url('get_object', ExpiresIn=ttl)` on the **same private key**. Return `access_url` and `expires_at` to the client. SigV4 presign is **not** permanent (typical max ~7 days). Full flow and boto3 examples: Feishu **§1.6**.
 
-For **fixed, unsigned URLs** (like OSS public-read on a prefix):
-
-| Item | Value |
-|------|--------|
-| Key | `public/{library_id}/{asset_id}.<ext>` |
-| Public URL (path-style) | `http://<host>:19191/viknow/public/{library_id}/{asset_id}.<ext>` |
-
-Rules:
-
-- Only objects under `public/` may be read **without** Access Key.
-- `knowledge/libraries/**` stays **private** (403 without SigV4).
-- Upload still uses **PutObject with AK/SK** on the app server.
-
-Gateway host setup for the `public/` prefix lives in `deploy/juicefs-s3-gateway/` (ops only; app integration见飞书附录 B).
+**Delete asset**: `DeleteObject(source_key)` on the app server before dropping DB / calling `DELETE /api/v1/knowledge/indexes` (ViKnow does not remove S3 objects).
 
 ## Compose
 
 See `docker-compose.yml` in this directory and the live unit on 236.
+
+## Legacy ops script
+
+`setup-public-anonymous.sh` configured anonymous read on a `public/` prefix. That product pattern is **removed**; do not use for new app integration. Keep only if cleaning up old gateway policy on a host.

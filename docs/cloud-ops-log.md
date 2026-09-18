@@ -29,6 +29,14 @@
 
 ## 变更记录（倒序）
 
+### 2026-09-18 总览改为嵌套层级架构图（云 / VPC / ACK / 节点池）
+
+- 环境：`docs/aliyun-architecture.html` Fig. 1
+- 对象：同一套 online prod 拓扑，改画法
+- 动作：按云厂商 Application Architecture 图：Users → 236 → Aliyun Cloud → Region → VPC → ACK → NodePool；①–⑨ 为调用关系。未改云资源。
+- 结果：成功
+- 残留：无
+
 ### 2026-09-18 部署图改为 SciPalette 视觉系统
 
 - 环境：跳板仓 `docs/aliyun-architecture.html`

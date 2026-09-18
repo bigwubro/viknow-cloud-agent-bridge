@@ -37,9 +37,12 @@ COMMON=(
 # failure handler). sitecustomize.py forces mode=none so sm can be AM.
 # cuda_copy must stay in TLS: without it NIXL/UCX treat VRAM as host and
 # registerMem fails. Do not list tcp — that is the 330MB/s host fallback.
-# gdr_copy is not built in this image. Pull/READ uses ucp_get and stays on
-# sysv software emulation (~700MB/s). NixlPushConnector issues WRITE/put
-# so UCX_RNDV_SCHEME=put_zcopy can use the cuda_ipc device lane.
+# gdr_copy is not built in this image.
+# UCX disables cuda_ipc GET when it sees no NVLink (this box is PCIe NODE
+# only). NixlConnector is pull/ucp_get, so the data plane then picks
+# software emulation / sysv (~700MB/s). Force GET zcopy and advertise
+# PCIe peer bandwidth so proto selection can keep cuda→cuda on cuda_ipc.
+# NixlPushConnector WRITE hung 1+1 on this hybrid Mamba build; stay on pull.
 # Host yama ptrace_scope=1: without CAP_SYS_PTRACE, UCX cuda_ipc cannot
 # map the peer process. This host nvidia-container-runtime only allows
 # compute,utility — do not set NVIDIA_DRIVER_CAPABILITIES=ipc.
@@ -92,6 +95,8 @@ start_engine() {
     -e UCX_PROTO_ENABLE=y \
     -e UCX_PROTO_INFO=y \
     -e UCX_LOG_LEVEL=info \
+    -e UCX_CUDA_IPC_ENABLE_GET_ZCOPY=on \
+    -e UCX_CUDA_IPC_BW=50000MBs \
     -e CUDA_DEVICE_MAX_CONNECTIONS=8 \
     "$IMAGE" \
     "${COMMON[@]}" \

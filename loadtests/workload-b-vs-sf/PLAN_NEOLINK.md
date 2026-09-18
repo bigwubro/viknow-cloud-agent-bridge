@@ -1,6 +1,6 @@
-# Neolink（Token Switch）工作负载 B 准备
+# Neolink（Token Switch）工作负载 B
 
-等你说开始再打量。**不打 :8500。** key 只在 236 `/home/cursor-agent/.secrets/neolink.key`，不进仓库。
+实测见 `RESULTS_NL.md`（2026-09-18，`qwen3.6-flash`，1/8/32/80 × 10 分钟）。**未打 :8500。** key 只在 236 `/home/cursor-agent/.secrets/neolink.key`，不进仓库。
 
 文档：https://neolink.com/docs/instruction-manual/01-overview  
 Qwen OpenAI 兼容：https://neolink.com/docs/instruction-manual/chat/04-qwen(openai)

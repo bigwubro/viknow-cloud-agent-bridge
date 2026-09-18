@@ -29,6 +29,14 @@
 
 ## 变更记录（倒序）
 
+### 2026-09-18 总览补回 ④–⑨ 直角折线
+
+- 环境：`docs/aliyun-architecture.html` Fig. 1
+- 对象：同一套 online prod 拓扑，只改画法
+- 动作：在保留正交折线的前提下补回 neo4j / GPU / Langfuse 栈 / RDS·Tair·OSS / 未切 ALB / Actio→OSS；分通道走线，不画斜线、曲线。未改云资源。
+- 结果：成功
+- 残留：无
+
 ### 2026-09-18 总览去掉交叉连线，只保留三条直角入口
 
 - 环境：`docs/aliyun-architecture.html` Fig. 1

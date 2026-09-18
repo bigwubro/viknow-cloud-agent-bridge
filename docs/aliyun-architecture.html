@@ -158,7 +158,7 @@
     <h1>ViKnow2 online prod,<br />composed as a figure.</h1>
     <p class="lede">
       阿里云杭州 ACK 只读部署图。总览按云厂商架构图画法：<b>云 → 地域 → VPC → ACK → 节点池 → 工作负载</b>。
-      图上只画现网入口，池内依赖用编号标在组件上。无 kubeconfig；未改云资源。
+      调用关系用直角折线，分通道走，不画斜线。无 kubeconfig；未改云资源。
     </p>
     <div class="swatches" title="Nature Muted 8">
       <b style="background:#4E79A7"></b><b style="background:#F28E2B"></b>
@@ -186,12 +186,13 @@
 
   <section id="overview" class="active">
     <p class="figcap"><span>Fig. 1</span>Application Architecture</p>
-    <p class="note">层级用嵌套框表达。图上只画三条现网路径：① 镜像拉取、② Web（236 Nginx）、③ Langfuse（ALB）。④–⑨ 标在对应组件上，不再拉线。探测日 2026-09-18。</p>
+    <p class="note">层级用嵌套框表达。①–⑨ 都用直角折线，按通道走（入口粗线，依赖细线，⑧ 虚线未切）。探测日 2026-09-18。</p>
     <div class="legend">
-      <span><i style="background:#1d1d1d;width:18px;height:3px;border-radius:0;vertical-align:middle"></i>② Web · 236 Nginx</span>
-      <span><i style="background:#8c4fff;width:18px;height:3px;border-radius:0;vertical-align:middle"></i>③ Langfuse · ALB</span>
-      <span><i style="background:#c2410c;width:18px;height:3px;border-radius:0;vertical-align:middle"></i>① ACR → ACK</span>
-      <span>④–⑨ 标在组件上，不连线</span>
+      <span><i style="background:#1d1d1d;width:18px;height:3px;border-radius:0;vertical-align:middle"></i>② Web</span>
+      <span><i style="background:#8c4fff;width:18px;height:3px;border-radius:0;vertical-align:middle"></i>③ Langfuse</span>
+      <span><i style="background:#c2410c;width:18px;height:3px;border-radius:0;vertical-align:middle"></i>① ACR</span>
+      <span><i style="background:#1d1d1d;width:18px;height:2px;border-radius:0;vertical-align:middle"></i>④–⑦⑨ 直角依赖</span>
+      <span style="display:inline-flex;align-items:center;gap:6px"><svg width="18" height="6" aria-hidden="true"><line x1="0" y1="3" x2="18" y2="3" stroke="#7a7a7a" stroke-width="2" stroke-dasharray="4 3"/></svg>⑧ 未切 ALB</span>
     </div>
     <svg class="arch" viewBox="0 0 1520 900" role="img" aria-label="阿里云 online prod 分层架构">
       <defs>
@@ -203,6 +204,9 @@
         </marker>
         <marker id="arrO" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="8" markerHeight="8" orient="auto">
           <path d="M 0 1 L 10 6 L 0 11 z" fill="#c2410c"/>
+        </marker>
+        <marker id="arrG" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="8" markerHeight="8" orient="auto">
+          <path d="M 0 1 L 10 6 L 0 11 z" fill="#7a7a7a"/>
         </marker>
       </defs>
       <text x="24" y="28" fill="#1d1d1d" font-size="20" font-weight="700">Application Architecture</text>
@@ -343,27 +347,51 @@
         <text y="50" text-anchor="middle" font-size="9" fill="#64748b">全走 236 网关</text>
       </g>
 
-      <!-- ① ACR → ACK：短垂直线 -->
+      <!-- ① ACR → ACK -->
       <line x1="1000" y1="172" x2="1000" y2="244" stroke="#c2410c" stroke-width="2" marker-end="url(#arrO)"/>
 
-      <!-- ② Users → 236 Nginx → ViKnow：ALB 下方横穿，不经过 Ingress -->
+      <!-- ② Users → 236 Nginx → ViKnow -->
       <line x1="78" y1="455" x2="148" y2="455" stroke="#1d1d1d" stroke-width="2.2" marker-end="url(#arr)"/>
       <polyline points="256,455 256,560 614,560" fill="none" stroke="#1d1d1d" stroke-width="2.2" marker-end="url(#arr)"/>
 
-      <!-- ③ Users → ALB → langfuse-web：从 236 上方绕行，与 ② 分行 -->
-      <polyline points="48,437 48,118 360,118 360,470 372,470" fill="none" stroke="#8c4fff" stroke-width="2.2" marker-end="url(#arrP)"/>
+      <!-- ③ Users → ALB → langfuse-web -->
+      <polyline points="48,437 48,88 360,88 360,470 372,470" fill="none" stroke="#8c4fff" stroke-width="2.2" marker-end="url(#arrP)"/>
       <polyline points="428,448 428,400 616,400" fill="none" stroke="#8c4fff" stroke-width="2.2" marker-end="url(#arrP)"/>
+
+      <!-- ④ viknow → neo4j（池缝 x=800） -->
+      <polyline points="666,560 800,560 800,400 934,400" fill="none" stroke="#1d1d1d" stroke-width="1.8" marker-end="url(#arr)"/>
+
+      <!-- ⑤ viknow → 236 GPU（ALB 下方进入 236 再上） -->
+      <polyline points="614,530 270,530 270,250 266,250" fill="none" stroke="#1d1d1d" stroke-width="1.8" marker-end="url(#arr)"/>
+
+      <!-- ⑥ langfuse-web → worker → CH / redis -->
+      <polyline points="664,400 720,400 720,710 664,710" fill="none" stroke="#1d1d1d" stroke-width="1.8" marker-end="url(#arr)"/>
+      <polyline points="720,540 934,540" fill="none" stroke="#1d1d1d" stroke-width="1.8" marker-end="url(#arr)"/>
+      <polyline points="720,680 934,680" fill="none" stroke="#1d1d1d" stroke-width="1.8" marker-end="url(#arr)"/>
+
+      <!-- ⑦ viknow → RDS / Tair / OSS（app 池右侧上到服务行上方） -->
+      <polyline points="666,545 780,545 780,100 720,100" fill="none" stroke="#1d1d1d" stroke-width="1.8"/>
+      <line x1="780" y1="100" x2="1140" y2="100" stroke="#1d1d1d" stroke-width="1.8"/>
+      <line x1="720" y1="100" x2="720" y2="112" stroke="#1d1d1d" stroke-width="1.8" marker-end="url(#arr)"/>
+      <line x1="860" y1="100" x2="860" y2="114" stroke="#1d1d1d" stroke-width="1.8" marker-end="url(#arr)"/>
+      <line x1="1140" y1="100" x2="1140" y2="112" stroke="#1d1d1d" stroke-width="1.8" marker-end="url(#arr)"/>
+
+      <!-- ⑧ ALB viknow-public 未切 -->
+      <polyline points="428,500 500,500 500,545 610,545" fill="none" stroke="#7a7a7a" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#arrG)"/>
+
+      <!-- ⑨ Actio → OSS（底边 + 右侧） -->
+      <polyline points="266,720 266,800 1432,800 1432,128 1156,128" fill="none" stroke="#1d1d1d" stroke-width="1.8" marker-end="url(#arr)"/>
 
       <g font-weight="700" font-size="11">
         <g transform="translate(1020,208)"><circle r="11" fill="#c2410c"/><text y="4" text-anchor="middle" fill="#fff">1</text></g>
         <g transform="translate(108,455)"><circle r="11" fill="#1d1d1d"/><text y="4" text-anchor="middle" fill="#fff">2</text></g>
-        <g transform="translate(360,300)"><circle r="11" fill="#8c4fff"/><text y="4" text-anchor="middle" fill="#fff">3</text></g>
-        <g transform="translate(1020,400)"><circle r="11" fill="#1d1d1d"/><text y="4" text-anchor="middle" fill="#fff">4</text></g>
-        <g transform="translate(250,218)"><circle r="11" fill="#1d1d1d"/><text y="4" text-anchor="middle" fill="#fff">5</text></g>
-        <g transform="translate(1020,540)"><circle r="11" fill="#1d1d1d"/><text y="4" text-anchor="middle" fill="#fff">6</text></g>
-        <g transform="translate(720,88)"><circle r="11" fill="#1d1d1d"/><text y="4" text-anchor="middle" fill="#fff">7</text></g>
-        <g transform="translate(400,510)"><circle r="11" fill="#7a7a7a"/><text y="4" text-anchor="middle" fill="#fff">8</text></g>
-        <g transform="translate(250,658)"><circle r="11" fill="#1d1d1d"/><text y="4" text-anchor="middle" fill="#fff">9</text></g>
+        <g transform="translate(360,280)"><circle r="11" fill="#8c4fff"/><text y="4" text-anchor="middle" fill="#fff">3</text></g>
+        <g transform="translate(800,480)"><circle r="11" fill="#1d1d1d"/><text y="4" text-anchor="middle" fill="#fff">4</text></g>
+        <g transform="translate(360,530)"><circle r="11" fill="#1d1d1d"/><text y="4" text-anchor="middle" fill="#fff">5</text></g>
+        <g transform="translate(720,620)"><circle r="11" fill="#1d1d1d"/><text y="4" text-anchor="middle" fill="#fff">6</text></g>
+        <g transform="translate(780,220)"><circle r="11" fill="#1d1d1d"/><text y="4" text-anchor="middle" fill="#fff">7</text></g>
+        <g transform="translate(500,500)"><circle r="11" fill="#7a7a7a"/><text y="4" text-anchor="middle" fill="#fff">8</text></g>
+        <g transform="translate(900,800)"><circle r="11" fill="#1d1d1d"/><text y="4" text-anchor="middle" fill="#fff">9</text></g>
       </g>
     </svg>
     <ol class="steps">
@@ -374,7 +402,7 @@
       <li><i>5</i><span><b>推理</b>　viknow 经 NAT 到 236 :8443/:8601/:8602/:8703。ACK 无 GPU 池。</span></li>
       <li><i>6</i><span><b>Langfuse 栈</b>　web → worker → ClickHouse / redis-langfuse（不共用 Tair）。</span></li>
       <li><i>7</i><span><b>业务数据面</b>　viknow → RDS、Tair、OSS juicefs-viknow。</span></li>
-      <li><i>8</i><span><b>未走的路径</b>　ALB viknow-public 已创建，现网 Web 仍走 ②，图上不再画虚线。</span></li>
+      <li><i>8</i><span><b>未走的路径</b>　ALB viknow-public 已创建，现网 Web 仍走 ②（虚线）。</span></li>
       <li><i>9</i><span><b>视频对象</b>　236 Actio 与 ACK 共用 OSS/JuiceFS 路径。</span></li>
     </ol>
   </section>

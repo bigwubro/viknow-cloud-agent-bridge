@@ -21,6 +21,6 @@
 
 同一套 B 对照见 `loadtests/workload-b-vs-sf/RESULTS_PD.md`。0.29 上 P/D 已同开 MTP-1；0.26 长前缀会炸 D，不要退回那条。
 
-LMCache 已从现网撤掉（hybrid 不匹配）。Mooncake Store 也试过并撤掉：`./run-pd-3p1d-mooncake.sh` 能起 master 和 32GiB 池，但 0.29 + Qwen3.6 hybrid 上 D 挂 `Missing current block table`，P 在 `TRANSFER_FAIL` 之后 `get_block_ids` 解包失败。现网回 `./run-pd-3p1d.sh`。三路 P 默认按在途最少分载。
+LMCache 已从现网撤掉（hybrid 不匹配）。Mooncake Store 第一次在 0.29 原版上会炸引擎。`sitecustomize.py` 已回移植上游已合的 #50388（hybrid 解包）、#54643（MultiConnector 拒载）、#54870（缺表改为跳过 save）。再试：`./run-pd-3p1d-mooncake.sh`。回退 Nixl-only：`./run-pd-3p1d.sh`。三路 P 默认按在途最少分载。
 
 出词卡慢的主因是 NIXL 传约 246MB KV。现网仍是 `NixlConnector` pull/`ucp_get`。无 NVLink 时 UCX 默认关掉 `cuda_ipc` GET，数据面会落到 `sysv` 软件模拟（约 700MB/s）。启动项打开 `UCX_CUDA_IPC_ENABLE_GET_ZCOPY=on` 和 `UCX_CUDA_IPC_BW=50000MBs`，让 CUDA→CUDA get 走 `cuda_ipc`。预填充侧 `--max-num-batched-tokens 32768`（出词仍 16384）。0.29 已去掉 `--max-num-partial-prefills`。试过 `NixlPushConnector` WRITE，短请求会挂死，已退回 pull。`sitecustomize.py` 设 `ucx_error_handling_mode=none`。只占用 GPU 0–3 与 `:8500`，不碰其他已有容器。

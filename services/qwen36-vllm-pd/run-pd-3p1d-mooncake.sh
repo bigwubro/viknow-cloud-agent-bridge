@@ -57,9 +57,9 @@ start_engine() {
   local kv extra=()
   if [[ "$role" == p ]]; then
     kv="$P_KV"
-    # Prefill-only: raise the step token budget so ~20k unique tails pack
-    # together. 0.90 keeps KV from shrinking when activation grows.
-    extra+=(--gpu-memory-utilization 0.84 --scheduling-policy fcfs --max-num-seqs 256 --max-num-batched-tokens 131072)
+    # Prefill-only: 131072 packs ~6x 20k tails. 0.80 fits ~78 GiB free
+    # after peer CUDA contexts; 0.84 requested 79.8 GiB and failed.
+    extra+=(--gpu-memory-utilization 0.80 --scheduling-policy fcfs --max-num-seqs 256 --max-num-batched-tokens 131072)
   else
     kv="$D_KV"
     extra+=(--gpu-memory-utilization 0.75 --max-num-seqs 64 --max-num-batched-tokens 16384)
@@ -141,8 +141,10 @@ if [[ "${1:-}" == "restart-p" ]]; then
 fi
 
 if [[ "${1:-}" == "restart-pd" ]]; then
-  # Bounce P+D only. Master / proxy / nginx stay. Needed because a single
-  # P restart sees ~48 GiB free (peer CUDA contexts) and cannot raise util.
+  # Bounce P+D only. Master / proxy / nginx stay. Stop all four first so
+  # each GPU has ~80 GiB free; a live peer context leaves only ~48 GiB.
+  docker rm -f qwen36-p0 qwen36-p1 qwen36-p2 qwen36-d3 2>/dev/null || true
+  sleep 2
   start_engine qwen36-p0 0,3,1,2 8510 p 5600
   start_engine qwen36-p1 1,3,0,2 8511 p 5601
   start_engine qwen36-p2 2,3,0,1 8512 p 5602

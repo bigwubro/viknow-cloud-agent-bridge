@@ -1,0 +1,36 @@
+global:
+  scrape_interval: 5s
+scrape_configs:
+- job_name: dcgm_qwen36_gpu0_3
+  static_configs:
+  - targets: ['127.0.0.1:9401']
+    labels:
+      stack: qwen36
+      service: vllm-vlm
+- job_name: vllm_qwen36
+  metrics_path: /metrics
+  static_configs:
+  - targets: ['127.0.0.1:8500']
+    labels:
+      stack: qwen36
+      service: vllm-vlm
+- job_name: vllm_qwen36_batch_iterations
+  metrics_path: /metrics
+  static_configs:
+  - targets: ['127.0.0.1:8798']
+    labels:
+      stack: qwen36
+      service: vllm-vlm
+      component: iteration-exporter
+# Live 3P+1D: GPU0/1/2 prefill :8510/:8511/:8512, GPU3 decode :8513.
+- job_name: vllm_qwen36_pd_engines
+  metrics_path: /metrics
+  static_configs:
+  - targets: ["127.0.0.1:8510"]
+    labels: {stack: qwen36, service: qwen36-p0, role: prefill}
+  - targets: ["127.0.0.1:8511"]
+    labels: {stack: qwen36, service: qwen36-p1, role: prefill}
+  - targets: ["127.0.0.1:8512"]
+    labels: {stack: qwen36, service: qwen36-p2, role: prefill}
+  - targets: ["127.0.0.1:8513"]
+    labels: {stack: qwen36, service: qwen36-d3, role: decode}

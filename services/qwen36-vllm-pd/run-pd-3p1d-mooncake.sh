@@ -1,15 +1,14 @@
 #!/usr/bin/env bash
-# One 3P+1D group behind 127.0.0.1:8500. Does not touch viknow2-test.
+# 3P+1D + Mooncake Store (cross-P prefix pool). Nixl still does P→D.
+# Does not touch viknow2-test. Rollback: ./run-pd-3p1d.sh
 set -euo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# Official 0.29.0. Custom vllm-viknow:0.26.0-lmcache0.5.4-mmfix-r44688 is left on disk.
 IMAGE="${VLLM_IMAGE:-vllm/vllm-openai:v0.29.0}"
 MODEL=/root/.cache/models/Qwen/Qwen3___6-35B-A3B-FP8
 SERVED=Qwen/Qwen3.6-35B-A3B-FP8
-# P and D must share this so NIXL page size matches.
 SPEC='{"method":"mtp","num_speculative_tokens":1}'
-
-# GPU0/1/2 prefill :8510/:8511/:8512, GPU3 decode :8513, proxy :8520, nginx :8500
+UCX_INTRANODE_TLS=sm,self,cuda_ipc,cuda_copy
+ALL_GPUS=0,1,2,3
 
 COMMON=(
   "${MODEL}"
@@ -31,24 +30,41 @@ COMMON=(
   --uvicorn-log-level warning
 )
 
-# Same UCX / NIXL pull path as run-pd-1p1d.sh. All four GPUs stay visible so
-# each P can CUDA-IPC to D, and D can GET from any of the three P cards.
-UCX_INTRANODE_TLS=sm,self,cuda_ipc,cuda_copy
-ALL_GPUS=0,1,2,3
+# Nixl first so this request still P→D over CUDA IPC. Store second is the
+# shared prefix pool. cache_prefix keeps this tenant off any other master user.
+P_KV='{"kv_connector":"MultiConnector","kv_role":"kv_producer","kv_connector_extra_config":{"connectors":[{"kv_connector":"NixlConnector","kv_role":"kv_producer","kv_load_failure_policy":"fail","kv_connector_extra_config":{"kv_lease_duration":120,"num_threads":8}},{"kv_connector":"MooncakeStoreConnector","kv_role":"kv_both","kv_connector_extra_config":{"load_async":true,"lookup_async":true,"cache_prefix":"qwen36-3p1d"}}]}}'
+# D stays Nixl-only. MooncakeStoreConnector on a PD consumer asserts
+# Missing current block table in build_connector_meta (0.29 scheduler.py:424).
+D_KV='{"kv_connector":"NixlConnector","kv_role":"kv_consumer","kv_load_failure_policy":"fail","kv_connector_extra_config":{"num_threads":8}}'
+
+start_master() {
+  docker rm -f qwen36-mooncake-master 2>/dev/null || true
+  docker run -d \
+    --name qwen36-mooncake-master \
+    --network host \
+    --entrypoint mooncake_master \
+    "$IMAGE" \
+    --rpc_port=50051 \
+    --port=50051 \
+    --default_kv_lease_ttl=1800000 \
+    --default_kv_soft_pin_ttl=1800000 \
+    --client_ttl=1800
+  echo "started qwen36-mooncake-master :50051"
+}
 
 start_engine() {
   local name="$1" cuda_visible="$2" port="$3" role="$4" nixl_port="$5"
   local kv extra=()
   if [[ "$role" == p ]]; then
-    kv='{"kv_connector":"NixlConnector","kv_role":"kv_producer","kv_load_failure_policy":"fail","kv_connector_extra_config":{"kv_lease_duration":120,"num_threads":8}}'
+    kv="$P_KV"
+    # Prefill-only. 65536 is the highest step budget that starts. Pin KV at
+    # 20 GiB so GPU1/2 still fit beside :8502/:8503 (~16 GiB each).
     extra+=(--gpu-memory-utilization 0.75 --kv-cache-memory 21474836480 --scheduling-policy fcfs --max-num-seqs 256 --max-num-batched-tokens 65536)
   else
-    kv='{"kv_connector":"NixlConnector","kv_role":"kv_consumer","kv_load_failure_policy":"fail","kv_connector_extra_config":{"num_threads":8}}'
+    kv="$D_KV"
     extra+=(--gpu-memory-utilization 0.75 --max-num-seqs 64 --max-num-batched-tokens 16384)
   fi
   docker rm -f "$name" 2>/dev/null || true
-  # CUDA_VISIBLE_DEVICES lists the compute GPU first (TP1 uses device 0).
-  # Remaining IDs keep the peer cards visible for UCX cuda_ipc.
   docker run -d \
     --name "$name" \
     --gpus '"device='"${ALL_GPUS}"'"' \
@@ -64,6 +80,7 @@ start_engine() {
     -v /data/twj/models:/root/.cache/models:ro \
     -v "${DIR}/sitecustomize.py:/usr/lib/python3.12/sitecustomize.py:ro" \
     -v "${DIR}/sitecustomize.py:/usr/lib/python3.13/sitecustomize.py:ro" \
+    -v "${DIR}/mooncake_config.json:/etc/mooncake_config.json:ro" \
     -e NVIDIA_VISIBLE_DEVICES="${ALL_GPUS}" \
     -e PYTHONHASHSEED=0 \
     -e PYTHONUNBUFFERED=1 \
@@ -72,6 +89,8 @@ start_engine() {
     -e VLLM_NIXL_SIDE_CHANNEL_HOST=127.0.0.1 \
     -e VLLM_NIXL_SIDE_CHANNEL_PORT="${nixl_port}" \
     -e VLLM_SSM_CONV_STATE_LAYOUT=DS \
+    -e MOONCAKE_CONFIG_PATH=/etc/mooncake_config.json \
+    -e MOONCAKE_PROTOCOL=tcp \
     -e CUDA_VISIBLE_DEVICES="${cuda_visible}" \
     -e UCX_TLS="${UCX_INTRANODE_TLS}" \
     -e UCX_MEMTYPE_CACHE=n \
@@ -88,21 +107,8 @@ start_engine() {
     --port "${port}" \
     --kv-transfer-config "${kv}" \
     "${extra[@]}"
-  echo "started ${name} visible=${cuda_visible} port=${port} role=${role} nixl=${nixl_port}"
+  echo "started ${name} visible=${cuda_visible} port=${port} role=${role} nixl=${nixl_port} mooncake"
 }
-
-echo "Stopping unified DP4 container vllm-vlm to free GPU 0-3 and :8500"
-docker stop vllm-vlm 2>/dev/null || true
-
-# Drop the old 2x1P+1D decode on GPU1 so that card can become P.
-# Also drop leftover LMCache sidecars from the 0.29 MultiConnector trial.
-docker rm -f qwen36-d1 qwen36-lmc-coord qwen36-lmc-p0 qwen36-lmc-p1 qwen36-lmc-p2 qwen36-lmc-d3 2>/dev/null || true
-
-# Compute GPU first, then D (for P) or all P cards (for D).
-start_engine qwen36-p0 0,3,1,2 8510 p 5600
-start_engine qwen36-p1 1,3,0,2 8511 p 5601
-start_engine qwen36-p2 2,3,0,1 8512 p 5602
-start_engine qwen36-d3 3,0,1,2 8513 d 5603
 
 wait_http() {
   local url="$1" n=0
@@ -118,6 +124,50 @@ wait_http() {
   echo "timeout ${url}"
   return 1
 }
+
+restart_one_p() {
+  local which="$1"
+  case "$which" in
+    p0) start_engine qwen36-p0 0,3,1,2 8510 p 5600; wait_http http://127.0.0.1:8510/v1/models ;;
+    p1) start_engine qwen36-p1 1,3,0,2 8511 p 5601; wait_http http://127.0.0.1:8511/v1/models ;;
+    p2) start_engine qwen36-p2 2,3,0,1 8512 p 5602; wait_http http://127.0.0.1:8512/v1/models ;;
+    *) echo "usage: $0 restart-p p0|p1|p2" >&2; return 2 ;;
+  esac
+}
+
+if [[ "${1:-}" == "restart-p" ]]; then
+  restart_one_p "${2:-}"
+  exit $?
+fi
+
+if [[ "${1:-}" == "restart-pd" ]]; then
+  # Bounce P+D only. Master / proxy / nginx stay. Stop all four first so
+  # each GPU has ~80 GiB free; a live peer context leaves only ~48 GiB.
+  docker rm -f qwen36-p0 qwen36-p1 qwen36-p2 qwen36-d3 2>/dev/null || true
+  sleep 2
+  start_engine qwen36-p0 0,3,1,2 8510 p 5600
+  start_engine qwen36-p1 1,3,0,2 8511 p 5601
+  start_engine qwen36-p2 2,3,0,1 8512 p 5602
+  start_engine qwen36-d3 3,0,1,2 8513 d 5603
+  wait_http http://127.0.0.1:8510/v1/models
+  wait_http http://127.0.0.1:8511/v1/models
+  wait_http http://127.0.0.1:8512/v1/models
+  wait_http http://127.0.0.1:8513/v1/models
+  echo "restart-pd ready"
+  exit 0
+fi
+
+echo "Stopping unified DP4 container vllm-vlm to free GPU 0-3 and :8500"
+docker stop vllm-vlm 2>/dev/null || true
+docker rm -f qwen36-d1 qwen36-lmc-coord qwen36-lmc-p0 qwen36-lmc-p1 qwen36-lmc-p2 qwen36-lmc-d3 2>/dev/null || true
+
+start_master
+sleep 2
+
+start_engine qwen36-p0 0,3,1,2 8510 p 5600
+start_engine qwen36-p1 1,3,0,2 8511 p 5601
+start_engine qwen36-p2 2,3,0,1 8512 p 5602
+start_engine qwen36-d3 3,0,1,2 8513 d 5603
 
 wait_http http://127.0.0.1:8510/v1/models
 wait_http http://127.0.0.1:8511/v1/models
@@ -157,6 +207,6 @@ docker run -d --name qwen36-pd-lb --network host \
 sleep 1
 wait_http http://127.0.0.1:8500/health
 
-echo "PD 3P+1D is on 127.0.0.1:8500"
+echo "PD 3P+1D + Mooncake Store is on 127.0.0.1:8500"
 curl -sS http://127.0.0.1:8500/v1/models | head -c 400; echo
 curl -sS http://127.0.0.1:8520/health; echo

@@ -1,9 +1,15 @@
 #!/usr/bin/env python3
-"""PD proxy: one or more prefills, one decode. Forwards P KV handshake to D."""
+"""PD proxy: one or more prefills, one decode. Forwards P KV handshake to D.
+
+Prefill routing is a hash of the request's leading text so the same shared
+prefix stays on one P GPU and hits that card's prefix cache. The unique tail
+is ignored: only the first --prefix-hash-chars characters are hashed.
+"""
 from __future__ import annotations
 
 import argparse
 import asyncio
+import hashlib
 import json
 import logging
 from typing import Any
@@ -19,10 +25,13 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 app = FastAPI(title="PD pair proxy")
 P_BASES: list[str] = []
 P_INFLIGHT: list[int] = []
+P_PICKS: list[int] = []
 P_LOCK = asyncio.Lock()
 D_BASE = ""
 MODEL = "Qwen/Qwen3.6-35B-A3B-FP8"
 CLIENT: httpx.AsyncClient | None = None
+PREFIX_HASH_CHARS = 8192
+ROUTE = "prefix_hash"
 
 
 @app.on_event("startup")
@@ -35,6 +44,44 @@ async def _startup() -> None:
 async def _shutdown() -> None:
     if CLIENT:
         await CLIENT.aclose()
+
+
+def _text_from_content(content: Any) -> str:
+    if content is None:
+        return ""
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts: list[str] = []
+        for part in content:
+            if isinstance(part, str):
+                parts.append(part)
+            elif isinstance(part, dict) and "text" in part:
+                parts.append(str(part["text"]))
+        return "".join(parts)
+    return str(content)
+
+
+def request_prefix_text(body: dict[str, Any]) -> str:
+    messages = body.get("messages")
+    if isinstance(messages, list) and messages:
+        return "\n".join(
+            _text_from_content(m.get("content")) for m in messages if isinstance(m, dict)
+        )
+    prompt = body.get("prompt")
+    if isinstance(prompt, list):
+        return "".join(str(x) for x in prompt)
+    if prompt is None:
+        return ""
+    return str(prompt)
+
+
+def prefix_index(text: str, n_prefills: int, hash_chars: int) -> int:
+    if n_prefills <= 0:
+        raise ValueError("n_prefills must be positive")
+    key = text[: max(hash_chars, 0)].encode("utf-8", errors="replace")
+    digest = hashlib.blake2b(key, digest_size=8).digest()
+    return int.from_bytes(digest, "big") % n_prefills
 
 
 def _p_payload(body: dict[str, Any]) -> dict[str, Any]:
@@ -55,10 +102,15 @@ def _p_payload(body: dict[str, Any]) -> dict[str, Any]:
     return payload
 
 
-async def _acquire_prefill() -> tuple[int, str]:
+async def _acquire_prefill(body: dict[str, Any]) -> tuple[int, str]:
     async with P_LOCK:
-        idx = min(range(len(P_INFLIGHT)), key=lambda i: P_INFLIGHT[i])
+        text = request_prefix_text(body)
+        if ROUTE == "prefix_hash" and text:
+            idx = prefix_index(text, len(P_BASES), PREFIX_HASH_CHARS)
+        else:
+            idx = min(range(len(P_INFLIGHT)), key=lambda i: P_INFLIGHT[i])
         P_INFLIGHT[idx] += 1
+        P_PICKS[idx] += 1
         return idx, P_BASES[idx]
 
 
@@ -71,10 +123,13 @@ async def _release_prefill(idx: int) -> None:
 async def health() -> dict[str, Any]:
     return {
         "status": "ok",
+        "route": ROUTE,
+        "prefix_hash_chars": PREFIX_HASH_CHARS,
         "prefills": list(P_BASES),
         "prefill": P_BASES[0] if P_BASES else "",
         "decode": D_BASE,
         "inflight": list(P_INFLIGHT),
+        "picks": list(P_PICKS),
     }
 
 
@@ -104,7 +159,7 @@ async def completions(request: Request) -> Response:
     body = await request.json()
     client_stream = bool(body.get("stream"))
 
-    idx, p_base = await _acquire_prefill()
+    idx, p_base = await _acquire_prefill(body)
     try:
         prefill = await CLIENT.post(f"{p_base}{path}", json=_p_payload(body))
     finally:
@@ -139,7 +194,7 @@ async def completions(request: Request) -> Response:
 
 
 def main() -> None:
-    global D_BASE, MODEL
+    global D_BASE, MODEL, PREFIX_HASH_CHARS, ROUTE
     p = argparse.ArgumentParser()
     p.add_argument("--host", default="127.0.0.1")
     p.add_argument("--port", type=int, required=True)
@@ -152,14 +207,37 @@ def main() -> None:
     )
     p.add_argument("--decode", required=True, help="http://127.0.0.1:8513")
     p.add_argument("--model", default=MODEL)
+    p.add_argument(
+        "--route",
+        choices=("prefix_hash", "least_inflight"),
+        default="prefix_hash",
+        help="How to pick a P. prefix_hash pins a shared head to one GPU cache.",
+    )
+    p.add_argument(
+        "--prefix-hash-chars",
+        type=int,
+        default=8192,
+        help="Hash only this many leading characters so a unique tail does not move the request.",
+    )
     args = p.parse_args()
     P_BASES.clear()
     P_BASES.extend(u.rstrip("/") for u in args.prefills)
     P_INFLIGHT.clear()
     P_INFLIGHT.extend([0] * len(P_BASES))
+    P_PICKS.clear()
+    P_PICKS.extend([0] * len(P_BASES))
     D_BASE = args.decode.rstrip("/")
     MODEL = args.model
-    log.info("pair proxy %s -> P %s D %s", args.port, P_BASES, D_BASE)
+    PREFIX_HASH_CHARS = max(int(args.prefix_hash_chars), 0)
+    ROUTE = args.route
+    log.info(
+        "pair proxy %s -> P %s D %s route=%s hash_chars=%s",
+        args.port,
+        P_BASES,
+        D_BASE,
+        ROUTE,
+        PREFIX_HASH_CHARS,
+    )
     uvicorn.run(app, host=args.host, port=args.port, log_level="info")
 
 

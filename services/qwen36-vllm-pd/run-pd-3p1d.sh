@@ -96,7 +96,8 @@ echo "Stopping unified DP4 container vllm-vlm to free GPU 0-3 and :8500"
 docker stop vllm-vlm 2>/dev/null || true
 
 # Drop the old 2x1P+1D decode on GPU1 so that card can become P.
-docker rm -f qwen36-d1 2>/dev/null || true
+# Also drop leftover LMCache sidecars from the 0.29 MultiConnector trial.
+docker rm -f qwen36-d1 qwen36-lmc-coord qwen36-lmc-p0 qwen36-lmc-p1 qwen36-lmc-p2 qwen36-lmc-d3 2>/dev/null || true
 
 # Compute GPU first, then D (for P) or all P cards (for D).
 start_engine qwen36-p0 0,3,1,2 8510 p 5600

@@ -141,6 +141,7 @@ stop_pidfile /tmp/qwen36-pd-proxy-a.pid
 stop_pidfile /tmp/qwen36-pd-proxy-b.pid
 stop_pidfile /tmp/qwen36-pd-proxy-3p1d.pid
 nohup python3 "${DIR}/pd_pair_proxy.py" --port 8520 \
+  --route least_inflight \
   --prefill http://127.0.0.1:8510 \
   --prefill http://127.0.0.1:8511 \
   --prefill http://127.0.0.1:8512 \

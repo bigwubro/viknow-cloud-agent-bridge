@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """PD proxy: one or more prefills, one decode. Forwards P KV handshake to D.
 
-Prefill routing is a hash of the request's leading text so the same shared
-prefix stays on one P GPU and hits that card's prefix cache. The unique tail
-is ignored: only the first --prefix-hash-chars characters are hashed.
+Default prefill routing is least-inflight so the three P GPUs share load.
+--route prefix_hash is optional: blake2b of the first --prefix-hash-chars
+characters pins a shared head to one P cache.
 """
 from __future__ import annotations
 
@@ -31,7 +31,7 @@ D_BASE = ""
 MODEL = "Qwen/Qwen3.6-35B-A3B-FP8"
 CLIENT: httpx.AsyncClient | None = None
 PREFIX_HASH_CHARS = 8192
-ROUTE = "prefix_hash"
+ROUTE = "least_inflight"
 
 
 @app.on_event("startup")
@@ -209,9 +209,9 @@ def main() -> None:
     p.add_argument("--model", default=MODEL)
     p.add_argument(
         "--route",
-        choices=("prefix_hash", "least_inflight"),
-        default="prefix_hash",
-        help="How to pick a P. prefix_hash pins a shared head to one GPU cache.",
+        choices=("least_inflight", "prefix_hash"),
+        default="least_inflight",
+        help="How to pick a P. least_inflight spreads load; prefix_hash pins a shared head.",
     )
     p.add_argument(
         "--prefix-hash-chars",

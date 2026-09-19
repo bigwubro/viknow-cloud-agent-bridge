@@ -255,3 +255,25 @@ B 的公共头完全粘在 P2，P1 空闲。稳态 token 命中仍约 38%（2112
 | 本轮 picks 增量 | — | **119 / 113 / 115** | 约 1/3 |
 
 10s 以上 0 条。`:8500` 200。其他容器未动。
+
+## Mooncake Store（2026-09-19 02:51–03:17 UTC）
+
+官方 0.29 镜像里有 `MooncakeStoreConnector` 和 `mooncake_master`。本机无 RDMA，用 embedded + TCP，每卡贡献 8GiB，master `:50051`，lease / soft-pin 30 分钟，`client_ttl=1800`。Nixl 仍管本请求 P→D。代理仍是 `least_inflight`。短 `1+1` 回 `1+1=2`。`viknow2-test` / rerank / fast-ingest / qwen38-gpu4 未动。
+
+第一轮：D 也挂了 Mooncake。同一套 B，c20 × 90s，**0/249**，全 HTTP 500。D 在第一条长请求上断言 `Missing current block table for store request`（`store/scheduler.py:424`）。Master 仍起来：`Mem Storage 22.75 GiB / 32 GiB`，1027 个 key。三路 P 的 `external_prefix_cache_hits` 仍是 **0**。
+
+第二轮：D 改回 Nixl-only，P 继续 MultiConnector。短 `1+1` 仍回 `2`。同一套 B：
+
+| 项 | Nixl-only（P1 恢复后） | **Mooncake 在 P（D 已 Nixl-only）** |
+|---|---|---|
+| 成功/提交 | 346/346 | **222 / 30796** |
+| 每秒完成 | 3.666 | **2.377**（墙钟 93.4s，含死 P0 狂打） |
+| 中位 / 95 分位 | 5.27s / 6.52s | **5.30s / 6.52s**（只计 222 条成功） |
+| P external hits | 0 | **0** |
+| 代理 picks | 119 / 113 / 115 | **30654 / 197 / 198** |
+
+P0 在窗口开始（03:14:15）被 Mooncake `TRANSFER_FAIL (-800)` 打死后退出：`Failed to get 1 Mooncake keys`，随后 `_handle_invalid_blocks` 对 hybrid 多组 block table 解包 `ValueError: too many values to unpack (expected 1)`。least-inflight 看见 P0 立刻失败、在途为 0，就把后续约 3 万次都打到 P0。P1/P2 的 `save_put` 也是整批失败（142/142、130/130）。池子还停在约 22.7 GiB，lookup `ExistKey` 有次数，`Get` 为 0。
+
+活着的那两张 P + D：NIXL 约 15ms（223 次 / 3.35s），MTP 接受 16992/23658 = **71.8%**，出词排队约 34ms。成功请求的时延和 Nixl-only 同一档，**没有跨 P 命中，也没有吞吐收益**。
+
+现网已撤 Mooncake，回 `run-pd-3p1d.sh`。脚本留着，不要再挂到 Qwen3.6 hybrid 上。

@@ -196,3 +196,11 @@ P/D 都加 `--speculative-config '{"method":"mtp","num_speculative_tokens":1}'`�
 - Triton FP8 MoE（候选里有 FlashInfer TRTLLM/CUTLASS，自动没选）
 
 还没动、要重启才试的：`--language-model-only`（纯文本可省视觉塔）、`--moe-backend flashinfer_cutlass`（SM120 可能起不来）、`UCX_RCACHE_MAX_UNRELEASED=1024`、MTP-3。FlashInfer fused 普通 GDN decode（PR 53645）不在 0.29，且和 MTP 互斥。QPS 几乎没涨，因为 c20 仍是预填充占一半以上；MTP 主要削了 p95。
+
+## LMCache（2026-09-19 核对，未开）
+
+0.29 镜像里有 `lmcache 0.5.4`（`g3e11b8ed`）和 `LMCacheMPConnector`，CLI 能跑。官方 recipe 写了 Qwen3.6 GDN：`--mamba-cache-mode align`（现网已开）、`--chunk-size` = 统一块 **2112**、`--separate-object-groups`。PD 官方接法是 `MultiConnector[NixlConnector + LMCacheMPConnector]`，每个引擎自己一台 `lmcache server`；三路 P 要共用还得再加 coordinator / P2P。
+
+现网没改 kv 连接器。P0/P1/P2 **external_prefix_cache_hits = 0**，D3 external ≈ 100%（NIXL 从 P 拉）。
+
+没有直接叠上去：0.5.4 + vLLM≥0.26 的 hybrid 磁盘层有 #4701（可能只存 1/N 页）；MTP + connector + GDN 有 #4674 一类风险；官方还写缺 vLLM #46865 时 MultiConnector 下 offload 会静默不触发。进程内 adapter 在本镜像缺 `CudaIPCWrapper`，只能走 MP。更便宜的一步仍是按共享前缀粘到同一张 P。

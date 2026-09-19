@@ -175,13 +175,13 @@ start_coordinator
 # Compute GPU first, then D (for P) or all P cards (for D).
 # Three P servers join P2P so the 16k shared prefix can move across cards.
 if [[ "${ENABLE_LMCACHE_P2P}" == "1" ]]; then
-  start_engine qwen36-p0 0,3,1,2 8510 p 5600 6560 8060 qwen36-p0 16 127.0.0.1:7160
-  start_engine qwen36-p1 1,3,0,2 8511 p 5601 6561 8061 qwen36-p1 16 127.0.0.1:7161
-  start_engine qwen36-p2 2,3,0,1 8512 p 5602 6562 8062 qwen36-p2 16 127.0.0.1:7162
+  start_engine qwen36-p0 0,3,1,2 8510 p 5600 6560 8060 qwen36-p0 8 127.0.0.1:7160
+  start_engine qwen36-p1 1,3,0,2 8511 p 5601 6561 8061 qwen36-p1 8 127.0.0.1:7161
+  start_engine qwen36-p2 2,3,0,1 8512 p 5602 6562 8062 qwen36-p2 8 127.0.0.1:7162
 else
-  start_engine qwen36-p0 0,3,1,2 8510 p 5600 6560 8060 qwen36-p0 16
-  start_engine qwen36-p1 1,3,0,2 8511 p 5601 6561 8061 qwen36-p1 16
-  start_engine qwen36-p2 2,3,0,1 8512 p 5602 6562 8062 qwen36-p2 16
+  start_engine qwen36-p0 0,3,1,2 8510 p 5600 6560 8060 qwen36-p0 8
+  start_engine qwen36-p1 1,3,0,2 8511 p 5601 6561 8061 qwen36-p1 8
+  start_engine qwen36-p2 2,3,0,1 8512 p 5602 6562 8062 qwen36-p2 8
 fi
 start_engine qwen36-d3 3,0,1,2 8513 d 5603 6563 8063 qwen36-d3 8
 

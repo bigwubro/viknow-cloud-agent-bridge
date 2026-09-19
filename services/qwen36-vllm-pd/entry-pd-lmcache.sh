@@ -34,14 +34,22 @@ fi
 lmcache "${lmc_args[@]}" >/tmp/lmcache-"${LMC_INSTANCE_ID}".log 2>&1 &
 echo $! >/tmp/lmcache-"${LMC_INSTANCE_ID}".pid
 
+lmc_pid="$(cat /tmp/lmcache-"${LMC_INSTANCE_ID}".pid)"
 ok=0
-for _ in $(seq 1 80); do
-  if curl -sf -m 1 "http://127.0.0.1:${LMC_HTTP_PORT}/status" >/dev/null \
-    || curl -sf -m 1 "http://127.0.0.1:${LMC_HTTP_PORT}/" >/dev/null; then
+for _ in $(seq 1 180); do
+  if ! kill -0 "${lmc_pid}" 2>/dev/null; then
+    echo "lmcache server ${LMC_INSTANCE_ID} exited during startup" >&2
+    tail -n 80 /tmp/lmcache-"${LMC_INSTANCE_ID}".log >&2 || true
+    exit 1
+  fi
+  if curl -sf -m 1 "http://127.0.0.1:${LMC_HTTP_PORT}/health" >/dev/null \
+    || curl -sf -m 1 "http://127.0.0.1:${LMC_HTTP_PORT}/status" >/dev/null \
+    || curl -sf -m 1 "http://127.0.0.1:${LMC_HTTP_PORT}/info" >/dev/null \
+    || timeout 1 bash -c "echo >/dev/tcp/127.0.0.1/${LMC_HTTP_PORT}" 2>/dev/null; then
     ok=1
     break
   fi
-  sleep 0.25
+  sleep 0.5
 done
 if [[ "$ok" -ne 1 ]]; then
   echo "lmcache server ${LMC_INSTANCE_ID} did not become ready on :${LMC_HTTP_PORT}" >&2

@@ -34,7 +34,9 @@ COMMON=(
 # Nixl first so this request still P→D over CUDA IPC. Store second is the
 # shared prefix pool. cache_prefix keeps this tenant off any other master user.
 P_KV='{"kv_connector":"MultiConnector","kv_role":"kv_producer","kv_connector_extra_config":{"connectors":[{"kv_connector":"NixlConnector","kv_role":"kv_producer","kv_load_failure_policy":"fail","kv_connector_extra_config":{"kv_lease_duration":120,"num_threads":8}},{"kv_connector":"MooncakeStoreConnector","kv_role":"kv_both","kv_connector_extra_config":{"load_async":true,"lookup_async":true,"cache_prefix":"qwen36-3p1d"}}]}}'
-D_KV='{"kv_connector":"MultiConnector","kv_role":"kv_consumer","kv_connector_extra_config":{"connectors":[{"kv_connector":"NixlConnector","kv_role":"kv_consumer","kv_load_failure_policy":"fail","kv_connector_extra_config":{"num_threads":8}},{"kv_connector":"MooncakeStoreConnector","kv_role":"kv_consumer","kv_connector_extra_config":{"load_async":true,"lookup_async":true,"cache_prefix":"qwen36-3p1d"}}]}}'
+# D stays Nixl-only. MooncakeStoreConnector on a PD consumer asserts
+# Missing current block table in build_connector_meta (0.29 scheduler.py:424).
+D_KV='{"kv_connector":"NixlConnector","kv_role":"kv_consumer","kv_load_failure_policy":"fail","kv_connector_extra_config":{"num_threads":8}}'
 
 start_master() {
   docker rm -f qwen36-mooncake-master 2>/dev/null || true

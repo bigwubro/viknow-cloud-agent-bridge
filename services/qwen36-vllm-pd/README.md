@@ -21,6 +21,6 @@
 
 同一套 B 对照见 `loadtests/workload-b-vs-sf/RESULTS_PD.md`。0.29 上 P/D 已同开 MTP-1；0.26 长前缀会炸 D，不要退回那条。
 
-现网开 LMCache 0.5.4：每路引擎进程内一台 `lmcache server`（L1 only，`--chunk-size 2112`，`--separate-object-groups`），kv 走 `MultiConnector[Nixl + LMCacheMP]`。三路 P 再加 coordinator `:9301` 和 P2P `:7160-7162`。P 侧 `--max-num-batched-tokens 4223`（`2N-1`），否则 32768 一步打完 30k，公共前缀对不齐。`ENABLE_LMCACHE_P2P=0` 可关跨 P。不写 L2 磁盘。
+现网已开 LMCache 0.5.4：每路引擎进程内一台 `lmcache server`（L1 only，`--chunk-size 2112`，`--separate-object-groups`），kv 走 `MultiConnector[Nixl + LMCacheMP]`。三路 P 再加 coordinator `:9301` 和 P2P `:7160-7162`。P 侧 `--max-num-batched-tokens 4223`（`2N-1`），B c20 能存对象、P external 约 10%，但 QPS 从 3.64 掉到 0.45。sitecustomize 把 `LBHNC` 映射成 `HND`。`ENABLE_LMCACHE_P2P=0` 可关跨 P。不写 L2 磁盘。
 
 出词卡慢的主因是 NIXL 传约 246MB KV。现网仍是 `NixlConnector` pull/`ucp_get`。无 NVLink 时 UCX 默认关掉 `cuda_ipc` GET，数据面会落到 `sysv` 软件模拟（约 700MB/s）。启动项打开 `UCX_CUDA_IPC_ENABLE_GET_ZCOPY=on` 和 `UCX_CUDA_IPC_BW=50000MBs`，让 CUDA→CUDA get 走 `cuda_ipc`。预填充侧 `--max-num-batched-tokens 32768`（出词仍 16384）。0.29 已去掉 `--max-num-partial-prefills`。试过 `NixlPushConnector` WRITE，短请求会挂死，已退回 pull。`sitecustomize.py` 设 `ucx_error_handling_mode=none`。只占用 GPU 0–3 与 `:8500`，不碰其他已有容器。

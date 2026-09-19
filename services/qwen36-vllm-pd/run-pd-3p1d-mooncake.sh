@@ -57,9 +57,9 @@ start_engine() {
   local kv extra=()
   if [[ "$role" == p ]]; then
     kv="$P_KV"
-    # Prefill-only. 131072 OOMs (61 GiB activations). 65536 is the highest
-    # budget that still leaves room for ~22 GiB KV with peer CUDA contexts.
-    extra+=(--gpu-memory-utilization 0.75 --scheduling-policy fcfs --max-num-seqs 256 --max-num-batched-tokens 65536)
+    # Prefill-only. 65536 is the highest step budget that starts. Pin KV at
+    # 20 GiB so GPU1/2 still fit beside :8502/:8503 (~16 GiB each).
+    extra+=(--gpu-memory-utilization 0.75 --kv-cache-memory 21474836480 --scheduling-policy fcfs --max-num-seqs 256 --max-num-batched-tokens 65536)
   else
     kv="$D_KV"
     extra+=(--gpu-memory-utilization 0.75 --max-num-seqs 64 --max-num-batched-tokens 16384)
@@ -102,7 +102,6 @@ start_engine() {
     -e UCX_CUDA_IPC_ENABLE_GET_ZCOPY=on \
     -e UCX_CUDA_IPC_BW=50000MBs \
     -e CUDA_DEVICE_MAX_CONNECTIONS=8 \
-    -e PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True \
     "$IMAGE" \
     "${COMMON[@]}" \
     --port "${port}" \

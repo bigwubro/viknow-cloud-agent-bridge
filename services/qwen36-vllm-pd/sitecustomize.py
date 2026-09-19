@@ -10,6 +10,11 @@ detect VRAM; the device path should still be cuda_ipc.
 Also: vLLM's NIXL handshake ROUTER thread unpacks recv_multipart() as
 (identity, empty, msg). A 2-frame junk message kills the thread and unbinds
 the side channel. P1 hit that on :5601; D then failed every pull from that P.
+
+Mooncake Store on 0.29.0 is missing three upstream commits. This file
+backports them: #50388 (hybrid invalid-block unpack), #54643 (skip
+MultiConnector-rejected loads), #54870 (missing save table is skip, not
+assert). #54853 is larger (lazy block-state API) and is not copied.
 """
 from __future__ import annotations
 

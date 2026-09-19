@@ -204,3 +204,22 @@ P/D 都加 `--speculative-config '{"method":"mtp","num_speculative_tokens":1}'`�
 现网没改 kv 连接器。P0/P1/P2 **external_prefix_cache_hits = 0**，D3 external ≈ 100%（NIXL 从 P 拉）。
 
 没有直接叠上去：0.5.4 + vLLM≥0.26 的 hybrid 磁盘层有 #4701（可能只存 1/N 页）；MTP + connector + GDN 有 #4674 一类风险；官方还写缺 vLLM #46865 时 MultiConnector 下 offload 会静默不触发。进程内 adapter 在本镜像缺 `CudaIPCWrapper`，只能走 MP。更便宜的一步仍是按共享前缀粘到同一张 P。
+
+## LMCache 已开（2026-09-19 01:09–01:18 UTC）
+
+现网 3P+1D + MTP-1 叠上 `MultiConnector[Nixl + LMCacheMP]`。每路引擎进程内一台 L1 server（`--chunk-size 2112`，`--separate-object-groups`，无 L2）。三路 P 走 coordinator `:9301` + P2P `:7160-7162`。P `--max-num-batched-tokens` 改成 **4223**（`2N-1`）。sitecustomize 把 v0.29 的 `LBHNC` 映射成 LMCache 要的 `HND`，否则 `register_kv_caches` 会报 `Unsupported kv_layout: none`。
+
+短 `1+1` 回 `1+1=2`（热 0.12s）。`:8500` 200。`viknow2-test` / rerank / fast-ingest / qwen38-gpu4 未动。
+
+同一套 B，c20 × 90s：
+
+| 项 | 0.29 MTP-1 无 LMCache（32768） | **0.29 MTP-1 + LMCache（4223）** |
+|---|---|---|
+| 成功/提交 | 342/342 | **57/57** |
+| 每秒完成 | 3.642 | **0.454** |
+| 中位 / 95 分位 | 5.24s / 6.75s | **40.21s / 48.01s** |
+| P 本地 prefix | 约 38% | 37.3% |
+| P external 命中 | **0** | **约 9–10%**（P0 42240/426715） |
+| LMCache L1 | — | P0/P1/P2：**177 / 203 / 179** 个对象，约 5.8 / 6.7 / 5.9 GiB；D3：0 |
+
+D 未退出。P 侧 Waiting/Deferred 堆着，因为 4223 一步只能进一块 2112。LMCache 能存、也能跨实例命中，但把预填充粒度收成 `2N-1` 之后，c20 吞吐大约只剩原来的八分之一。要吞吐就得把 P batched-tokens 加回去（粗快照）；要细前缀就得忍受一步一块。

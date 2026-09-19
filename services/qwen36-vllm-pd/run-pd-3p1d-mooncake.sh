@@ -59,7 +59,7 @@ start_engine() {
     kv="$P_KV"
     # Prefill-only: raise the step token budget so ~20k unique tails pack
     # together. 0.90 keeps KV from shrinking when activation grows.
-    extra+=(--gpu-memory-utilization 0.90 --scheduling-policy fcfs --max-num-seqs 256 --max-num-batched-tokens 131072)
+    extra+=(--gpu-memory-utilization 0.84 --scheduling-policy fcfs --max-num-seqs 256 --max-num-batched-tokens 131072)
   else
     kv="$D_KV"
     extra+=(--gpu-memory-utilization 0.75 --max-num-seqs 64 --max-num-batched-tokens 16384)
@@ -138,6 +138,21 @@ restart_one_p() {
 if [[ "${1:-}" == "restart-p" ]]; then
   restart_one_p "${2:-}"
   exit $?
+fi
+
+if [[ "${1:-}" == "restart-pd" ]]; then
+  # Bounce P+D only. Master / proxy / nginx stay. Needed because a single
+  # P restart sees ~48 GiB free (peer CUDA contexts) and cannot raise util.
+  start_engine qwen36-p0 0,3,1,2 8510 p 5600
+  start_engine qwen36-p1 1,3,0,2 8511 p 5601
+  start_engine qwen36-p2 2,3,0,1 8512 p 5602
+  start_engine qwen36-d3 3,0,1,2 8513 d 5603
+  wait_http http://127.0.0.1:8510/v1/models
+  wait_http http://127.0.0.1:8511/v1/models
+  wait_http http://127.0.0.1:8512/v1/models
+  wait_http http://127.0.0.1:8513/v1/models
+  echo "restart-pd ready"
+  exit 0
 fi
 
 echo "Stopping unified DP4 container vllm-vlm to free GPU 0-3 and :8500"

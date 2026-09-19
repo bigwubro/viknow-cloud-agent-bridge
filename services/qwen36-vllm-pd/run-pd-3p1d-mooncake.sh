@@ -47,7 +47,7 @@ start_master() {
     --port=50051 \
     --default_kv_lease_ttl=1800000 \
     --default_kv_soft_pin_ttl=1800000 \
-    --client_ttl=60
+    --client_ttl=1800
   echo "started qwen36-mooncake-master :50051"
 }
 

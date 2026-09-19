@@ -204,3 +204,22 @@ P/D 都加 `--speculative-config '{"method":"mtp","num_speculative_tokens":1}'`�
 现网没改 kv 连接器。P0/P1/P2 **external_prefix_cache_hits = 0**，D3 external ≈ 100%（NIXL 从 P 拉）。
 
 没有直接叠上去：0.5.4 + vLLM≥0.26 的 hybrid 磁盘层有 #4701（可能只存 1/N 页）；MTP + connector + GDN 有 #4674 一类风险；官方还写缺 vLLM #46865 时 MultiConnector 下 offload 会静默不触发。进程内 adapter 在本镜像缺 `CudaIPCWrapper`，只能走 MP。更便宜的一步仍是按共享前缀粘到同一张 P。
+
+## 撤掉 LMCache，代理按前缀 hash 粘 P（2026-09-19 01:32 UTC）
+
+现网回到 `NixlConnector` only，P batched-tokens 32768，MTP-1 仍开。`qwen36-lmc-*` 已删。代理默认 `route=prefix_hash`，只 hash 请求正文前 **8192** 个字符，同一段共享头进同一张 P。
+
+短 `1+1` 回 `1+1=2`（热 0.14s），两次都进 P0。`:8500` 200。`viknow2-test` 等未动。
+
+同一套 B，c20 × 90s：
+
+| 项 | 3 路 least-inflight（无 LMCache） | LMCache + 4223 | **前缀 hash（无 LMCache）** |
+|---|---|---|---|
+| 成功/提交 | 342/342 | 57/57 | **130/130** |
+| 每秒完成 | 3.642 | 0.454 | **1.255** |
+| 中位 / 95 分位 | 5.24s / 6.75s | 40.21s / 48.01s | **15.57s / 16.43s** |
+| 代理 picks | 约 1/3 各 | 约 1/3 各 | **P0 2（冒烟）/ P1 0 / P2 131** |
+| 接到 B 的那张 P 本地命中 | 约 38% | 37.3% | **P2 1.635M / 4.274M = 38.2%** |
+| P external | 0 | 约 10% | **0** |
+
+B 的公共头完全粘在 P2，P1 空闲。稳态 token 命中仍约 38%（2112 对齐后的共享段，独特尾巴每次都 miss）。省下的是另外两张 P 各冷打一遍 16k；代价是预填充只剩一张卡，QPS 大约是三路均分的三分之一。

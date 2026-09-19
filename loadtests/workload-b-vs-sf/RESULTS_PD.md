@@ -170,3 +170,37 @@ P/D 都加 `--speculative-config '{"method":"mtp","num_speculative_tokens":1}'`�
 `AssertionError: SSM can only have one local block`（`nixl/base_worker.py` `_apply_prefix_caching`）
 
 短上下文只有一块 GDN state，长前缀（约 30k）会变成多块，0.26 的 hybrid SSM + MTP + NIXL 这条路径不支持。出词容器随后退出。已从启动项去掉 MTP，恢复无投机的 3P+1D。
+
+## 官方 0.29.0 + MTP-1（2026-09-18 20:47 UTC）
+
+自制镜像 `vllm-viknow:0.26.0-lmcache0.5.4-mmfix-r44688` 留在磁盘未删。现网改用 `vllm/vllm-openai:v0.29.0`，3P+1D 不变，P/D 同开 MTP-1。0.29 不认 `--max-num-partial-prefills`，已去掉。sitecustomize 仍挂着，UCX CUDA IPC GET 仍是 `zero-copy | cuda_ipc/cuda`。
+
+短 `1+1`：冷 1.14s，热 0.12–0.14s，回 `1+1=2`。块 2112。
+
+同一套 B，c20 × 90s：
+
+| 镜像 | MTP | 成功/提交 | 每秒完成 | 中位 / 95 分位 |
+|---|---|---|---|---|
+| 0.26 自制 | 关 | 340/340 | 3.630 | 5.37s / 8.03s |
+| 0.26 自制 | MTP-1 | 0/257 | — | 全 500，D 断言退出 |
+| **0.29 官方** | **MTP-1** | **342/342** | **3.642** | **5.24s / 6.75s** |
+
+出词侧 `spec_decode`：draft 36733，接受 26293，接受率 **71.6%**。D 未退出。`viknow2-test` / rerank / fast-ingest / qwen38-gpu4 未动。
+
+0.29 实际选中、无需再开的新路径：
+
+- Model Runner V2
+- GDN decode kernel `cuda`（fused GDN MTP）
+- FlashInfer 注意力，decode_backend=`xqa`，SM120
+- NIXL KV layout `LBHNC`
+- Triton FP8 MoE（候选里有 FlashInfer TRTLLM/CUTLASS，自动没选）
+
+还没动、要重启才试的：`--language-model-only`（纯文本可省视觉塔）、`--moe-backend flashinfer_cutlass`（SM120 可能起不来）、`UCX_RCACHE_MAX_UNRELEASED=1024`、MTP-3。FlashInfer fused 普通 GDN decode（PR 53645）不在 0.29，且和 MTP 互斥。QPS 几乎没涨，因为 c20 仍是预填充占一半以上；MTP 主要削了 p95。
+
+## LMCache（2026-09-19 核对，未开）
+
+0.29 镜像里有 `lmcache 0.5.4`（`g3e11b8ed`）和 `LMCacheMPConnector`，CLI 能跑。官方 recipe 写了 Qwen3.6 GDN：`--mamba-cache-mode align`（现网已开）、`--chunk-size` = 统一块 **2112**、`--separate-object-groups`。PD 官方接法是 `MultiConnector[NixlConnector + LMCacheMPConnector]`，每个引擎自己一台 `lmcache server`；三路 P 要共用还得再加 coordinator / P2P。
+
+现网没改 kv 连接器。P0/P1/P2 **external_prefix_cache_hits = 0**，D3 external ≈ 100%（NIXL 从 P 拉）。
+
+没有直接叠上去：0.5.4 + vLLM≥0.26 的 hybrid 磁盘层有 #4701（可能只存 1/N 页）；MTP + connector + GDN 有 #4674 一类风险；官方还写缺 vLLM #46865 时 MultiConnector 下 offload 会静默不触发。进程内 adapter 在本镜像缺 `CudaIPCWrapper`，只能走 MP。更便宜的一步仍是按共享前缀粘到同一张 P。

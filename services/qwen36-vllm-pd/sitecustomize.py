@@ -6,10 +6,17 @@ plugin default is ucx_error_handling_mode=peer, which rejects sm/posix/sysv
 carries VRAM via cuda_copy at ~330MB/s. Setting mode=none lets sm provide AM.
 run-pd-1p1d.sh keeps tcp out of UCX_TLS. cuda_copy stays only so UCX can
 detect VRAM; the device path should still be cuda_ipc.
+
+Also: vLLM's NIXL handshake ROUTER thread unpacks recv_multipart() as
+(identity, empty, msg). A 2-frame junk message kills the thread and unbinds
+the side channel. P1 hit that on :5601; D then failed every pull from that P.
 """
 from __future__ import annotations
 
+import importlib.abc
+import importlib.machinery
 import logging
+import sys
 
 log = logging.getLogger("nixl_force_cuda_ipc")
 
@@ -51,3 +58,48 @@ for _mod_name in ("nixl_cu13._api", "nixl._api"):
         _wrap_create_backend(__import__(_mod_name, fromlist=["nixl_agent"]))
     except Exception as exc:  # noqa: BLE001
         _emit(f"could not patch {_mod_name}: {exc}")
+
+
+_SCHEDULER = "vllm.distributed.kv_transfer.kv_connector.v1.nixl.base_scheduler"
+
+
+def _patch_handshake_listener(mod) -> None:
+    cls = getattr(mod, "NixlBaseConnectorScheduler", None)
+    if cls is None or getattr(cls, "_viknow_hs_guard", False):
+        return
+    orig = cls._nixl_handshake_listener
+
+    def _guarded(encoded_data, ready_event, stop_event, host, port):
+        while not stop_event.is_set():
+            try:
+                orig(encoded_data, ready_event, stop_event, host, port)
+                return
+            except ValueError as exc:
+                _emit(
+                    f"NIXL handshake listener unpack error on {host}:{port}: {exc}; rebound"
+                )
+
+    cls._nixl_handshake_listener = staticmethod(_guarded)
+    cls._viknow_hs_guard = True
+    _emit(f"patched {cls.__name__}._nixl_handshake_listener to survive 2-frame ZMQ")
+
+
+class _HandshakeGuardFinder(importlib.abc.MetaPathFinder):
+    def find_spec(self, fullname, path=None, target=None):  # noqa: ANN001
+        if fullname != _SCHEDULER:
+            return None
+        spec = importlib.machinery.PathFinder.find_spec(fullname, path)
+        if spec is None or spec.loader is None:
+            return None
+        orig_exec = spec.loader.exec_module
+
+        def exec_module(module):
+            orig_exec(module)
+            _patch_handshake_listener(module)
+
+        spec.loader.exec_module = exec_module  # type: ignore[method-assign]
+        return spec
+
+
+if not any(isinstance(x, _HandshakeGuardFinder) for x in sys.meta_path):
+    sys.meta_path.insert(0, _HandshakeGuardFinder())

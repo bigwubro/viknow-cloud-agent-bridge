@@ -21,6 +21,6 @@
 
 同一套 B 对照见 `loadtests/workload-b-vs-sf/RESULTS_PD.md`。0.29 上 P/D 已同开 MTP-1；0.26 长前缀会炸 D，不要退回那条。
 
-LMCache 已从现网撤掉，回到 `NixlConnector` only。三路 P 默认按在途最少分载；每张 P 仍只有本卡 GPU prefix cache。
+LMCache 已从现网撤掉（hybrid 不匹配）。跨 P 共享 prefix 的试验：`./run-pd-3p1d-mooncake.sh`（Nixl 仍管本请求 P→D，Mooncake Store 做三路 P 的对象池，TCP、无 RDMA）。回退 Nixl-only：`./run-pd-3p1d.sh`。三路 P 默认按在途最少分载。
 
 出词卡慢的主因是 NIXL 传约 246MB KV。现网仍是 `NixlConnector` pull/`ucp_get`。无 NVLink 时 UCX 默认关掉 `cuda_ipc` GET，数据面会落到 `sysv` 软件模拟（约 700MB/s）。启动项打开 `UCX_CUDA_IPC_ENABLE_GET_ZCOPY=on` 和 `UCX_CUDA_IPC_BW=50000MBs`，让 CUDA→CUDA get 走 `cuda_ipc`。预填充侧 `--max-num-batched-tokens 32768`（出词仍 16384）。0.29 已去掉 `--max-num-partial-prefills`。试过 `NixlPushConnector` WRITE，短请求会挂死，已退回 pull。`sitecustomize.py` 设 `ucx_error_handling_mode=none`。只占用 GPU 0–3 与 `:8500`，不碰其他已有容器。

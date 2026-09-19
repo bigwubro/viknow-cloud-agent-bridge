@@ -20,7 +20,6 @@ COMMON=(
   --enable-prefix-caching
   --mamba-cache-mode align
   --max-model-len 156000
-  --gpu-memory-utilization 0.75
   --enable-auto-tool-choice
   --tool-call-parser qwen3_coder
   --async-scheduling
@@ -42,10 +41,10 @@ start_engine() {
   local kv extra=()
   if [[ "$role" == p ]]; then
     kv='{"kv_connector":"NixlConnector","kv_role":"kv_producer","kv_load_failure_policy":"fail","kv_connector_extra_config":{"kv_lease_duration":120,"num_threads":8}}'
-    extra+=(--scheduling-policy fcfs --max-num-seqs 64 --max-num-batched-tokens 32768)
+    extra+=(--gpu-memory-utilization 0.90 --scheduling-policy fcfs --max-num-seqs 256 --max-num-batched-tokens 131072)
   else
     kv='{"kv_connector":"NixlConnector","kv_role":"kv_consumer","kv_load_failure_policy":"fail","kv_connector_extra_config":{"num_threads":8}}'
-    extra+=(--max-num-seqs 64 --max-num-batched-tokens 16384)
+    extra+=(--gpu-memory-utilization 0.75 --max-num-seqs 64 --max-num-batched-tokens 16384)
   fi
   docker rm -f "$name" 2>/dev/null || true
   # CUDA_VISIBLE_DEVICES lists the compute GPU first (TP1 uses device 0).

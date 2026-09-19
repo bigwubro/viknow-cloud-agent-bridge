@@ -19,7 +19,6 @@ COMMON=(
   --enable-prefix-caching
   --mamba-cache-mode align
   --max-model-len 156000
-  --gpu-memory-utilization 0.75
   --enable-auto-tool-choice
   --tool-call-parser qwen3_coder
   --async-scheduling
@@ -58,10 +57,12 @@ start_engine() {
   local kv extra=()
   if [[ "$role" == p ]]; then
     kv="$P_KV"
-    extra+=(--scheduling-policy fcfs --max-num-seqs 64 --max-num-batched-tokens 32768)
+    # Prefill-only: raise the step token budget so ~20k unique tails pack
+    # together. 0.90 keeps KV from shrinking when activation grows.
+    extra+=(--gpu-memory-utilization 0.90 --scheduling-policy fcfs --max-num-seqs 256 --max-num-batched-tokens 131072)
   else
     kv="$D_KV"
-    extra+=(--max-num-seqs 64 --max-num-batched-tokens 16384)
+    extra+=(--gpu-memory-utilization 0.75 --max-num-seqs 64 --max-num-batched-tokens 16384)
   fi
   docker rm -f "$name" 2>/dev/null || true
   docker run -d \
@@ -109,18 +110,6 @@ start_engine() {
   echo "started ${name} visible=${cuda_visible} port=${port} role=${role} nixl=${nixl_port} mooncake"
 }
 
-echo "Stopping unified DP4 container vllm-vlm to free GPU 0-3 and :8500"
-docker stop vllm-vlm 2>/dev/null || true
-docker rm -f qwen36-d1 qwen36-lmc-coord qwen36-lmc-p0 qwen36-lmc-p1 qwen36-lmc-p2 qwen36-lmc-d3 2>/dev/null || true
-
-start_master
-sleep 2
-
-start_engine qwen36-p0 0,3,1,2 8510 p 5600
-start_engine qwen36-p1 1,3,0,2 8511 p 5601
-start_engine qwen36-p2 2,3,0,1 8512 p 5602
-start_engine qwen36-d3 3,0,1,2 8513 d 5603
-
 wait_http() {
   local url="$1" n=0
   echo "wait ${url}"
@@ -135,6 +124,33 @@ wait_http() {
   echo "timeout ${url}"
   return 1
 }
+
+restart_one_p() {
+  local which="$1"
+  case "$which" in
+    p0) start_engine qwen36-p0 0,3,1,2 8510 p 5600; wait_http http://127.0.0.1:8510/v1/models ;;
+    p1) start_engine qwen36-p1 1,3,0,2 8511 p 5601; wait_http http://127.0.0.1:8511/v1/models ;;
+    p2) start_engine qwen36-p2 2,3,0,1 8512 p 5602; wait_http http://127.0.0.1:8512/v1/models ;;
+    *) echo "usage: $0 restart-p p0|p1|p2" >&2; return 2 ;;
+  esac
+}
+
+if [[ "${1:-}" == "restart-p" ]]; then
+  restart_one_p "${2:-}"
+  exit $?
+fi
+
+echo "Stopping unified DP4 container vllm-vlm to free GPU 0-3 and :8500"
+docker stop vllm-vlm 2>/dev/null || true
+docker rm -f qwen36-d1 qwen36-lmc-coord qwen36-lmc-p0 qwen36-lmc-p1 qwen36-lmc-p2 qwen36-lmc-d3 2>/dev/null || true
+
+start_master
+sleep 2
+
+start_engine qwen36-p0 0,3,1,2 8510 p 5600
+start_engine qwen36-p1 1,3,0,2 8511 p 5601
+start_engine qwen36-p2 2,3,0,1 8512 p 5602
+start_engine qwen36-d3 3,0,1,2 8513 d 5603
 
 wait_http http://127.0.0.1:8510/v1/models
 wait_http http://127.0.0.1:8511/v1/models

@@ -1,0 +1,66 @@
+# Copy to: castmeta-research/viknow2/.gitea/workflows/open-cloud-agent-tunnel.yml
+
+name: Open Cloud Agent tunnel
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "auto | relay | direct | bootstrap"
+        required: false
+        default: auto
+      action:
+        description: "install | status | stop"
+        required: false
+        default: install
+      cloud_agent_ip:
+        description: "Cloud Agent egress IP for direct mode iptables (e.g. 3.23.49.121)"
+        required: false
+        default: ""
+      tunnel_port:
+        description: "SSH port for Cloud Agent entry"
+        required: false
+        default: "42236"
+
+jobs:
+  open-cloud-agent-tunnel:
+    name: Open Cloud Agent tunnel on 236
+    runs-on: python-312-uv
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          sparse-checkout: |
+            gitea-diagnostics/open-cloud-agent-tunnel.sh
+          sparse-checkout-cone-mode: false
+
+      - name: Configure tunnel on host (chroot)
+        env:
+          TUNNEL_ACTION: ${{ inputs.action }}
+          TUNNEL_MODE: ${{ inputs.mode }}
+          CLOUD_AGENT_TUNNEL_PORT: ${{ inputs.tunnel_port }}
+          CLOUD_AGENT_IP: ${{ inputs.cloud_agent_ip }}
+          TUNNEL_SSH_PRIVATE_KEY: ${{ secrets.CLOUD_AGENT_TUNNEL_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -n "${CLOUD_AGENT_IP}" ]; then
+            export CLOUD_AGENT_CIDR="${CLOUD_AGENT_IP}/32"
+          else
+            export CLOUD_AGENT_CIDR=""
+          fi
+          export CLOUD_AGENT_TUNNEL_HOST="${CLOUD_AGENT_TUNNEL_HOST:-git.qingxiang.tech}"
+          export CLOUD_AGENT_TUNNEL_USER="${CLOUD_AGENT_TUNNEL_USER:-tunnel}"
+          chmod +x gitea-diagnostics/open-cloud-agent-tunnel.sh
+          docker run --rm -i --privileged --pid=host --network=host \
+            -v /:/host \
+            -e TUNNEL_ACTION \
+            -e TUNNEL_MODE \
+            -e CLOUD_AGENT_TUNNEL_PORT \
+            -e CLOUD_AGENT_CIDR \
+            -e TUNNEL_SSH_PRIVATE_KEY \
+            -e CLOUD_AGENT_TUNNEL_HOST \
+            -e CLOUD_AGENT_TUNNEL_USER \
+            viknow/ci-python:3.12-uv-docker29.1.3 \
+            bash -c 'chroot /host env TUNNEL_ACTION="${TUNNEL_ACTION}" TUNNEL_MODE="${TUNNEL_MODE}" CLOUD_AGENT_TUNNEL_PORT="${CLOUD_AGENT_TUNNEL_PORT}" CLOUD_AGENT_CIDR="${CLOUD_AGENT_CIDR}" TUNNEL_SSH_PRIVATE_KEY="${TUNNEL_SSH_PRIVATE_KEY}" CLOUD_AGENT_TUNNEL_HOST="${CLOUD_AGENT_TUNNEL_HOST}" CLOUD_AGENT_TUNNEL_USER="${CLOUD_AGENT_TUNNEL_USER}" bash -s' \
+            < gitea-diagnostics/open-cloud-agent-tunnel.sh

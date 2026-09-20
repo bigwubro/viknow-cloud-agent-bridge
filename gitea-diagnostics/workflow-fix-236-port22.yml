@@ -1,0 +1,42 @@
+# Copy to: castmeta-research/viknow2/.gitea/workflows/fix-236-port22.yml
+
+name: Fix 236 port 22 for Cloud Agent
+
+on:
+  workflow_dispatch:
+    inputs:
+      cloud_agent_ip:
+        description: "Cloud Agent egress IP (e.g. from checkip.amazonaws.com)"
+        required: true
+      action:
+        description: "install | status"
+        required: false
+        default: install
+
+jobs:
+  fix-port22:
+    name: Harden sshd :22 and whitelist Cloud Agent IP
+    runs-on: python-312-uv
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          sparse-checkout: |
+            gitea-diagnostics/fix-236-port22.sh
+          sparse-checkout-cone-mode: false
+
+      - name: Apply port 22 hardening (chroot)
+        env:
+          FIX22_ACTION: ${{ inputs.action }}
+          CLOUD_AGENT_CIDR: ${{ inputs.cloud_agent_ip }}/32
+        run: |
+          set -euo pipefail
+          chmod +x gitea-diagnostics/fix-236-port22.sh
+          docker run --rm -i --privileged --pid=host --network=host \
+            -v /:/host \
+            -e FIX22_ACTION \
+            -e CLOUD_AGENT_CIDR \
+            viknow/ci-python:3.12-uv-docker29.1.3 \
+            bash -c 'chroot /host env FIX22_ACTION="${FIX22_ACTION}" CLOUD_AGENT_CIDR="${CLOUD_AGENT_CIDR}" bash -s' \
+            < gitea-diagnostics/fix-236-port22.sh

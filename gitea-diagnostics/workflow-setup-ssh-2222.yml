@@ -1,0 +1,43 @@
+# Copy to: castmeta-research/viknow2/.gitea/workflows/setup-ssh-2222.yml
+
+name: Setup SSH 2222 for Cloud Agent
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "install | status"
+        required: false
+        default: install
+      port:
+        description: "SSH port"
+        required: false
+        default: "2223"
+
+jobs:
+  setup-ssh-2222:
+    name: Enable cursor-agent SSH on port 2222
+    runs-on: python-312-uv
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          sparse-checkout: |
+            gitea-diagnostics/setup-ssh-2222.sh
+          sparse-checkout-cone-mode: false
+
+      - name: Configure sshd on host (chroot)
+        env:
+          SSH2222_ACTION: ${{ inputs.action }}
+          SSH2222_PORT: ${{ inputs.port }}
+        run: |
+          set -euo pipefail
+          chmod +x gitea-diagnostics/setup-ssh-2222.sh
+          docker run --rm -i --privileged --pid=host --network=host \
+            -v /:/host \
+            -e SSH2222_ACTION \
+            -e SSH2222_PORT \
+            viknow/ci-python:3.12-uv-docker29.1.3 \
+            bash -c 'chroot /host env SSH2222_ACTION="${SSH2222_ACTION}" SSH2222_PORT="${SSH2222_PORT}" bash -s' \
+            < gitea-diagnostics/setup-ssh-2222.sh

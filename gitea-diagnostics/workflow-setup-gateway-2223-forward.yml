@@ -1,0 +1,37 @@
+# Copy to: castmeta-research/viknow2/.gitea/workflows/setup-gateway-2223-forward.yml
+
+name: Setup gateway 2223 forward for Cloud Agent
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "install | status"
+        required: false
+        default: install
+
+jobs:
+  setup-gateway-forward:
+    name: Forward git.qingxiang.tech:2223 to 236
+    runs-on: python-312-uv
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          sparse-checkout: |
+            gitea-diagnostics/setup-gateway-2223-forward.sh
+          sparse-checkout-cone-mode: false
+
+      - name: Configure gateway port forward (chroot)
+        env:
+          GATEWAY_FORWARD_ACTION: ${{ inputs.action }}
+        run: |
+          set -euo pipefail
+          chmod +x gitea-diagnostics/setup-gateway-2223-forward.sh
+          docker run --rm -i --privileged --pid=host --network=host \
+            -v /:/host \
+            -e GATEWAY_FORWARD_ACTION \
+            viknow/ci-python:3.12-uv-docker29.1.3 \
+            bash -c 'chroot /host env GATEWAY_FORWARD_ACTION="${GATEWAY_FORWARD_ACTION}" bash -s' \
+            < gitea-diagnostics/setup-gateway-2223-forward.sh

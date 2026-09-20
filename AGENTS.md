@@ -58,3 +58,7 @@ ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=accept-new cursor-agent@36.103
 ```
 
 成功标志：Gitea `castmeta-research/viknow2` 出现分支 `agent/cloud-smoke`。
+
+## Skills
+
+- **Gitea 发版（:5175）**：明确要合 `main` / 跑 `ci.yml` / dispatch `deploy-test` 时，先读并遵守 `.cursor/skills/viknow-gitea-release/SKILL.md`。5176 overlay 不走该流程。

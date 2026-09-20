@@ -13,3 +13,5 @@
 9. 汇报分支名、相对 origin/main 的 log/diff --stat
 
 禁止：推 main；动 viknow2-test / private；把密钥写入提交。
+
+若任务是合仓发版到 `:5175`：读 `.cursor/skills/viknow-gitea-release/SKILL.md`，不要把 5176 overlay 当成已发版。

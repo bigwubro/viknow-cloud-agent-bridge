@@ -39,6 +39,14 @@
 - 未测：`Deploy ACK`（236 无 kubeconfig / `kubectl` 无 current-context；`config/online/deploy.env` 不存在）
 - 残留：236 `~/.docker/config.json` 可能有 ACR 登录态（push 脚本 trap logout，但 Docker 仍提示 credentials stored）
 
+### 2026-09-20 发布链试跑（main @ e4b09fc）
+
+- 环境：236 Gitea runner + `cursor-agent@36.103.198.236`
+- 结果：**CI 绿**（wheel 已缓存）；**Deploy test 绿**（本地 `viknow2-app:e4b09fc5bf66`）
+- **Push ACR**：inventory 内 ACR 密码登录 `unauthorized`（须用 Gitea Secrets 跑 `push-ack.yml`）
+- **Deploy ACK canary**：236/runner **无** `~/.kube/config`；已合入 `setup-ack-kubectl.sh`，需在 Gitea 配置 Secret **`VIKNOW_ACK_KUBECONFIG`**（或 runner 挂载 `/cache/ack/kubeconfig`）后再点 workflow
+- 动作：合入 viknow2 `main` workflow 修复（kubectl + kubeconfig 步骤）
+
 ### 2026-09-20 ACK 灰度 + Promote 流水线（viknow2 业务仓）
 
 - 环境：236 `/home/cursor-agent/work/viknow2`，分支 `agent/ack-canary-promote`（已 push Gitea）

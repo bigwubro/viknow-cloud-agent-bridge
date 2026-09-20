@@ -1155,7 +1155,7 @@
       "id": 23,
       "type": "timeseries",
       "title": "P 排队 / 预填充（平均）",
-      "description": "",
+      "description": "短窗 rate(sum)/rate(count)。勿用 increase 做平均：restart-pd 后会出现「几天」假峰与负 queue。",
       "datasource": {
         "type": "prometheus",
         "uid": "efxtwpht5answc"
@@ -1197,7 +1197,7 @@
       },
       "targets": [
         {
-          "expr": "(sum(increase(vllm:request_queue_time_seconds_sum{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=~\"127.0.0.1:8510|127.0.0.1:8511|127.0.0.1:8512\"}[$__rate_interval])) / clamp_min(sum(increase(vllm:request_queue_time_seconds_count{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=~\"127.0.0.1:8510|127.0.0.1:8511|127.0.0.1:8512\"}[$__rate_interval])), 1e-9))",
+          "expr": "((sum(rate(vllm:request_queue_time_seconds_sum{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=~\"127.0.0.1:8510|127.0.0.1:8511|127.0.0.1:8512\"}[$__rate_interval])) / clamp_min(sum(rate(vllm:request_queue_time_seconds_count{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=~\"127.0.0.1:8510|127.0.0.1:8511|127.0.0.1:8512\"}[$__rate_interval])), 1e-9)) and on() (sum(increase(vllm:request_queue_time_seconds_count{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=~\"127.0.0.1:8510|127.0.0.1:8511|127.0.0.1:8512\"}[$__rate_interval])) > 0.5))",
           "legendFormat": "queue avg",
           "refId": "A",
           "datasource": {
@@ -1208,7 +1208,7 @@
           "range": true
         },
         {
-          "expr": "(sum(increase(vllm:request_prefill_time_seconds_sum{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=~\"127.0.0.1:8510|127.0.0.1:8511|127.0.0.1:8512\"}[$__rate_interval])) / clamp_min(sum(increase(vllm:request_prefill_time_seconds_count{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=~\"127.0.0.1:8510|127.0.0.1:8511|127.0.0.1:8512\"}[$__rate_interval])), 1e-9))",
+          "expr": "((sum(rate(vllm:request_prefill_time_seconds_sum{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=~\"127.0.0.1:8510|127.0.0.1:8511|127.0.0.1:8512\"}[$__rate_interval])) / clamp_min(sum(rate(vllm:request_prefill_time_seconds_count{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=~\"127.0.0.1:8510|127.0.0.1:8511|127.0.0.1:8512\"}[$__rate_interval])), 1e-9)) and on() (sum(increase(vllm:request_prefill_time_seconds_count{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=~\"127.0.0.1:8510|127.0.0.1:8511|127.0.0.1:8512\"}[$__rate_interval])) > 0.5))",
           "legendFormat": "prefill avg",
           "refId": "B",
           "datasource": {
@@ -1266,7 +1266,7 @@
       },
       "targets": [
         {
-          "expr": "(sum(increase(vllm:request_queue_time_seconds_sum{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=\"127.0.0.1:8513\"}[$__rate_interval])) / clamp_min(sum(increase(vllm:request_queue_time_seconds_count{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=\"127.0.0.1:8513\"}[$__rate_interval])), 1e-9))",
+          "expr": "((sum(rate(vllm:request_queue_time_seconds_sum{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=\"127.0.0.1:8513\"}[$__rate_interval])) / clamp_min(sum(rate(vllm:request_queue_time_seconds_count{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=\"127.0.0.1:8513\"}[$__rate_interval])), 1e-9)) and on() (sum(increase(vllm:request_queue_time_seconds_count{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=\"127.0.0.1:8513\"}[$__rate_interval])) > 0.5))",
           "legendFormat": "queue avg",
           "refId": "A",
           "datasource": {
@@ -1277,7 +1277,7 @@
           "range": true
         },
         {
-          "expr": "(sum(increase(vllm:request_decode_time_seconds_sum{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=\"127.0.0.1:8513\"}[$__rate_interval])) / clamp_min(sum(increase(vllm:request_decode_time_seconds_count{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=\"127.0.0.1:8513\"}[$__rate_interval])), 1e-9))",
+          "expr": "((sum(rate(vllm:request_decode_time_seconds_sum{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=\"127.0.0.1:8513\"}[$__rate_interval])) / clamp_min(sum(rate(vllm:request_decode_time_seconds_count{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=\"127.0.0.1:8513\"}[$__rate_interval])), 1e-9)) and on() (sum(increase(vllm:request_decode_time_seconds_count{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=\"127.0.0.1:8513\"}[$__rate_interval])) > 0.5))",
           "legendFormat": "decode avg",
           "refId": "B",
           "datasource": {
@@ -1288,7 +1288,7 @@
           "range": true
         },
         {
-          "expr": "(sum(increase(vllm:nixl_xfer_time_seconds_sum{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=\"127.0.0.1:8513\"}[$__rate_interval])) / clamp_min(sum(increase(vllm:nixl_xfer_time_seconds_count{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=\"127.0.0.1:8513\"}[$__rate_interval])), 1e-9))",
+          "expr": "((sum(rate(vllm:nixl_xfer_time_seconds_sum{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=\"127.0.0.1:8513\"}[$__rate_interval])) / clamp_min(sum(rate(vllm:nixl_xfer_time_seconds_count{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=\"127.0.0.1:8513\"}[$__rate_interval])), 1e-9)) and on() (sum(increase(vllm:nixl_xfer_time_seconds_count{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=\"127.0.0.1:8513\"}[$__rate_interval])) > 0.1))",
           "legendFormat": "nixl avg",
           "refId": "C",
           "datasource": {

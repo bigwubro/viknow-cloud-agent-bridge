@@ -22,6 +22,16 @@ D = f'job="vllm_qwen36_pd_engines",model_name="{MODEL}",instance="127.0.0.1:8513
 GPU_P = 'job="dcgm_qwen36_gpu0_3",gpu=~"0|1|2"'
 GPU_D = 'job="dcgm_qwen36_gpu0_3",gpu="3"'
 
+# rate(sum)/rate(count) + min samples. increase(sum)/increase(count) spikes to
+# "days" when counters reset on restart-pd (negative queue avg is the same bug).
+def avg_latency(metric: str, filter_expr: str, min_increase: str = "0.5") -> str:
+    return (
+        f"((sum(rate({metric}_sum{{{filter_expr}}}[$__rate_interval])) "
+        f"/ clamp_min(sum(rate({metric}_count{{{filter_expr}}}[$__rate_interval])), 1e-9)) "
+        f"and on() (sum(increase({metric}_count{{{filter_expr}}}[$__rate_interval])) > {min_increase}))"
+    )
+
+
 NEXT_ID = 1
 
 
@@ -263,39 +273,23 @@ def build_dashboard() -> dict:
         ts(
             "P 排队 / 预填充（平均）",
         [
-            (
-                f"(sum(increase(vllm:request_queue_time_seconds_sum{{{P}}}[$__rate_interval])) "
-                f"/ clamp_min(sum(increase(vllm:request_queue_time_seconds_count{{{P}}}[$__rate_interval])), 1e-9))",
-                "queue avg",
-            ),
-            (
-                f"(sum(increase(vllm:request_prefill_time_seconds_sum{{{P}}}[$__rate_interval])) "
-                f"/ clamp_min(sum(increase(vllm:request_prefill_time_seconds_count{{{P}}}[$__rate_interval])), 1e-9))",
-                "prefill avg",
-            ),
+            (avg_latency("vllm:request_queue_time_seconds", P), "queue avg"),
+            (avg_latency("vllm:request_prefill_time_seconds", P), "prefill avg"),
         ],
         y,
         0,
         unit="s",
+        desc="短窗 rate(sum)/rate(count)。勿用 increase 做平均：restart-pd 后会出现「几天」假峰与负 queue。",
         )
     )
     panels.append(
         ts(
             "D 排队 / 出词 / NIXL（平均）",
             [
+                (avg_latency("vllm:request_queue_time_seconds", D), "queue avg"),
+                (avg_latency("vllm:request_decode_time_seconds", D), "decode avg"),
                 (
-                    f"(sum(increase(vllm:request_queue_time_seconds_sum{{{D}}}[$__rate_interval])) "
-                    f"/ clamp_min(sum(increase(vllm:request_queue_time_seconds_count{{{D}}}[$__rate_interval])), 1e-9))",
-                    "queue avg",
-                ),
-                (
-                    f"(sum(increase(vllm:request_decode_time_seconds_sum{{{D}}}[$__rate_interval])) "
-                    f"/ clamp_min(sum(increase(vllm:request_decode_time_seconds_count{{{D}}}[$__rate_interval])), 1e-9))",
-                    "decode avg",
-                ),
-                (
-                    f"(sum(increase(vllm:nixl_xfer_time_seconds_sum{{{D}}}[$__rate_interval])) "
-                    f"/ clamp_min(sum(increase(vllm:nixl_xfer_time_seconds_count{{{D}}}[$__rate_interval])), 1e-9))",
+                    avg_latency("vllm:nixl_xfer_time_seconds", D, min_increase="0.1"),
                     "nixl avg",
                 ),
             ],

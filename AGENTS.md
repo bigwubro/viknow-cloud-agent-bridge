@@ -46,26 +46,43 @@ chmod 600 ~/.ssh/id_ed25519
 ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=accept-new cursor-agent@36.103.198.236 'echo ok'
 ```
 
-### Cursor My Secrets（Cloud Agent 注入）
+### 阿里云 RAM（236 本机文件，优先）
 
-在 **Cloud Agents → My Secrets** 配置（Runtime Secret，All Repositories）。**仅在「新开 Agent / 新 Pod」时注入**；同一条长会话里 Save Secret **不会**热更新当前进程。
+**AccessKey 不得写入本 git 仓库。** 运维用 AK 放在 **236** 上（仅 `cursor-agent` 可读）：
+
+| 路径 | 说明 |
+| --- | --- |
+| `/home/cursor-agent/.config/viknow/alibaba-ram.env` | `ALIBABA_CLOUD_ACCESS_KEY_ID` / `ALIBABA_CLOUD_ACCESS_KEY_SECRET`，`chmod 600` |
+
+Cloud Agent 连 236 后，在 **remote 命令里** 先加载再调 CLI（勿把文件内容 echo 到日志/提交/台账）：
+
+```bash
+ssh -i ~/.ssh/id_ed25519 cursor-agent@36.103.198.236 'bash -lc "
+  set -a
+  source /home/cursor-agent/.config/viknow/alibaba-ram.env
+  set +a
+  export PATH=/home/cursor-agent/bin:\$PATH
+  OUT_PATH=/home/cursor-agent/.kube/config \
+    bash /home/cursor-agent/work/viknow2/scripts/fetch-ack-kubeconfig.sh
+  export KUBECONFIG=/home/cursor-agent/.kube/config
+  kubectl get ns viknow-app
+"'
+```
+
+轮换 AK 时只改 236 上该文件；RAM 控制台作废旧 Key。  
+`viknow2` 的 `scripts/fetch-ack-kubeconfig.sh` 在未设置环境变量时会 **自动 source** 上述路径（若文件存在）。
+
+### Cursor My Secrets（可选，非必须）
+
+若已配置，新开 Agent 时可从环境变量读 AK，与 236 文件 **二选一即可**。236 文件对当前长会话更可靠。
 
 | Secret | 用途 |
 | --- | --- |
-| `VIKNOW_236_SSH_KEY` | SSH 236 |
+| `VIKNOW_236_SSH_KEY` | SSH 236（**必配**） |
 | `VIKNOW_BASTION_SSH_PASSWORD` | 可选跳板 |
-| `ALIBABA_CLOUD_ACCESS_KEY_ID` | 236 上 `aliyun` / `fetch-ack-kubeconfig.sh` |
-| `ALIBABA_CLOUD_ACCESS_KEY_SECRET` | 同上 |
+| `ALIBABA_CLOUD_ACCESS_KEY_*` | 可选；未注入时用 236 `alibaba-ram.env` |
 
-自检（新 Agent 第一条命令应看到 4 个名字）：
-
-```bash
-echo "$CLOUD_AGENT_INJECTED_SECRET_NAMES"
-```
-
-若仍只有 2 个：Archive 当前 Agent → **New Agent**；仍不行则在 [Environment 面板](https://cursor.com/dashboard/cloud-agents/environments/e/f0d7279a-8b39-11f1-b532-320a589b8025) **Rebuild / Save** 后再 New Agent。
-
-Gitea 发版用 **`VIKNOW_ACK_KUBECONFIG`** 等（在 Gitea `viknow2` 仓库 Secrets，与 Cursor My Secrets 不是同一处）。
+Gitea 发版用 **`VIKNOW_ACK_KUBECONFIG`**、`VIKNOW_ACR_*` 等（Gitea `viknow2` 仓库 Secrets，与上表无关）。
 
 ### 冒烟命令（连通性）
 

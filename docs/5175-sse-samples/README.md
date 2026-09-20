@@ -19,3 +19,13 @@ GET /api/v1/agent/runs/e42466f1-e3a2-44b3-8d91-c3815ba4ff57/events?after_sequenc
 ```
 
 媒体引用见文件中 `event: message_completed`（`sequence`: 27）的 `payload.citations`。
+
+## `knowledge_search-wiki-doc-test-demo.json`
+
+| 项 | 值 |
+|----|-----|
+| 接口 | `POST /api/v1/knowledge/search` |
+| 请求 | `{"library_id":"wiki-doc-test","query":"demo","top_k":1}` |
+| 说明 | **完整**响应（含 `data` 与根级镜像字段、`parts[text+file]`、`metadata.asset_id`） |
+
+与飞书文档 **§5.1.4** 一致；字段说明见同目录 `KNOWLEDGE_SEARCH_RESPONSE.md`。

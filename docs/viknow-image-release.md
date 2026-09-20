@@ -159,3 +159,109 @@ bash scripts/push-viknow-acr.sh
 ```
 
 随后在具备 kubeconfig 的环境执行 `deploy/ack/deploy-viknow-app.sh`（需 `config/online/deploy.env` 与 kubectl 上下文指向 online prod）。
+
+---
+
+## 10. Deploy ACK：怎么做（含人工方案）
+
+**前提（无论哪种方式）：**
+
+1. ACR 里 **已经有** 目标 tag（例如刚 push 的 `viknow2-app:d3f41894eb37`）。
+2. 本机 `kubectl` 能连 **ACK `viknow2-online-prod`**（`kubectl get ns` 正常）。  
+   - 236 上的 `cursor-agent` **当前没有** `~/.kube/config`，所以 **Gitea Deploy ACK 在 runner 上也会卡住**，除非给 runner 配 kubeconfig。
+3. 镜像 URL 在集群内必须用 **VPC 拉取域名**，不是 push 用的公网域名：  
+   `registry-vpc.cn-hangzhou.aliyuncs.com/litesense/viknow2-app:<sha12>`
+
+---
+
+### 方案 A：Gitea 点 workflow（推荐，配好 runner 后）
+
+1. 打开 Gitea `castmeta-research/viknow2` → **Actions**。
+2. 选中 **与 push 相同 commit** 的分支/修订（例如 `main` @ `d3f41894eb37…`）。
+3. 手动运行 **Deploy ACK**（`deploy-ack.yml`）。
+4. 看日志：`rollout status deployment/viknow` 成功；`kubectl -n viknow-app get pods`。
+
+Workflow 会执行 `scripts/deploy-ack-env.sh`：从 `deploy.env.example` 生成 `config/online/deploy.env`，用 Gitea **Secrets** 注入（`VIKNOW_ONLINE_*` 等，见 `.gitea/repository-config.example.yaml`），再跑 `deploy-viknow-app.sh`。
+
+**需要平台预先配好：** Gitea Variables（`VIKNOW_ACR_NAMESPACE`、`VIKNOW_ACR_PULL_REGISTRY`）+ online 相关 Secrets + **runner 上的 kubectl/kubeconfig**。
+
+---
+
+### 方案 B：运维机手工跑脚本（与 workflow 等价）
+
+在一台 **已有 kubeconfig** 的机器上（可以是你的笔记本 VPN 进 VPC，或带 ACK 访问的跳板机，**不要**把 kubeconfig 提交进 git）：
+
+```bash
+cd /path/to/viknow2
+git fetch && git checkout <要发布的 commit>   # tag 与 GITHUB_SHA 前 12 位一致
+
+export KUBECONFIG=/path/to/ack-viknow2-online-prod.kubeconfig.yaml
+export GITHUB_SHA=$(git rev-parse HEAD)          # 完整 40 位或至少 12 位前缀一致
+export VIKNOW_ACR_PULL_REGISTRY=registry-vpc.cn-hangzhou.aliyuncs.com
+export VIKNOW_ACR_NAMESPACE=litesense
+
+# 方式 1：与 deploy-ack.yml 相同（从 example + 环境变量注入密钥）
+cp config/online/deploy.env.example config/online/deploy.env
+# 在 shell 里 export 各 VIKNOW_ONLINE_* / POSTGRES_PASSWORD 等，或已写入 deploy.env（勿提交）
+python3 scripts/inject-deploy-secrets.py --env online --strict
+bash deploy/ack/deploy-viknow-app.sh
+
+# 方式 2：若已有一份完整的 config/online/deploy.env（仅存在于运维机）
+export DEPLOY_ENV=/path/to/config/online/deploy.env
+bash deploy/ack/deploy-viknow-app.sh
+```
+
+脚本会：更新 `viknow-app` 命名空间下 ConfigMap/Secret（来自 **`config/online/`**），并把 Deployment 镜像设为 VPC 地址的 `viknow2-app:<sha12>`。
+
+**只换镜像、不改 YAML 配置** 时，inventory 也允许直接跑 `deploy-viknow-app.sh`（不必跑 bootstrap）。  
+若改的是 **`deploy/ack/runtime/`** 那套 ACK 真源配置，应改用 `bash deploy/ack/bootstrap-viknow-app-config.sh`，与 `deploy-viknow-app.sh` 不是同一条路径。
+
+---
+
+### 方案 C：只滚镜像（最简人工，不动 ConfigMap/Secret）
+
+确认 **Secret/Config 已是线上正确版本**，只需换 tag 时：
+
+```bash
+export KUBECONFIG=/path/to/ack.kubeconfig.yaml
+TAG=d3f41894eb37   # 与 ACR 中 tag 一致
+IMG=registry-vpc.cn-hangzhou.aliyuncs.com/litesense/viknow2-app:${TAG}
+
+kubectl -n viknow-app set image deployment/viknow viknow="${IMG}"
+kubectl -n viknow-app rollout status deployment/viknow --timeout=900s
+kubectl -n viknow-app get pods,svc -l app=viknow
+```
+
+容器名 `viknow` 来自 `deploy/ack/viknow-app.yaml`。  
+Service 须保持 **NodePort 30542**（现网 236 Nginx → DNAT 依赖此端口）。
+
+---
+
+### 方案 D：阿里云控制台（纯人工，易错）
+
+ACK 控制台 → 集群 `viknow2-online-prod` → 工作负载 → 命名空间 `viknow-app` → Deployment `viknow` → 编辑容器镜像，填 **VPC 镜像地址**（同上 `registry-vpc…/viknow2-app:<sha12>`），保存并等待滚动更新。
+
+缺点：容易填成公网 registry 或错 tag；不会同步更新 ConfigMap/Secret。
+
+---
+
+### 发布后怎么验
+
+```bash
+kubectl -n viknow-app rollout status deployment/viknow
+kubectl -n viknow-app get pods -l app=viknow -o wide
+kubectl -n viknow-app describe pod -l app=viknow | tail -30   # ImagePullBackOff 时看 Events
+```
+
+集群外：236 Nginx / `http://ai.qingxiang.tech` 或 `:8088` 冒烟（与 inventory 一致）。
+
+---
+
+### 常见卡点
+
+| 问题 | 处理 |
+| --- | --- |
+| `current-context is not set` | 设置 `KUBECONFIG` 或 `kubectl config use-context` |
+| `Missing config/online/deploy.env` | 用 `deploy.env.example` + 填密钥，或跑 `deploy-ack-env.sh` 前半段 |
+| `ImagePullBackOff` | 确认 ACR 有该 tag；Deployment 里是 **registry-vpc** 不是公网 registry |
+| Pod Running 但业务不对 | 可能只滚了镜像但 Secret 旧；对比 `viknow-env` / 是否应跑 bootstrap |

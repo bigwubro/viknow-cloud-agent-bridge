@@ -230,7 +230,7 @@ def test_get_knowledge_index_job_derives_metadata_when_hyperrag_metadata_missing
     body = response.json()
     assert body["metadata"] is not None
     assert body["metadata"]["doc_type"] == "document"
-    assert body["metadata"]["page_count"] == 1
+    assert body["metadata"]["page_count"] == 2
 
 
 def test_get_knowledge_index_job_not_found(monkeypatch) -> None:

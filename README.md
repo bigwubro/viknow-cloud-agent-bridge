@@ -22,6 +22,14 @@ Cursor Cloud Agents 只能从 GitHub / GitLab / Azure DevOps / Bitbucket 选仓�
 - **Repository**：`bigwubro/viknow-cloud-agent-bridge`
 - **Prompt**：见 `prompts/smoke.md` 或 `prompts/feature.md`
 
+## 阿里云操作台账
+
+对阿里云（ACK / ACR / RDS / Tair / OSS / RAM 等）的每次操作与变更，记在 [`docs/cloud-ops-log.md`](docs/cloud-ops-log.md)。不记 AWS。不要把密码或 AccessKey 写进去。
+
+## ViKnow 镜像发布（ACK）
+
+ViKnow 主应用 `viknow2-app` 的标准四步链（CI → Deploy test → Push ACR → Deploy ACK）、镜像 tag 规则与常见失败，见 [`docs/viknow-image-release.md`](docs/viknow-image-release.md)。脚本与 workflow 以 Gitea `castmeta-research/viknow2` 为准。
+
 ## 成功标准
 
 - SSH 登录 `cursor-agent@36.103.198.236` 成功

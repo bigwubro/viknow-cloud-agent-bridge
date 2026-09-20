@@ -122,7 +122,7 @@ flowchart LR
 
 ## 7. 与公网入口的关系
 
-镜像发布只更新 **ACK 内 `viknow` Service**（NodePort 30542）。当前线上 Web 主路径仍是 **236 Nginx → DNAT → NodePort**（见 `docs/aliyun-architecture.html` / 飞书架构图）。发版后建议在 236 或 `ai.qingxiang.tech` 做一次 HTTP 冒烟，而不是只盯 ACR push 成功。
+镜像发布只更新 **ACK 内 `viknow` Service**（NodePort 30542）。当前线上 Web 主路径仍是 **236 Nginx → DNAT → NodePort**（见线上 infrastructure / 架构图）。发版后建议在 236 或 `ai.qingxiang.tech` 做一次 HTTP 冒烟，而不是只盯 ACR push 成功。
 
 ---
 

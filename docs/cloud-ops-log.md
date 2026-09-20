@@ -2,7 +2,7 @@
 
 本文件记录 Cloud Agent / 跳板环境对 **阿里云**（ACK、ACR、RDS、Tair、OSS、RAM 等）的每一次操作与变更。不记 AWS。
 
-最后更新：2026-09-08
+最后更新：2026-09-20
 
 ## 怎么记
 
@@ -28,6 +28,14 @@
 ---
 
 ## 变更记录（倒序）
+
+### 2026-09-20 整理 ViKnow 镜像发布流程文档
+
+- 环境：Cloud Agent 跳板仓；事实来源 236 上 Gitea `viknow2` 的 workflow 与 `deploy/ack/` 脚本
+- 对象：文档 `docs/viknow-image-release.md`（`viknow2-app` → ACR → ACK）
+- 动作：整理 CI → Deploy test → Push ACR → Deploy ACK 四步链与 tag/域名规则；**未 push 镜像、未 kubectl**
+- 结果：成功
+- 残留：无云资源变更
 
 ### 2026-09-08 更正：台账范围是阿里云，不是 AWS
 

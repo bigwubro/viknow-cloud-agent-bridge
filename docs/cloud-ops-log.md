@@ -29,6 +29,14 @@
 
 ## 变更记录（倒序）
 
+### 2026-09-20 阿里云 RAM 凭据落 236 文件（Agent 执法口径）
+
+- 环境：236 宿主机 `cursor-agent@36.103.198.236`
+- 对象：`/home/cursor-agent/.config/viknow/alibaba-ram.env`（`chmod 600`，仅本机）
+- 动作：运维 RAM AccessKey 只存该文件；跳板仓 `AGENTS.md` 规定 Cloud Agent **必须** SSH 236 后 `source` 此文件再调 `aliyun` / `fetch-ack-kubeconfig.sh`；禁止 AK 进 git/聊天/台账
+- 结果：文件已存在（3 行 env）；`viknow2` `fetch-ack-kubeconfig.sh` 默认路径一致
+- 残留：无；轮换 AK 时仅改 236 文件并在 RAM 作废旧 Key
+
 ### 2026-09-20 探测 Push ViKnow to ACR（跳过 CI / Deploy test）
 
 - 环境：SSH `cursor-agent@36.103.198.236`；Gitea runner 用户 `cursor-agent`；viknow2 `HEAD` `d3f41894eb37`

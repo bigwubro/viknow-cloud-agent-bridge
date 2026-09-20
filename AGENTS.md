@@ -18,7 +18,8 @@
    - `git checkout -B agent/<topic> origin/main`（或 rebase 到最新 `origin/main`）
    - 改代码、跑测试、`:5176` / 容器内 `:8000` 冒烟
    - `git commit` 后 `git push -u origin agent/<topic>`
-5. 结束时汇报：分支名、`git log --oneline origin/main..HEAD`、`git diff --stat origin/main...HEAD`
+5. **凡涉及阿里云**（拉 ACK kubeconfig、`aliyun` CLI、ACR/ACK 运维）：在 **236 宿主机**（非容器内）执行，并 **必须先** `source /home/cursor-agent/.config/viknow/alibaba-ram.env` 读取 RAM 的 ID/Secret（见下节）。禁止依赖聊天里的 AK、禁止写入 git/台账。
+6. 结束时汇报：分支名、`git log --oneline origin/main..HEAD`、`git diff --stat origin/main...HEAD`
 
 ### 阿里云操作台账（必做）
 
@@ -46,9 +47,9 @@ chmod 600 ~/.ssh/id_ed25519
 ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=accept-new cursor-agent@36.103.198.236 'echo ok'
 ```
 
-### 阿里云 RAM（236 本机文件，优先）
+### 阿里云 RAM（236 本机文件，**唯一规范来源**）
 
-**AccessKey 不得写入本 git 仓库。** 运维用 AK 放在 **236** 上（仅 `cursor-agent` 可读）：
+**AccessKey 不得写入本 git 仓库、不得出现在 PR/聊天/台账。** 运维用 AK **只**放在 **236**（仅 `cursor-agent` 可读）；Cloud Agent **必须** SSH 到 236 后从该文件加载 ID 与 Secret，再调 `aliyun` / `fetch-ack-kubeconfig.sh` / `kubectl`：
 
 | 路径 | 说明 |
 | --- | --- |
@@ -72,9 +73,9 @@ ssh -i ~/.ssh/id_ed25519 cursor-agent@36.103.198.236 'bash -lc "
 轮换 AK 时只改 236 上该文件；RAM 控制台作废旧 Key。  
 `viknow2` 的 `scripts/fetch-ack-kubeconfig.sh` 在未设置环境变量时会 **自动 source** 上述路径（若文件存在）。
 
-### Cursor My Secrets（可选，非必须）
+### Cursor My Secrets（勿当作 AK 主路径）
 
-若已配置，新开 Agent 时可从环境变量读 AK，与 236 文件 **二选一即可**。236 文件对当前长会话更可靠。
+`VIKNOW_236_SSH_KEY` **必配**。`ALIBABA_CLOUD_ACCESS_KEY_*` 在部分会话可能未注入；**执法口径**：阿里云 AK **一律**从 236 `alibaba-ram.env` 读取，不要等 Secret、不要把 AK 贴进对话。
 
 | Secret | 用途 |
 | --- | --- |

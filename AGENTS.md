@@ -46,6 +46,27 @@ chmod 600 ~/.ssh/id_ed25519
 ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=accept-new cursor-agent@36.103.198.236 'echo ok'
 ```
 
+### Cursor My Secrets（Cloud Agent 注入）
+
+在 **Cloud Agents → My Secrets** 配置（Runtime Secret，All Repositories）。**仅在「新开 Agent / 新 Pod」时注入**；同一条长会话里 Save Secret **不会**热更新当前进程。
+
+| Secret | 用途 |
+| --- | --- |
+| `VIKNOW_236_SSH_KEY` | SSH 236 |
+| `VIKNOW_BASTION_SSH_PASSWORD` | 可选跳板 |
+| `ALIBABA_CLOUD_ACCESS_KEY_ID` | 236 上 `aliyun` / `fetch-ack-kubeconfig.sh` |
+| `ALIBABA_CLOUD_ACCESS_KEY_SECRET` | 同上 |
+
+自检（新 Agent 第一条命令应看到 4 个名字）：
+
+```bash
+echo "$CLOUD_AGENT_INJECTED_SECRET_NAMES"
+```
+
+若仍只有 2 个：Archive 当前 Agent → **New Agent**；仍不行则在 [Environment 面板](https://cursor.com/dashboard/cloud-agents/environments/e/f0d7279a-8b39-11f1-b532-320a589b8025) **Rebuild / Save** 后再 New Agent。
+
+Gitea 发版用 **`VIKNOW_ACK_KUBECONFIG`** 等（在 Gitea `viknow2` 仓库 Secrets，与 Cursor My Secrets 不是同一处）。
+
 ### 冒烟命令（连通性）
 
 ```bash

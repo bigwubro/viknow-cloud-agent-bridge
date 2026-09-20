@@ -29,6 +29,16 @@
 
 ## 变更记录（倒序）
 
+### 2026-09-20 探测 Push ViKnow to ACR（跳过 CI / Deploy test）
+
+- 环境：SSH `cursor-agent@36.103.198.236`；Gitea runner 用户 `cursor-agent`；viknow2 `HEAD` `d3f41894eb37`
+- 对象：ACR 杭州 `registry.cn-hangzhou.aliyuncs.com` / 命名空间 `litesense` / 仓库 `viknow2-app:d3f41894eb37`
+- 动作：按用户要求**不跑** CI、Deploy test；在 runner 上复用已有本地镜像 `viknow2-app:d3f41894eb37`，执行与 `push-ack.yml` 等价的 `scripts/push-viknow-acr.sh`（凭证来自 236 上 `config/online/infrastructure-inventory.md`，未写入本仓库）
+- 结果：**push 成功**（digest `sha256:7f3ef43aaaa2…`；二次 push 显示 layer already exists）
+- 证据：`Login Succeeded`；`Pushed registry.cn-hangzhou.aliyuncs.com/litesense/viknow2-app:d3f41894eb37`
+- 未测：`Deploy ACK`（236 无 kubeconfig / `kubectl` 无 current-context；`config/online/deploy.env` 不存在）
+- 残留：236 `~/.docker/config.json` 可能有 ACR 登录态（push 脚本 trap logout，但 Docker 仍提示 credentials stored）
+
 ### 2026-09-20 整理 ViKnow 镜像发布流程文档
 
 - 环境：Cloud Agent 跳板仓；事实来源 236 上 Gitea `viknow2` 的 workflow 与 `deploy/ack/` 脚本

@@ -23,8 +23,8 @@ UCX_INTRANODE_TLS=sm,self,cuda_ipc,cuda_copy
 
 common_args() {
   local moe_extra=()
-  if [[ "${MOE_BACKEND:-}" == "flashinfer_cutlass" ]]; then
-    moe_extra=(--moe-backend flashinfer_cutlass)
+  if [[ -n "${MOE_BACKEND:-}" ]]; then
+    moe_extra=(--moe-backend "${MOE_BACKEND}")
   fi
   COMMON=(
     "${MODEL}"
@@ -134,8 +134,8 @@ cmd_prepare() {
 }
 
 cmd_restore_aux() {
-  echo "Restoring aux stopped for exp (not qwen38 — start manually if needed)"
-  docker start vllm-fast-ingest-llm vllm-embed-vl-g7-a 2>/dev/null || true
+  echo "Restoring aux + Qwen3.8 stopped for exp"
+  docker start vllm-fast-ingest-llm vllm-embed-vl-g7-a vllm-qwen38-gpu4 2>/dev/null || true
 }
 
 cmd_stop() {
@@ -143,20 +143,58 @@ cmd_stop() {
   docker rm -f "$NAME_P" "$NAME_D" 2>/dev/null || true
 }
 
+resolve_moe_backend() {
+  local mode="${1:-default}"
+  case "$mode" in
+    default|auto|triton) unset MOE_BACKEND ;;
+    flashinfer_cutlass|cutlass-fi) export MOE_BACKEND=flashinfer_cutlass ;;
+    cutlass|vllm_cutlass) export MOE_BACKEND=cutlass ;;
+    *) export MOE_BACKEND="$mode" ;;
+  esac
+}
+
+wait_d_or_fail() {
+  local n=0
+  while (( n < 90 )); do
+    if curl -sf -m 3 "http://127.0.0.1:${D_PORT}/v1/models" >/dev/null; then
+      echo "ready D ${MOE_BACKEND:-auto}"
+      return 0
+    fi
+    if ! docker ps --format '{{.Names}}' | grep -qx "$NAME_D"; then
+      echo "D container exited (${MOE_BACKEND:-auto})" >&2
+      docker logs "$NAME_D" 2>&1 | grep -iE 'ValueError|RuntimeError|does not support|FLASHINFER|moe_backend' | tail -5 >&2 || true
+      return 1
+    fi
+    sleep 5
+    n=$((n + 1))
+  done
+  echo "timeout D (${MOE_BACKEND:-auto})" >&2
+  return 1
+}
+
+cmd_probe_d() {
+  local mode="${1:-default}"
+  resolve_moe_backend "$mode"
+  docker rm -f "$NAME_D" 2>/dev/null || true
+  echo "=== probe D only: ${MOE_BACKEND:-auto/triton} ==="
+  start_engine "$NAME_D" 1,0 "$D_PORT" d "$NIXL_D"
+  if wait_d_or_fail; then
+    docker logs "$NAME_D" 2>&1 | grep -iE 'moe|triton|flashinfer|cutlass|deep_gemm|marlin' | tail -8 || true
+    return 0
+  fi
+  return 1
+}
+
 cmd_start() {
   local mode="${1:-default}"
   cmd_stop
-  if [[ "$mode" == "cutlass" ]]; then
-    export MOE_BACKEND=flashinfer_cutlass
-  else
-    unset MOE_BACKEND
-  fi
+  resolve_moe_backend "$mode"
   echo "=== MoE mode: ${MOE_BACKEND:-auto/triton} ==="
   # Start D before P so GPU7 claims memory before P pins IPC peers.
   start_engine "$NAME_D" 1,0 "$D_PORT" d "$NIXL_D"
-  wait_http "http://127.0.0.1:${D_PORT}/v1/models"
+  wait_http "http://127.0.0.1:${D_PORT}/v1/models" || return 1
   start_engine "$NAME_P" 0,1 "$P_PORT" p "$NIXL_P"
-  wait_http "http://127.0.0.1:${P_PORT}/v1/models"
+  wait_http "http://127.0.0.1:${P_PORT}/v1/models" || return 1
   stop_proxy
   nohup python3 "${DIR}/pd_pair_proxy.py" --port "${PROXY_PORT}" \
     --prefill "http://127.0.0.1:${P_PORT}" \
@@ -164,9 +202,10 @@ cmd_start() {
     >"$PROXY_LOG" 2>&1 &
   echo $! >"$PROXY_PID"
   sleep 2
-  wait_http "http://127.0.0.1:${PROXY_PORT}/health"
+  wait_http "http://127.0.0.1:${PROXY_PORT}/health" || return 1
   mkdir -p "$RESULT_DIR"
-  docker logs "$NAME_D" 2>&1 | tail -80 | tee "${RESULT_DIR}/d-startup-${mode}.log" | grep -iE 'moe|triton|flashinfer|FlashInfer|cutlass' || true
+  docker logs "$NAME_D" 2>&1 | tail -80 | tee "${RESULT_DIR}/d-startup-${mode}.log" | grep -iE 'moe|triton|flashinfer|FlashInfer|cutlass|deep_gemm|marlin' || true
+  return 0
 }
 
 cmd_bench() {
@@ -223,24 +262,54 @@ cmd_compare() {
   cmd_bench "default"
   cmd_stop
   sleep 5
-  cmd_start cutlass
-  cmd_bench "cutlass"
+  cmd_start flashinfer_cutlass
+  cmd_bench "flashinfer_cutlass" || true
   cmd_stop
   cmd_restore_aux
   echo "Results in ${RESULT_DIR}"
   ls -la "${RESULT_DIR}"
 }
 
+cmd_sweep() {
+  mkdir -p "$RESULT_DIR"
+  local summary="${RESULT_DIR}/sweep-summary.txt"
+  : >"$summary"
+  cmd_prepare
+  local backends=(default cutlass deep_gemm flashinfer_trtllm marlin flashinfer_cutlass)
+  for b in "${backends[@]}"; do
+    echo "----- $b -----" | tee -a "$summary"
+    if ! cmd_start "$b"; then
+      echo "${b}: PD_START_FAIL" | tee -a "$summary"
+      cmd_stop
+      sleep 3
+      continue
+    fi
+    if cmd_bench "$b"; then
+      echo "${b}: OK $(cat "${RESULT_DIR}/bench-${b}.json" 2>/dev/null | python3 -c 'import json,sys; d=json.load(sys.stdin); print(f"qps={d[\"qps\"]:.3f} p50={d[\"p50_s\"]:.3f}")' 2>/dev/null || echo)" | tee -a "$summary"
+    else
+      echo "${b}: BENCH_FAIL" | tee -a "$summary"
+    fi
+    cmd_stop
+    sleep 5
+  done
+  cmd_restore_aux
+  echo "Sweep done: $summary"
+  cat "$summary"
+}
+
 usage() {
-  echo "Usage: $0 {prepare|restore-aux|start default|cutlass|stop|bench [label]|compare}"
+  echo "Usage: $0 {prepare|restore-aux|stop|probe-d <backend>|start <backend>|bench [label]|compare|sweep}"
+  echo "Backends: default, cutlass (vLLM), deep_gemm, flashinfer_trtllm, marlin, flashinfer_cutlass"
 }
 
 case "${1:-}" in
   prepare) cmd_prepare ;;
   restore-aux) cmd_restore_aux ;;
   stop) cmd_stop ;;
+  probe-d) cmd_probe_d "${2:-default}" ;;
   start) cmd_start "${2:-default}" ;;
   bench) cmd_bench "${2:-run}" ;;
   compare) cmd_compare ;;
+  sweep) cmd_sweep ;;
   *) usage; exit 2 ;;
 esac

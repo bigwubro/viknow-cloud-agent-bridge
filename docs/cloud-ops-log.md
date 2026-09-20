@@ -39,6 +39,14 @@
 - 未测：`Deploy ACK`（236 无 kubeconfig / `kubectl` 无 current-context；`config/online/deploy.env` 不存在）
 - 残留：236 `~/.docker/config.json` 可能有 ACR 登录态（push 脚本 trap logout，但 Docker 仍提示 credentials stored）
 
+### 2026-09-20 ACK 灰度 + Promote 流水线（viknow2 业务仓）
+
+- 环境：236 `/home/cursor-agent/work/viknow2`，分支 `agent/ack-canary-promote`（已 push Gitea）
+- 对象：`deploy-ack-canary.yml`、`promote-ack-canary.yml`、`deploy/ack/viknow-canary.yaml`（NodePort **30543**）
+- 动作：实现灰度部署与人工确认后顶替 prod（30542）；跳板仓更新 `docs/viknow-image-release.md` §2.1
+- 结果：脚本 `bash -n` 通过；**未**在 ACK 实跑（runner kubeconfig 仍待配）
+- 残留：合并 viknow2 PR 后 Gitea 才出现新 workflow；30543 外网访问需运维 DNAT（若需要）
+
 ### 2026-09-20 整理 ViKnow 镜像发布流程文档
 
 - 环境：Cloud Agent 跳板仓；事实来源 236 上 Gitea `viknow2` 的 workflow 与 `deploy/ack/` 脚本

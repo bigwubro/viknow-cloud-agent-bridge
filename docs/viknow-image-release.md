@@ -22,9 +22,35 @@ Tag **必须** 与本次发布的 **Git commit** 一致（12 位短 SHA）。`sc
 
 ---
 
-## 2. 标准发布链（四步，同一 commit、同一 runner）
+## 2. 标准发布链（同一 commit、同一 runner）
 
 所有 ACK 应用发版在 Gitea 上都是 **手动 `workflow_dispatch`**，且依赖 **同一台 runner 上已存在的本地镜像**（`python-312-uv`）。
+
+### 2.1 推荐：灰度再顶替 prod（30543 → 30542）
+
+viknow2 分支 **`agent/ack-canary-promote`**（合并后见 `main`）提供两条额外 workflow：
+
+```mermaid
+flowchart LR
+  A[1. CI] --> B[2. Deploy test]
+  B --> C[3. Push ACR]
+  C --> D[4. Deploy ACK canary]
+  D --> E[人工验 NodePort 30543]
+  E --> F[5. Promote ACK canary]
+```
+
+| 步骤 | Workflow | 作用 |
+| --- | --- | --- |
+| 1–3 | 同下 | CI → test 构建 → push ACR |
+| 4 | **`deploy-ack-canary.yml`** | 部署 `viknow-canary`，**NodePort 30543**；**不改** 30542 正式流量 |
+| — | **人工** | 对 ACK 节点 `:30543` 冒烟（236 如需 DNAT 需运维自行加） |
+| 5 | **`promote-ack-canary.yml`** | 输入 `confirm_promote=yes`；把 canary 镜像写入 `deployment/viknow`，滚更 **30542**，删除 canary |
+
+步骤 4 与 5 **必须在同一 commit** 上运行（Promote 校验 canary 镜像 tag = SHA 前 12 位）。细节见 viknow2 `docs/deploy-ack-canary-promote.md`。
+
+`deploy-ack.yml` 仍保留：**跳过灰度、直接更新 prod**（应急或明确不要灰度时）。
+
+### 2.2 直接 prod（四步）
 
 ```mermaid
 flowchart LR

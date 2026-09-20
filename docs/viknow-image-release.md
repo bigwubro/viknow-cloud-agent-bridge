@@ -48,6 +48,95 @@ flowchart LR
 
 步骤 4 与 5 **必须在同一 commit** 上运行（Promote 校验 canary 镜像 tag = SHA 前 12 位）。细节见 viknow2 `docs/deploy-ack-canary-promote.md`。
 
+#### 线上顶替逻辑示意图
+
+公网用户始终走 **236 Nginx → NodePort 30542**；灰度只在 **30543** 上验新版本，**Promote** 才把正式 Deployment 换成新镜像并拆掉 canary。
+
+```mermaid
+flowchart TB
+  subgraph internet["公网 / 用户"]
+    U(["用户浏览器<br/>ai.qingxiang.tech"])
+  end
+
+  subgraph host236["236 宿主机"]
+    NGX["Nginx 反代 / DNAT"]
+  end
+
+  subgraph ack["ACK 集群 viknow-app 命名空间"]
+    subgraph prod_svc["正式 Service viknow"]
+      NP42["NodePort 30542"]
+      DEP_PROD["Deployment viknow<br/>镜像 tag = 当前线上"]
+    end
+    subgraph canary_svc["灰度 Service viknow-canary<br/>（仅 Deploy canary 后存在）"]
+      NP43["NodePort 30543"]
+      DEP_CAN["Deployment viknow-canary<br/>镜像 tag = 待发布 SHA12"]
+    end
+    CM["ConfigMap / Secret viknow-env<br/>（灰度与正式共用）"]
+  end
+
+  U --> NGX
+  NGX -->|"始终指向正式"| NP42
+  NP42 --> DEP_PROD
+  DEP_PROD --- CM
+  DEP_CAN --- CM
+
+  OPS(["运维 / 内网"]) -.->|"人工冒烟"| NP43
+  NP43 --> DEP_CAN
+```
+
+**三阶段对照（同一 ACK 节点，两个 NodePort）：**
+
+```mermaid
+flowchart LR
+  subgraph A["阶段 ① 发版前"]
+    direction TB
+    A1["30542 → viknow · 镜像 v1"]
+    A2["30543 · 无 canary"]
+  end
+
+  subgraph B["阶段 ② Deploy ACK canary 后"]
+    direction TB
+    B1["30542 → viknow · 镜像 v1<br/>（用户无感知）"]
+    B2["30543 → viknow-canary · 镜像 v2<br/>（仅人工验证）"]
+  end
+
+  subgraph C["阶段 ③ Promote ACK canary 后"]
+    direction TB
+    C1["30542 → viknow · 镜像 v2<br/>（顶替完成）"]
+    C2["30543 · canary 已删除"]
+  end
+
+  A -->|"push ACR + deploy canary"| B
+  B -->|"confirm_promote=yes<br/>同 commit"| C
+```
+
+**Promote 在集群里做的事（顶替，不是改 Nginx）：**
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant Ops as 运维
+  participant WF as Promote workflow
+  participant K as kubectl / ACK
+  participant User as 用户 30542
+
+  Note over User,K: 正式仍是 v1，canary v2 只在 30543
+  Ops->>WF: 同 commit，confirm_promote=yes
+  WF->>K: apply 最新 config/online → ConfigMap/Secret
+  WF->>K: apply deployment/viknow<br/>容器镜像 = canary 当前镜像 v2
+  K->>K: RollingUpdate viknow Pod
+  K-->>User: 30542 Service 未变，Pod 已是 v2
+  WF->>K: delete deployment/viknow-canary<br/>delete service/viknow-canary
+  Note over User,K: 线上入口不变，正式版本已是 v2
+```
+
+| 对象 | 灰度前 | canary 后 | Promote 后 |
+| --- | --- | --- | --- |
+| 用户入口 | 236 → **30542** | 236 → **30542**（仍 v1） | 236 → **30542**（v2） |
+| `deployment/viknow` | v1 | v1 | **v2** |
+| `deployment/viknow-canary` | 不存在 | v2 | **已删** |
+| NodePort 30543 | 无 | canary 验证 | 无 |
+
 `deploy-ack.yml` 仍保留：**跳过灰度、直接更新 prod**（应急或明确不要灰度时）。
 
 ### 2.2 直接 prod（四步）

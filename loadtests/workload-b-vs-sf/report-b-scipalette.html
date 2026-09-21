@@ -137,13 +137,13 @@
     <p class="lede">
       每条请求约 3.3 万输入 token、184 个输出 token。各请求共用同一段长上下文，仅末尾不同；关闭模型思考模式。
       对照三处服务：本机四张 GPU 上的自建接口、硅基流动的 <code>Qwen/Qwen3.6-35B-A3B</code>、Neolink 的 <code>qwen3.6-flash</code>（对标开源 35B-A3B）。
-      <strong>自建有两组：</strong>蓝线为 2026-09-18 四卡 DP4×TP1 混跑；绿线为 2026-09-19 起的 <strong>3P+1D</strong>（3P+1D+NIXL+least-inflight，vLLM 0.29，MTP-1）。绿线仅在文档记载过的并发档有点（表 1b），未与硅基/Neolink 同窗重跑全档 1/8/80。
+      <strong>自建有两组：</strong>蓝线为 2026-09-18 四卡 DP4×TP1 混跑；绿线为现网 <strong>3P+1D</strong>（2026-09-21 重跑全档 1/8/32/80×10 分钟，与蓝线同探活 29940 token，见 <code>RESULTS_LOCAL_3P1D.md</code>）。硅基/Neolink 仍为 2026-09-18 同窗实测。
       自建成本只计购卡摊销，不含电费。硅基流动按本次账号实付。Neolink 未公布单价，表中「参考价」取阿里云百炼华北 2 同名模型，不是 Neolink 发票。
       成功指接口返回 HTTP 200。云端会限流或返回错误，不能假定随时买到与自建相同的每秒完成量。
     </p>
     <div class="chips">
       <span class="chip"><i class="swatch" style="background:#4E79A7"></i>自建 DP4（09-18）</span>
-      <span class="chip"><i class="swatch" style="background:#59A14F"></i>自建 3P+1D（09-19+）</span>
+      <span class="chip"><i class="swatch" style="background:#59A14F"></i>自建 3P+1D（09-21 全档）</span>
       <span class="chip"><i class="swatch" style="background:#F28E2B"></i>硅基流动</span>
       <span class="chip"><i class="swatch" style="background:#76B7B2"></i>Neolink</span>
       <span class="chip">并发 1 / 8 / 32 / 80，每档 10 分钟</span>
@@ -159,8 +159,8 @@
     <div class="kpis">
       <div class="panel">
         <div class="k">每秒最多完成多少条</div>
-        <div class="v">1.62 · 3.64 · 0.24 · 4.13</div>
-        <div class="s">DP4@c80 · 3P+1D@c20 · 硅基@c80 · Neolink@c80</div>
+        <div class="v">2.24 · 1.62 · 0.24 · 4.13</div>
+        <div class="s">3P+1D@c8 · DP4@c80 · 硅基@c80 · Neolink@c80</div>
       </div>
       <div class="panel">
         <div class="k">完成 1000 条成功请求</div>
@@ -228,8 +228,8 @@
       </table>
     </div>
 
-    <h2>表 1b　自建 3P+1D 与 DP4 / 云端（同 workload B · ~33k prompt）</h2>
-    <p class="figcap">绿线数据来自 <code>RESULTS_PD.md</code>：3P+1D 未在 09-18 与硅基/Neolink 同窗口重跑全档，表中标注窗口与配置。硅基/Neolink 仍用表 1 的 09-18 实测。</p>
+    <h2>表 1b　自建 DP4 vs 3P+1D vs 云端（同 workload B · ~33k · 每档 10 分钟）</h2>
+    <p class="figcap">3P+1D：2026-09-21 07:33–08:17 UTC，<code>/tmp/pd-3p1d-b-33k-20260921</code>。硅基/Neolink 列与表 1 相同（09-18）。</p>
     <div class="panel" style="overflow:auto">
       <table>
         <thead>
@@ -242,23 +242,13 @@
           </tr>
         </thead>
         <tbody>
-          <tr>
-            <td>20</td>
-            <td>—</td>
-            <td><strong>3.642</strong> / 5.24s <span class="s">（90s，0.29 MTP-1）</span></td>
-            <td>—</td>
-            <td>—</td>
-          </tr>
-          <tr>
-            <td>32</td>
-            <td>1.260 / 25.8s</td>
-            <td><strong>2.727</strong> / 8.37s <span class="s">（90s，P 65536 + 20GiB KV）</span></td>
-            <td>0.134 / 42.8s</td>
-            <td>4.035 / 2.50s</td>
-          </tr>
+          <tr><td>1</td><td>0.314 / 3.08s</td><td><strong>0.397</strong> / 2.11s</td><td>0.097 / 8.7s</td><td>0.381 / 2.52s</td></tr>
+          <tr><td>8</td><td>0.840 / 9.62s</td><td><strong>2.242</strong> / 3.19s</td><td>0.081 / 21.7s</td><td>2.974 / 2.48s</td></tr>
+          <tr><td>32</td><td>1.260 / 25.8s</td><td><strong>1.792</strong> / 15.0s</td><td>0.134 / 42.8s</td><td>4.035 / 2.50s</td></tr>
+          <tr><td>80</td><td>1.619 / 50.2s</td><td><strong>1.864</strong> / 34.3s</td><td>0.237 / 98.4s</td><td>4.133 / 2.59s</td></tr>
         </tbody>
       </table>
-      <p class="figcap" style="margin:10px 0 0">读法：并发 32 时 3P+1D 相对 DP4，成功 QPS 约 <strong>2.16×</strong>（2.727 / 1.260），中位延迟约 <strong>0.32×</strong>（8.37s / 25.8s）。相对硅基/Neolink：自建 3P+1D 在延迟上介于 Neolink 与 DP4 之间，QPS 低于 Neolink 成功峰值、远高于硅基该账号。约 <strong>2 万 token</strong>、固定 32 并发三方对照见 <code>report-b-c32-20k.html</code>（3P+1D <strong>3.70</strong> QPS）。</p>
+      <p class="figcap" style="margin:10px 0 0">3P+1D 全档 <strong>0 失败</strong>。相对 DP4：c8 QPS 约 <strong>2.67×</strong>、中位延迟约 <strong>0.33×</strong>；c32/c80 仍更快且延迟更低。峰值成功 QPS：3P+1D <strong>2.24</strong>（c8），高于 DP4 全档最高 1.62（c80）。Neolink 成功 QPS 仍最高，但 c≥32 大量 500。约 2 万 token、c32 三方见 <code>report-b-c32-20k.html</code>。</p>
     </div>
 
     <h2>表 2　一条成功请求的成本（元）</h2>
@@ -340,7 +330,7 @@
     </div>
 
     <footer>
-      测试时间（世界时）：硅基流动 03:02–03:47；Neolink 05:47–06:35；自建 DP4 06:47–07:28（2026-09-18）。3P+1D 绿点：c20×90s、c32×90s（2026-09-19，见 RESULTS_PD.md）。配色为 Nature Muted 8。
+      测试时间（世界时）：硅基 03:02–03:47、Neolink 05:47–06:35、DP4 06:47–07:28（2026-09-18）；3P+1D 07:33–08:17（2026-09-21）。配色为 Nature Muted 8。
     </footer>
   </div>
 
@@ -349,25 +339,25 @@
     const xs = [1, 8, 32, 80];
     const qps = {
       a: [0.314, 0.840, 1.260, 1.619],
-      d: [null, null, 2.727, null],
+      d: [0.397, 2.242, 1.792, 1.864],
       b: [0.097, 0.081, 0.134, 0.237],
       c: [0.381, 2.974, 4.035, 4.133],
     };
     const p50 = {
       a: [3.08, 9.62, 25.79, 50.22],
-      d: [null, null, 8.37, null],
+      d: [2.11, 3.19, 14.96, 34.35],
       b: [8.7, 21.7, 42.8, 98.4],
       c: [2.52, 2.48, 2.50, 2.59],
     };
     const cost = {
       a: [0.0202, 0.0075, 0.0050, 0.0039],
-      d: [null, null, 0.0023, null],
+      d: [0.0160, 0.0028, 0.0035, 0.0034],
       b: [0.0607, 0.0605, 0.0607, 0.0608],
       c: [0.0408, 0.0407, 0.0408, 0.0407],
     };
     const tpm = {
       a: [0.62, 1.66, 2.50, 3.21],
-      d: [null, null, 5.40, null],
+      d: [0.79, 4.45, 3.56, 3.70],
       b: [0.19, 0.16, 0.26, 0.47],
       c: [0.76, 5.89, 8.05, 8.27],
     };
@@ -397,11 +387,7 @@
         svg.appendChild(t);
       });
       for (const [key, color] of [["a", C.a], ["d", C.d], ["b", C.b], ["c", C.c]]) {
-        let d = "";
-        series[key].forEach((v, i) => {
-          if (v == null) return;
-          d += `${d && !d.endsWith("M") ? "L" : d ? " M" : "M"}${xAt(i).toFixed(1)},${yAt(v).toFixed(1)}`;
-        });
+        const d = series[key].map((v, i) => (v == null ? null : `${i ? "L" : "M"}${xAt(i).toFixed(1)},${yAt(v).toFixed(1)}`)).filter(Boolean).join(" ");
         if (d) svg.appendChild(svgEl("path", { d, fill: "none", stroke: color, "stroke-width": 2.4, "stroke-linecap": "round", "stroke-linejoin": "round" }));
         series[key].forEach((v, i) => {
           if (v == null) return;

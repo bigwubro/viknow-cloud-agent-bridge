@@ -152,11 +152,11 @@ flowchart LR
 | --- | --- | --- |
 | 1 | `ci.yml` | `ruff` + `pytest` + `uv build` wheel；wheel 存到 runner `/cache/uv/viknow2-artifacts/${GITHUB_SHA}` |
 | 2 | `deploy-test.yml` | 用 wheel + `docker buildx bake` 构建 **`viknow2-app:<sha12>`**；部署 test 容器（`:5175`）做冒烟 |
-| 3 | `push-ack.yml` | 校验本地镜像存在 → `scripts/push-viknow-acr.sh` **tag 并 push** 到 ACR 公网 |
+| 3 | `push-ack.yml` | 手动填写 **`app_image_tag`**（runner 上 `viknow2-app:<tag>`，通常 SHA 前 12 位）；分支下拉仅 checkout 脚本 → `push-viknow-acr.sh` push 到 ACR |
 | 4 | `deploy-ack.yml` | `scripts/deploy-ack-env.sh` → `deploy/ack/deploy-viknow-app.sh` **kubectl apply** Deployment |
 
-**顺序不能乱、不能换 commit：**  
-`push-ack` 只 push 当前 checkout 的 `GITHUB_SHA` 对应本地镜像；若跳过 `deploy-test` 或换了分支再点 push，会报 `Local image not found: viknow2-app:<sha12>`。
+**顺序不能乱、tag 要对：**  
+`push-ack` 按输入的 **`app_image_tag`** 找 runner 本地 `viknow2-app:<tag>`（不再绑定分支 HEAD 的 `GITHUB_SHA`）。若本地无该镜像，会报 `Missing local image` 并列出已有 `viknow2-app` tag。Deploy ACK 仍应用 **同一 tag** 与 ACR 一致。
 
 各 workflow 文件头注释与 `.gitea/repository-config.example.yaml` 中「push-ack 手动发布链」一致。
 

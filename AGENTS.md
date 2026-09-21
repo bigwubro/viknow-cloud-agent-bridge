@@ -18,7 +18,8 @@
    - `git checkout -B agent/<topic> origin/main`（或 rebase 到最新 `origin/main`）
    - 改代码、跑测试、`:5176` / 容器内 `:8000` 冒烟
    - `git commit` 后 `git push -u origin agent/<topic>`
-5. 结束时汇报：分支名、`git log --oneline origin/main..HEAD`、`git diff --stat origin/main...HEAD`
+5. **凡涉及阿里云**（拉 ACK kubeconfig、`aliyun` CLI、ACR/ACK 运维）：在 **236 宿主机**（非容器内）执行，并 **必须先** `source /home/cursor-agent/.config/viknow/alibaba-ram.env` 读取 RAM 的 ID/Secret（见下节）。禁止依赖聊天里的 AK、禁止写入 git/台账。
+6. 结束时汇报：分支名、`git log --oneline origin/main..HEAD`、`git diff --stat origin/main...HEAD`
 
 ### 阿里云操作台账（必做）
 
@@ -45,6 +46,69 @@ printf '%s\n' "$VIKNOW_236_SSH_KEY" > ~/.ssh/id_ed25519
 chmod 600 ~/.ssh/id_ed25519
 ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=accept-new cursor-agent@36.103.198.236 'echo ok'
 ```
+
+### 阿里云 RAM（236 本机文件，**唯一规范来源**）
+
+**AccessKey 不得写入本 git 仓库、不得出现在 PR/聊天/台账。** 运维用 AK **只**放在 **236**（仅 `cursor-agent` 可读）；Cloud Agent **必须** SSH 到 236 后从该文件加载 ID 与 Secret，再调 `aliyun` / `fetch-ack-kubeconfig.sh` / `kubectl`：
+
+| 路径 | 说明 |
+| --- | --- |
+| `/home/cursor-agent/.config/viknow/alibaba-ram.env` | `ALIBABA_CLOUD_ACCESS_KEY_ID` / `ALIBABA_CLOUD_ACCESS_KEY_SECRET`，`chmod 600` |
+
+Cloud Agent 连 236 后，在 **remote 命令里** 先加载再调 CLI（勿把文件内容 echo 到日志/提交/台账）：
+
+```bash
+ssh -i ~/.ssh/id_ed25519 cursor-agent@36.103.198.236 'bash -lc "
+  set -a
+  source /home/cursor-agent/.config/viknow/alibaba-ram.env
+  set +a
+  export PATH=/home/cursor-agent/bin:\$PATH
+  OUT_PATH=/home/cursor-agent/.kube/config \
+    bash /home/cursor-agent/work/viknow2/scripts/fetch-ack-kubeconfig.sh
+  export KUBECONFIG=/home/cursor-agent/.kube/config
+  kubectl get ns viknow-app
+"'
+```
+
+轮换 AK 时只改 236 上该文件；RAM 控制台作废旧 Key。  
+`viknow2` 的 `scripts/fetch-ack-kubeconfig.sh` 在未设置环境变量时会 **自动 source** 上述路径（若文件存在）。
+
+### Cursor My Secrets（勿当作 AK 主路径）
+
+`VIKNOW_236_SSH_KEY` **必配**。`ALIBABA_CLOUD_ACCESS_KEY_*` 在部分会话可能未注入；**执法口径**：阿里云 AK **一律**从 236 `alibaba-ram.env` 读取，不要等 Secret、不要把 AK 贴进对话。
+
+| Secret | 用途 |
+| --- | --- |
+| `VIKNOW_236_SSH_KEY` | SSH 236（**必配**） |
+| `VIKNOW_BASTION_SSH_PASSWORD` | 可选跳板 |
+| `ALIBABA_CLOUD_ACCESS_KEY_*` | 可选；未注入时用 236 `alibaba-ram.env` |
+
+Gitea 发版用 **`VIKNOW_ACK_KUBECONFIG`**、`VIKNOW_ACR_*` 等（Gitea `viknow2` 仓库 Secrets，与下表无关）。
+
+### Gitea API（236 本机文件，查 Actions / 仓库）
+
+**Token 不得写入 git。** 已落地 236：
+
+| 路径 | 说明 |
+| --- | --- |
+| `/home/cursor-agent/.config/viknow/gitea-api.env` | `GITEA_API_TOKEN`，`chmod 600` |
+
+查 Actions run / job 日志前先 `source` 该文件，勿把 token 贴进对话或台账：
+
+```bash
+ssh -i ~/.ssh/id_ed25519 cursor-agent@36.103.198.236 'bash -lc "
+  set -a && source /home/cursor-agent/.config/viknow/gitea-api.env && set +a
+  curl -sS -H \"Authorization: token \${GITEA_API_TOKEN}\" \
+    \"http://git.qingxiang.tech:3000/api/v1/repos/castmeta-research/viknow2/actions/runs/<run_id>/jobs\"
+"'
+```
+
+**发版 / CI 验证执法**：与用户一样，必须在 Gitea **Actions 页面可见**（`workflow_dispatch`），禁止只在 236 上 `kubectl apply` 冒充「CI 已过」。Agent 应：
+
+1. 用 API 触发 workflow（等价点「运行工作流」）：`viknow2` 仓 `scripts/gitea-dispatch-workflow.sh deploy-ack-canary.yml main`
+2. 轮询 run 直至结束，读 job 日志；失败则修 workflow/Secrets，再 dispatch
+
+不要在跳板仓实现业务逻辑；Secrets 缺失时明确列出 Gitea 仓库需配置的项，而不是 SSH 绕过。
 
 ### 冒烟命令（连通性）
 

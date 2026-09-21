@@ -2,7 +2,7 @@
 
 本文件记录 Cloud Agent / 跳板环境对 **阿里云**（ACK、ACR、RDS、Tair、OSS、RAM 等）的每一次操作与变更。不记 AWS。
 
-最后更新：2026-09-20
+最后更新：2026-09-21
 
 ## 怎么记
 
@@ -28,6 +28,23 @@
 ---
 
 ## 变更记录（倒序）
+
+### 2026-09-21 ACK 发版链 E2E 验证（Gitea + runner deploy.env）
+
+- 环境：236 Gitea Actions（`python-312-uv`）+ ACK `viknow2-online-prod` / `viknow-app`
+- 对象：发版链 CI → Deploy test → Push ACR → Deploy ACK canary；镜像 tag `6fd91b45b9f3`（commit `6fd91b4`）
+- 动作：dispatch runs **#1071** deploy-test、**#1073** push-ack（`app_image_tag`）、**#1074** deploy-ack-canary；修复 `gitea-dispatch-workflow.sh` 的 `${3:-{}}`  brace 问题（`main` `8ebd2ff`）；canary 部署使用 runner `config/online/deploy.env`（`prepare-online-deploy-env.sh` 校验通过）
+- 结果：**流水线侧成功**（wheel 产物、本地 `viknow2-app:6fd91b45b9f3`、ACK Deployment 已切到 VPC 镜像、ConfigMap/Secret apply）；**canary Pod 未 Ready** — 应用启动 `RuntimeError: profile viknow-v2 … missing list_doc_segments`（配置/产物问题，非 CI Secrets 或 deploy.env 同步）
+- 证据：Gitea `…/actions/runs/1071|1073|1074`；236 手动 deploy 日志见跳板 artifact `viknow-e2e-release-log.txt`
+- 残留：canary `CrashLoopBackOff` 待修 profile catalog 或 ConfigMap；未跑 Promote
+
+### 2026-09-20 阿里云 RAM 凭据落 236 文件（Agent 执法口径）
+
+- 环境：236 宿主机 `cursor-agent@36.103.198.236`
+- 对象：`/home/cursor-agent/.config/viknow/alibaba-ram.env`（`chmod 600`，仅本机）
+- 动作：运维 RAM AccessKey 只存该文件；跳板仓 `AGENTS.md` 规定 Cloud Agent **必须** SSH 236 后 `source` 此文件再调 `aliyun` / `fetch-ack-kubeconfig.sh`；禁止 AK 进 git/聊天/台账
+- 结果：文件已存在（3 行 env）；`viknow2` `fetch-ack-kubeconfig.sh` 默认路径一致
+- 残留：无；轮换 AK 时仅改 236 文件并在 RAM 作废旧 Key
 
 ### 2026-09-20 探测 Push ViKnow to ACR（跳过 CI / Deploy test）
 

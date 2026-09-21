@@ -190,8 +190,8 @@ flowchart LR
 
 - 校验 `kubectl`、Variable `VIKNOW_ACR_NAMESPACE`（及可选 `VIKNOW_ACR_PULL_REGISTRY`）。
 - `scripts/deploy-ack-env.sh`：
-  - 从 `config/online/deploy.env.example` 生成 `config/online/deploy.env`；
-  - `scripts/inject-deploy-secrets.py --env online --strict` 注入 Gitea Secrets；
+  - `scripts/prepare-online-deploy-env.sh` 从 **236 runner 宿主机** 同步 `config/online/deploy.env`（阿里云 / online 全量配置，**不进 Gitea Secrets**）；
+  - `inject-deploy-secrets.py --env online --strict` 仅校验占位符，不从 CI 覆盖；
   - 执行 `deploy/ack/deploy-viknow-app.sh`。
 - `deploy-viknow-app.sh`：
   - 用 **VPC pull 域名** 拼镜像 URL，替换 `deploy/ack/viknow-app.yaml` 中的 `__VIKNOW_APP_IMAGE__`；
@@ -215,7 +215,7 @@ flowchart LR
 ## 5. 发布前检查清单
 
 1. **目标 commit** 已在 `main`（或团队约定的发布分支），且 **CI 对该 commit 为绿**。
-2. Gitea **Variables / Secrets** 已按 `.gitea/repository-config.example.yaml` 配齐（至少 ACR push + online 数据层密钥）。
+2. Gitea **Variables / Secrets** 已按 `.gitea/repository-config.example.yaml` 配齐（至少 ACR push；**online 业务/阿里云密钥在 236 `config/online/deploy.env`**）。
 3. 四步 workflow 均在 **同一 commit** 上触发（Actions 页选对 revision）。
 4. `deploy-test` 通过后，在 runner 上逻辑上等价于：本地存在 `viknow2-app:<sha12>`。
 5. `push-ack` 日志出现 `Pushed registry.../viknow2-app:<sha12>`。
@@ -251,7 +251,8 @@ flowchart LR
 | `.gitea/workflows/deploy-ack.yml` | ACK online prod |
 | `scripts/push-viknow-acr.sh` | docker login / tag / push |
 | `scripts/acr_image.py` | 本地/远程镜像名 |
-| `scripts/deploy-ack-env.sh` | 生成 online deploy.env + 调用 deploy 脚本 |
+| `scripts/prepare-online-deploy-env.sh` | 从 runner 同步 online deploy.env |
+| `scripts/deploy-ack-env.sh` | 加载 deploy.env + 调用 deploy 脚本 |
 | `deploy/ack/deploy-viknow-app.sh` | kubectl apply ViKnow Deployment |
 | `deploy/ack/viknow-app.yaml` | Deployment 模板（`__VIKNOW_APP_IMAGE__`） |
 | `deploy/ack/bootstrap-viknow-app-config.sh` | 可选：从 `deploy/ack/runtime/` /bootstrap Config |
@@ -296,9 +297,9 @@ bash scripts/push-viknow-acr.sh
 3. 手动运行 **Deploy ACK**（`deploy-ack.yml`）。
 4. 看日志：`rollout status deployment/viknow` 成功；`kubectl -n viknow-app get pods`。
 
-Workflow 会执行 `scripts/deploy-ack-env.sh`：从 `deploy.env.example` 生成 `config/online/deploy.env`，用 Gitea **Secrets** 注入（`VIKNOW_ONLINE_*` 等，见 `.gitea/repository-config.example.yaml`），再跑 `deploy-viknow-app.sh`。
+Workflow 会执行 `scripts/deploy-ack-env.sh`：`prepare-online-deploy-env.sh` 从 **236 runner** 同步 `config/online/deploy.env`（DB/OSS/Redis/模型 API 等），再跑 `deploy-viknow-app.sh`。
 
-**需要平台预先配好：** Gitea Variables（`VIKNOW_ACR_NAMESPACE`、`VIKNOW_ACR_PULL_REGISTRY`）+ online 相关 Secrets + **runner 上的 kubectl/kubeconfig**。
+**需要平台预先配好：** Gitea Variables（`VIKNOW_ACR_NAMESPACE`、`VIKNOW_ACR_PULL_REGISTRY`）+ runner 上维护的 **`config/online/deploy.env`** + **kubectl/kubeconfig**（可选 Secret `VIKNOW_ACK_KUBECONFIG`）。
 
 ---
 

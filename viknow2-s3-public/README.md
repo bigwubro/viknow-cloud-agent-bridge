@@ -1,5 +1,7 @@
 # JuiceFS S3 gateway
 
+**Agent 接入长文：** [`docs/S3-GATEWAY-AGENT.md`](../docs/S3-GATEWAY-AGENT.md)（连接参数、boto3、预签名、236 冒烟、与 ViKnow API 分工）。
+
 Uses the official JuiceFS image `juicedata/mount:ce-v1.2.4`, not `viknow2-app`.
 The container only runs `juicefs gateway` (MinIO S3 Gateway compatible).
 

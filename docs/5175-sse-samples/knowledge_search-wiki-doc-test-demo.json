@@ -1,0 +1,147 @@
+{
+  "tool": "knowledge_search",
+  "status": "ok",
+  "code": "ok",
+  "data": {
+    "library_id": "wiki-doc-test",
+    "query": "demo",
+    "evidence": [
+      {
+        "id": "chunk-c50510dba655393a3cff8d7bbfa81272",
+        "source": "knowledge_search",
+        "title": "search demo",
+        "score": 0.5286077857017517,
+        "parts": [
+          {
+            "kind": "text",
+            "text": "### context\n\n\"第 1 个片段位于文档摘要之后，作为 ViKnow 搜索探针的具体示例。它直观展示了 DDR4 与 DDR5 在电压和带宽上的关键差异，旨在帮助读者快速理解不同代际内存的性能与能效特征。\"\n\n### chunk text\n\n\"ViKnow search probe: DDR4 uses 1.2V, DDR5 uses 1.1V and has higher bandwidth.\"",
+            "uri": null,
+            "mime_type": null,
+            "time_range": null,
+            "metadata": {
+              "chunk_id": "chunk-c50510dba655393a3cff8d7bbfa81272"
+            }
+          },
+          {
+            "kind": "file",
+            "text": null,
+            "uri": "/data/viknow/knowledge/libraries/wiki-doc-test/asset-search-demo.txt",
+            "mime_type": null,
+            "time_range": null,
+            "metadata": {
+              "asset_id": "asset-search-demo"
+            }
+          }
+        ],
+        "metadata": {
+          "edited": false,
+          "locations": [
+            {
+              "bbox": [
+                53,
+                54,
+                518,
+                68
+              ],
+              "page": 0,
+              "text": "ViKnow search probe: DDR4 uses 1.2V, DDR5 uses 1.1V and has higher bandwidth.",
+              "page_size": [
+                595,
+                841
+              ],
+              "segment_id": "asset-search-demo_seg_0000",
+              "total_pages": 1
+            }
+          ],
+          "chunk_type": "text",
+          "segment_ids": [
+            "asset-search-demo_seg_0000"
+          ],
+          "file_path": "/data/viknow/knowledge/libraries/wiki-doc-test/asset-search-demo.txt",
+          "order": 0,
+          "asset_id": "asset-search-demo",
+          "title": "search demo",
+          "rerank_score": 0.5286077857017517,
+          "rerank_model": "Qwen/Qwen3-VL-Reranker-2B",
+          "library_id": "wiki-doc-test",
+          "full_doc_id": "asset-search-demo",
+          "chunk_id": "chunk-c50510dba655393a3cff8d7bbfa81272"
+        }
+      }
+    ],
+    "metadata": {
+      "retrieval_mode": "hybrid",
+      "result_count": 1
+    }
+  },
+  "library_id": "wiki-doc-test",
+  "query": "demo",
+  "evidence": [
+    {
+      "id": "chunk-c50510dba655393a3cff8d7bbfa81272",
+      "source": "knowledge_search",
+      "title": "search demo",
+      "score": 0.5286077857017517,
+      "parts": [
+        {
+          "kind": "text",
+          "text": "### context\n\n\"第 1 个片段位于文档摘要之后，作为 ViKnow 搜索探针的具体示例。它直观展示了 DDR4 与 DDR5 在电压和带宽上的关键差异，旨在帮助读者快速理解不同代际内存的性能与能效特征。\"\n\n### chunk text\n\n\"ViKnow search probe: DDR4 uses 1.2V, DDR5 uses 1.1V and has higher bandwidth.\"",
+          "uri": null,
+          "mime_type": null,
+          "time_range": null,
+          "metadata": {
+            "chunk_id": "chunk-c50510dba655393a3cff8d7bbfa81272"
+          }
+        },
+        {
+          "kind": "file",
+          "text": null,
+          "uri": "/data/viknow/knowledge/libraries/wiki-doc-test/asset-search-demo.txt",
+          "mime_type": null,
+          "time_range": null,
+          "metadata": {
+            "asset_id": "asset-search-demo"
+          }
+        }
+      ],
+      "metadata": {
+        "edited": false,
+        "locations": [
+          {
+            "bbox": [
+              53,
+              54,
+              518,
+              68
+            ],
+            "page": 0,
+            "text": "ViKnow search probe: DDR4 uses 1.2V, DDR5 uses 1.1V and has higher bandwidth.",
+            "page_size": [
+              595,
+              841
+            ],
+            "segment_id": "asset-search-demo_seg_0000",
+            "total_pages": 1
+          }
+        ],
+        "chunk_type": "text",
+        "segment_ids": [
+          "asset-search-demo_seg_0000"
+        ],
+        "file_path": "/data/viknow/knowledge/libraries/wiki-doc-test/asset-search-demo.txt",
+        "order": 0,
+        "asset_id": "asset-search-demo",
+        "title": "search demo",
+        "rerank_score": 0.5286077857017517,
+        "rerank_model": "Qwen/Qwen3-VL-Reranker-2B",
+        "library_id": "wiki-doc-test",
+        "full_doc_id": "asset-search-demo",
+        "chunk_id": "chunk-c50510dba655393a3cff8d7bbfa81272"
+      }
+    }
+  ],
+  "metadata": {
+    "retrieval_mode": "hybrid",
+    "result_count": 1
+  }
+}

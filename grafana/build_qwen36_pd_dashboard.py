@@ -155,8 +155,8 @@ def color_override(name: str, color: str) -> dict:
     }
 
 
-# 5s scrape: 10s max captures short prefill bursts (P running is often 0–6, not D-scale).
-SCHED_SMOOTH = "[10s]"
+# PD engines scraped at 1s; 3s max still smooths sub-second prefill bursts.
+SCHED_SMOOTH = "[3s]"
 
 
 def regex_override(pattern: str, props: list[dict]) -> dict:
@@ -260,7 +260,7 @@ def build_dashboard() -> dict:
             desc=(
                 "预填充引擎：running 只含**正在算 prefill 的请求**（通常每卡个位数），"
                 "不会像 D 那样堆几十条 decode。"
-                "waiting 用 `num_requests_waiting`（10s 内峰值），不用仅 capacity 分项。"
+                "waiting 用 `num_requests_waiting`（3s 内峰值），不用仅 capacity 分项。"
                 "右轴 QPS 对照真实流量。"
             ),
             running_color_overrides=[
@@ -276,7 +276,7 @@ def build_dashboard() -> dict:
             D,
             y,
             12,
-            desc="出词卡 running / waiting / deferred（10s 峰值）。WAITING_FOR_REMOTE_KVS 多在 deferred。右轴 QPS。",
+            desc="出词卡 running / waiting / deferred（3s 峰值）。WAITING_FOR_REMOTE_KVS 多在 deferred。右轴 QPS。",
             running_color_overrides=[color_override("running qwen36-d3", "purple")],
         )
     )
@@ -577,7 +577,7 @@ def build_dashboard() -> dict:
         "id": None,
         "links": [],
         "panels": panels,
-        "refresh": "5s",
+        "refresh": "2s",
         "schemaVersion": 39,
         "tags": ["qwen36", "vllm", "3p1d", "prefill", "decode"],
         "templating": {

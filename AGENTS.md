@@ -83,7 +83,25 @@ ssh -i ~/.ssh/id_ed25519 cursor-agent@36.103.198.236 'bash -lc "
 | `VIKNOW_BASTION_SSH_PASSWORD` | 可选跳板 |
 | `ALIBABA_CLOUD_ACCESS_KEY_*` | 可选；未注入时用 236 `alibaba-ram.env` |
 
-Gitea 发版用 **`VIKNOW_ACK_KUBECONFIG`**、`VIKNOW_ACR_*` 等（Gitea `viknow2` 仓库 Secrets，与上表无关）。
+Gitea 发版用 **`VIKNOW_ACK_KUBECONFIG`**、`VIKNOW_ACR_*` 等（Gitea `viknow2` 仓库 Secrets，与下表无关）。
+
+### Gitea API（236 本机文件，查 Actions / 仓库）
+
+**Token 不得写入 git。** 已落地 236：
+
+| 路径 | 说明 |
+| --- | --- |
+| `/home/cursor-agent/.config/viknow/gitea-api.env` | `GITEA_API_TOKEN`，`chmod 600` |
+
+查 Actions run / job 日志前先 `source` 该文件，勿把 token 贴进对话或台账：
+
+```bash
+ssh -i ~/.ssh/id_ed25519 cursor-agent@36.103.198.236 'bash -lc "
+  set -a && source /home/cursor-agent/.config/viknow/gitea-api.env && set +a
+  curl -sS -H \"Authorization: token \${GITEA_API_TOKEN}\" \
+    \"http://git.qingxiang.tech:3000/api/v1/repos/castmeta-research/viknow2/actions/runs/<run_id>/jobs\"
+"'
+```
 
 ### 冒烟命令（连通性）
 

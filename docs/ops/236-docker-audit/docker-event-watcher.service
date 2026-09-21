@@ -1,0 +1,12 @@
+[Unit]
+Description=ViKnow docker events watcher (user service)
+After=docker.service
+
+[Service]
+Type=simple
+ExecStart=%h/bin/docker-event-watcher.sh %h/.local/log/viknow-docker-events.log
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target

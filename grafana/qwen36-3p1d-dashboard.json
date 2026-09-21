@@ -579,7 +579,7 @@
       "id": 15,
       "type": "timeseries",
       "title": "P 调度（p0 / p1 / p2）",
-      "description": "预填充引擎：running 只含**正在算 prefill 的请求**（通常每卡个位数），不会像 D 那样堆几十条 decode。waiting 用 `num_requests_waiting`（10s 内峰值），不用仅 capacity 分项。右轴 QPS 对照真实流量。",
+      "description": "预填充引擎：running 只含**正在算 prefill 的请求**（通常每卡个位数），不会像 D 那样堆几十条 decode。waiting 用 `num_requests_waiting`（3s 内峰值），不用仅 capacity 分项。右轴 QPS 对照真实流量。",
       "datasource": {
         "type": "prometheus",
         "uid": "efxtwpht5answc"
@@ -754,7 +754,7 @@
       },
       "targets": [
         {
-          "expr": "max by (service) (max_over_time(vllm:num_requests_running{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=~\"127.0.0.1:8510|127.0.0.1:8511|127.0.0.1:8512\"}[10s]))",
+          "expr": "max by (service) (max_over_time(vllm:num_requests_running{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=~\"127.0.0.1:8510|127.0.0.1:8511|127.0.0.1:8512\"}[3s]))",
           "legendFormat": "running {{service}}",
           "refId": "A",
           "datasource": {
@@ -765,7 +765,7 @@
           "range": true
         },
         {
-          "expr": "max by (service) (max_over_time(vllm:num_requests_waiting{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=~\"127.0.0.1:8510|127.0.0.1:8511|127.0.0.1:8512\"}[10s]))",
+          "expr": "max by (service) (max_over_time(vllm:num_requests_waiting{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=~\"127.0.0.1:8510|127.0.0.1:8511|127.0.0.1:8512\"}[3s]))",
           "legendFormat": "waiting {{service}}",
           "refId": "B",
           "datasource": {
@@ -776,7 +776,7 @@
           "range": true
         },
         {
-          "expr": "max by (service) (max_over_time(vllm:num_requests_waiting_by_reason{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=~\"127.0.0.1:8510|127.0.0.1:8511|127.0.0.1:8512\",reason=\"deferred\"}[10s]))",
+          "expr": "max by (service) (max_over_time(vllm:num_requests_waiting_by_reason{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=~\"127.0.0.1:8510|127.0.0.1:8511|127.0.0.1:8512\",reason=\"deferred\"}[3s]))",
           "legendFormat": "deferred {{service}}",
           "refId": "C",
           "datasource": {
@@ -803,7 +803,7 @@
       "id": 16,
       "type": "timeseries",
       "title": "D 调度（d3）",
-      "description": "出词卡 running / waiting / deferred（10s 峰值）。WAITING_FOR_REMOTE_KVS 多在 deferred。右轴 QPS。",
+      "description": "出词卡 running / waiting / deferred（3s 峰值）。WAITING_FOR_REMOTE_KVS 多在 deferred。右轴 QPS。",
       "datasource": {
         "type": "prometheus",
         "uid": "efxtwpht5answc"
@@ -948,7 +948,7 @@
       },
       "targets": [
         {
-          "expr": "max by (service) (max_over_time(vllm:num_requests_running{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=\"127.0.0.1:8513\"}[10s]))",
+          "expr": "max by (service) (max_over_time(vllm:num_requests_running{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=\"127.0.0.1:8513\"}[3s]))",
           "legendFormat": "running {{service}}",
           "refId": "A",
           "datasource": {
@@ -959,7 +959,7 @@
           "range": true
         },
         {
-          "expr": "max by (service) (max_over_time(vllm:num_requests_waiting{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=\"127.0.0.1:8513\"}[10s]))",
+          "expr": "max by (service) (max_over_time(vllm:num_requests_waiting{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=\"127.0.0.1:8513\"}[3s]))",
           "legendFormat": "waiting {{service}}",
           "refId": "B",
           "datasource": {
@@ -970,7 +970,7 @@
           "range": true
         },
         {
-          "expr": "max by (service) (max_over_time(vllm:num_requests_waiting_by_reason{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=\"127.0.0.1:8513\",reason=\"deferred\"}[10s]))",
+          "expr": "max by (service) (max_over_time(vllm:num_requests_waiting_by_reason{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=\"127.0.0.1:8513\",reason=\"deferred\"}[3s]))",
           "legendFormat": "deferred {{service}}",
           "refId": "C",
           "datasource": {
@@ -2484,7 +2484,7 @@
       }
     }
   ],
-  "refresh": "5s",
+  "refresh": "2s",
   "schemaVersion": 39,
   "tags": [
     "qwen36",

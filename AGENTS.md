@@ -4,6 +4,7 @@
 
 - 业务仓在 Gitea：`ssh://git@git.qingxiang.tech:2222/castmeta-research/viknow2.git`
 - **Canonical 工作区（改代码、`git`）**：236 宿主机 `/home/cursor-agent/work/viknow2`
+- **知识库原文件（S3）**：应用走 JuiceFS **S3 网关** `:19191`（bucket `viknow`，path-style，Key `knowledge/libraries/...`）；Agent 速查见 [`docs/S3-GATEWAY-AGENT.md`](docs/S3-GATEWAY-AGENT.md)，产品契约见飞书 §1
 - Cloud Agent 在本仓库启动后，**先 SSH 到 236**，在宿主机工作区改代码、提交、推送；`docker exec viknow2-test-dev` **仅**用于在容器内对已 `git pull` 的同一仓库跑 pytest / `:5176` 冒烟（见下文「禁止热更新」）
 
 ## Cursor Cloud specific instructions

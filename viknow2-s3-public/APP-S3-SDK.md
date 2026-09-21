@@ -1,6 +1,8 @@
 # ViKnow 对象存储 — S3 SDK 应用接入（摘要）
 
-**S3 SDK 应用接入仅在飞书维护（唯一入口）：**  
+**Cloud Agent 完整说明（连接、用法、236 冒烟、禁止项）：** [`docs/S3-GATEWAY-AGENT.md`](../docs/S3-GATEWAY-AGENT.md)
+
+**S3 SDK 应用接入仅在飞书维护（唯一产品入口）：**  
 [ViKnow 应用端接口文档（5175 实测版）](https://castmeta.feishu.cn/docx/X1lEdLPwnoSzNDxVpudchA9wnbe) → **§1 对象存储（S3 SDK 应用接入）**（含 §1.6 预签名 TTL、§1.9 维护说明）
 
 本文件仅为跳板仓摘要，勿与飞书正文分叉；变更请只改飞书并写 §9 变更记录。

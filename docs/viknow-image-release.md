@@ -316,14 +316,13 @@ export GITHUB_SHA=$(git rev-parse HEAD)          # 完整 40 位或至少 12 位
 export VIKNOW_ACR_PULL_REGISTRY=registry-vpc.cn-hangzhou.aliyuncs.com
 export VIKNOW_ACR_NAMESPACE=litesense
 
-# 方式 1：与 deploy-ack.yml 相同（从 example + 环境变量注入密钥）
-cp config/online/deploy.env.example config/online/deploy.env
-# 在 shell 里 export 各 VIKNOW_ONLINE_* / POSTGRES_PASSWORD 等，或已写入 deploy.env（勿提交）
-python3 scripts/inject-deploy-secrets.py --env online --strict
+# 方式 1：与 deploy-ack.yml 相同（236 runner 上已有 config/online/deploy.env）
+bash scripts/prepare-online-deploy-env.sh
 bash deploy/ack/deploy-viknow-app.sh
 
-# 方式 2：若已有一份完整的 config/online/deploy.env（仅存在于运维机）
-export DEPLOY_ENV=/path/to/config/online/deploy.env
+# 方式 2：若 deploy.env 在其它路径
+export VIKNOW_ONLINE_DEPLOY_ENV_HOST=/path/to/config/online/deploy.env
+bash scripts/prepare-online-deploy-env.sh
 bash deploy/ack/deploy-viknow-app.sh
 ```
 

@@ -103,6 +103,13 @@ ssh -i ~/.ssh/id_ed25519 cursor-agent@36.103.198.236 'bash -lc "
 "'
 ```
 
+**发版 / CI 验证执法**：与用户一样，必须在 Gitea **Actions 页面可见**（`workflow_dispatch`），禁止只在 236 上 `kubectl apply` 冒充「CI 已过」。Agent 应：
+
+1. 用 API 触发 workflow（等价点「运行工作流」）：`viknow2` 仓 `scripts/gitea-dispatch-workflow.sh deploy-ack-canary.yml main`
+2. 轮询 run 直至结束，读 job 日志；失败则修 workflow/Secrets，再 dispatch
+
+不要在跳板仓实现业务逻辑；Secrets 缺失时明确列出 Gitea 仓库需配置的项，而不是 SSH 绕过。
+
 ### 冒烟命令（连通性）
 
 ```bash

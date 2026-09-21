@@ -579,7 +579,7 @@
       "id": 15,
       "type": "timeseries",
       "title": "P 调度（p0 / p1 / p2）",
-      "description": "三张预填充卡各自的 running / waiting / deferred。",
+      "description": "预填充引擎：running 只含**正在算 prefill 的请求**（通常每卡个位数），不会像 D 那样堆几十条 decode。waiting 用 `num_requests_waiting`（10s 内峰值），不用仅 capacity 分项。右轴 QPS 对照真实流量。",
       "datasource": {
         "type": "prometheus",
         "uid": "efxtwpht5answc"
@@ -595,10 +595,10 @@
           "custom": {
             "drawStyle": "line",
             "lineWidth": 2,
-            "fillOpacity": 12,
+            "fillOpacity": 20,
             "spanNulls": true,
             "showPoints": "never",
-            "lineInterpolation": "linear"
+            "lineInterpolation": "stepAfter"
           },
           "min": 0,
           "unit": "short"
@@ -648,6 +648,93 @@
                 }
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "^waiting "
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "red",
+                  "mode": "fixed"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 18
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "^deferred "
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "orange",
+                  "mode": "fixed"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 12
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "^QPS "
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "super-light-blue",
+                  "mode": "fixed"
+                }
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              },
+              {
+                "id": "custom.axisLabel",
+                "value": "req/s"
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    8,
+                    6
+                  ]
+                }
+              },
+              {
+                "id": "unit",
+                "value": "reqps"
+              },
+              {
+                "id": "decimals",
+                "value": 2
+              }
+            ]
           }
         ]
       },
@@ -667,7 +754,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (service) (vllm:num_requests_running{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=~\"127.0.0.1:8510|127.0.0.1:8511|127.0.0.1:8512\"})",
+          "expr": "max by (service) (max_over_time(vllm:num_requests_running{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=~\"127.0.0.1:8510|127.0.0.1:8511|127.0.0.1:8512\"}[10s]))",
           "legendFormat": "running {{service}}",
           "refId": "A",
           "datasource": {
@@ -678,7 +765,7 @@
           "range": true
         },
         {
-          "expr": "sum by (service) (vllm:num_requests_waiting_by_reason{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=~\"127.0.0.1:8510|127.0.0.1:8511|127.0.0.1:8512\",reason=\"capacity\"})",
+          "expr": "max by (service) (max_over_time(vllm:num_requests_waiting{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=~\"127.0.0.1:8510|127.0.0.1:8511|127.0.0.1:8512\"}[10s]))",
           "legendFormat": "waiting {{service}}",
           "refId": "B",
           "datasource": {
@@ -689,9 +776,20 @@
           "range": true
         },
         {
-          "expr": "sum by (service) (vllm:num_requests_waiting_by_reason{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=~\"127.0.0.1:8510|127.0.0.1:8511|127.0.0.1:8512\",reason=\"deferred\"})",
+          "expr": "max by (service) (max_over_time(vllm:num_requests_waiting_by_reason{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=~\"127.0.0.1:8510|127.0.0.1:8511|127.0.0.1:8512\",reason=\"deferred\"}[10s]))",
           "legendFormat": "deferred {{service}}",
           "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "efxtwpht5answc"
+          },
+          "editorMode": "code",
+          "range": true
+        },
+        {
+          "expr": "sum by (service) (rate(vllm:request_success_total{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=~\"127.0.0.1:8510|127.0.0.1:8511|127.0.0.1:8512\"}[$__rate_interval]))",
+          "legendFormat": "QPS {{service}}",
+          "refId": "D",
           "datasource": {
             "type": "prometheus",
             "uid": "efxtwpht5answc"
@@ -705,7 +803,7 @@
       "id": 16,
       "type": "timeseries",
       "title": "D 调度（d3）",
-      "description": "出词卡 running / waiting / deferred。WAITING_FOR_REMOTE_KVS 会计入 deferred。",
+      "description": "出词卡 running / waiting / deferred（10s 峰值）。WAITING_FOR_REMOTE_KVS 多在 deferred。右轴 QPS。",
       "datasource": {
         "type": "prometheus",
         "uid": "efxtwpht5answc"
@@ -721,10 +819,10 @@
           "custom": {
             "drawStyle": "line",
             "lineWidth": 2,
-            "fillOpacity": 12,
+            "fillOpacity": 20,
             "spanNulls": true,
             "showPoints": "never",
-            "lineInterpolation": "linear"
+            "lineInterpolation": "stepAfter"
           },
           "min": 0,
           "unit": "short"
@@ -747,8 +845,8 @@
           },
           {
             "matcher": {
-              "id": "byName",
-              "options": "waiting qwen36-d3"
+              "id": "byRegexp",
+              "options": "^waiting "
             },
             "properties": [
               {
@@ -757,13 +855,17 @@
                   "fixedColor": "red",
                   "mode": "fixed"
                 }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 18
               }
             ]
           },
           {
             "matcher": {
-              "id": "byName",
-              "options": "deferred qwen36-d3"
+              "id": "byRegexp",
+              "options": "^deferred "
             },
             "properties": [
               {
@@ -772,6 +874,59 @@
                   "fixedColor": "orange",
                   "mode": "fixed"
                 }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 12
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "^QPS "
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "super-light-blue",
+                  "mode": "fixed"
+                }
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              },
+              {
+                "id": "custom.axisLabel",
+                "value": "req/s"
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    8,
+                    6
+                  ]
+                }
+              },
+              {
+                "id": "unit",
+                "value": "reqps"
+              },
+              {
+                "id": "decimals",
+                "value": 2
               }
             ]
           }
@@ -793,7 +948,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (service) (vllm:num_requests_running{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=\"127.0.0.1:8513\"})",
+          "expr": "max by (service) (max_over_time(vllm:num_requests_running{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=\"127.0.0.1:8513\"}[10s]))",
           "legendFormat": "running {{service}}",
           "refId": "A",
           "datasource": {
@@ -804,7 +959,7 @@
           "range": true
         },
         {
-          "expr": "sum by (service) (vllm:num_requests_waiting_by_reason{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=\"127.0.0.1:8513\",reason=\"capacity\"})",
+          "expr": "max by (service) (max_over_time(vllm:num_requests_waiting{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=\"127.0.0.1:8513\"}[10s]))",
           "legendFormat": "waiting {{service}}",
           "refId": "B",
           "datasource": {
@@ -815,9 +970,20 @@
           "range": true
         },
         {
-          "expr": "sum by (service) (vllm:num_requests_waiting_by_reason{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=\"127.0.0.1:8513\",reason=\"deferred\"})",
+          "expr": "max by (service) (max_over_time(vllm:num_requests_waiting_by_reason{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=\"127.0.0.1:8513\",reason=\"deferred\"}[10s]))",
           "legendFormat": "deferred {{service}}",
           "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "efxtwpht5answc"
+          },
+          "editorMode": "code",
+          "range": true
+        },
+        {
+          "expr": "sum by (service) (rate(vllm:request_success_total{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=\"127.0.0.1:8513\"}[$__rate_interval]))",
+          "legendFormat": "QPS {{service}}",
+          "refId": "D",
           "datasource": {
             "type": "prometheus",
             "uid": "efxtwpht5answc"
@@ -2314,7 +2480,7 @@
       },
       "options": {
         "mode": "markdown",
-        "content": "同一张看板，图按 **P / D** 拆开。数据源是 `prometheus-qwen36`（:9108），只取 `job=vllm_qwen36_pd_engines`。\n\n- **P**：`:8510` p0、`:8511` p1、`:8512` p2，`role=prefill`。E2E 是预填充墙钟，不含出词。\n- **D**：`:8513` d3，`role=decode`。E2E 含等 KV 和 184 个 token。\n- **不含** `:8500` nginx，避免和引擎重复计数。\n- GPU0–2 画在 P，GPU3 画在 D。\n- 现网 3P+1D：P token 预算 65536 / 20 GiB KV，D 16384。"
+        "content": "同一张看板，图按 **P / D** 拆开。数据源是 `prometheus-qwen36`（:9108），只取 `job=vllm_qwen36_pd_engines`。\n\n- **P**：`:8510` p0、`:8511` p1、`:8512` p2，`role=prefill`。E2E 是预填充墙钟，不含出词。调度图 running 偏小是正常现象（prefill 完即转 D）。\n- **D**：`:8513` d3，`role=decode`。E2E 含等 KV 和 184 个 token。\n- **不含** `:8500` nginx，避免和引擎重复计数。\n- GPU0–2 画在 P，GPU3 画在 D。\n- 现网 3P+1D：P token 预算 65536 / 20 GiB KV，D 16384。"
       }
     }
   ],

@@ -155,6 +155,72 @@ def color_override(name: str, color: str) -> dict:
     }
 
 
+# 5s scrape: 10s max captures short prefill bursts (P running is often 0–6, not D-scale).
+SCHED_SMOOTH = "[10s]"
+
+
+def regex_override(pattern: str, props: list[dict]) -> dict:
+    return {"matcher": {"id": "byRegexp", "options": pattern}, "properties": props}
+
+
+def sched_panel(
+    title: str,
+    sel: str,
+    y: int,
+    x: int,
+    *,
+    desc: str,
+    running_color_overrides: list[dict],
+    w: int = 12,
+) -> dict:
+    """Running / waiting / deferred per engine + success QPS on the right axis."""
+    targets = [
+        (
+            f"max by (service) (max_over_time(vllm:num_requests_running{{{sel}}}{SCHED_SMOOTH}))",
+            "running {{service}}",
+        ),
+        (
+            f"max by (service) (max_over_time(vllm:num_requests_waiting{{{sel}}}{SCHED_SMOOTH}))",
+            "waiting {{service}}",
+        ),
+        (
+            f'max by (service) (max_over_time(vllm:num_requests_waiting_by_reason{{{sel},reason="deferred"}}{SCHED_SMOOTH}))',
+            "deferred {{service}}",
+        ),
+        (
+            f"sum by (service) (rate(vllm:request_success_total{{{sel}}}[$__rate_interval]))",
+            "QPS {{service}}",
+        ),
+    ]
+    overrides = list(running_color_overrides) + [
+        regex_override(
+            "^waiting ",
+            [{"id": "color", "value": {"fixedColor": "red", "mode": "fixed"}}, {"id": "custom.fillOpacity", "value": 18}],
+        ),
+        regex_override(
+            "^deferred ",
+            [{"id": "color", "value": {"fixedColor": "orange", "mode": "fixed"}}, {"id": "custom.fillOpacity", "value": 12}],
+        ),
+        regex_override(
+            "^QPS ",
+            [
+                {"id": "color", "value": {"fixedColor": "super-light-blue", "mode": "fixed"}},
+                {"id": "custom.axisPlacement", "value": "right"},
+                {"id": "custom.axisLabel", "value": "req/s"},
+                {"id": "custom.fillOpacity", "value": 0},
+                {"id": "custom.lineWidth", "value": 1},
+                {"id": "custom.lineStyle", "value": {"fill": "dash", "dash": [8, 6]}},
+                {"id": "unit", "value": "reqps"},
+                {"id": "decimals", "value": 2},
+            ],
+        ),
+    ]
+    panel = ts(title, targets, y, x, w=w, desc=desc, overrides=overrides)
+    panel["fieldConfig"]["defaults"]["custom"]["lineInterpolation"] = "stepAfter"
+    panel["fieldConfig"]["defaults"]["custom"]["fillOpacity"] = 20
+    return panel
+
+
 def build_dashboard() -> dict:
     global NEXT_ID
     NEXT_ID = 1
@@ -185,21 +251,19 @@ def build_dashboard() -> dict:
     panels.append(row("调度队列", y))
     y += 1
 
-    def sched_targets(sel: str):
-        return [
-            (f"sum by (service) (vllm:num_requests_running{{{sel}}})", "running {{service}}"),
-            (f'sum by (service) (vllm:num_requests_waiting_by_reason{{{sel},reason="capacity"}})', "waiting {{service}}"),
-            (f'sum by (service) (vllm:num_requests_waiting_by_reason{{{sel},reason="deferred"}})', "deferred {{service}}"),
-        ]
-
     panels.append(
-        ts(
+        sched_panel(
             "P 调度（p0 / p1 / p2）",
-            sched_targets(P),
+            P,
             y,
             0,
-            desc="三张预填充卡各自的 running / waiting / deferred。",
-            overrides=[
+            desc=(
+                "预填充引擎：running 只含**正在算 prefill 的请求**（通常每卡个位数），"
+                "不会像 D 那样堆几十条 decode。"
+                "waiting 用 `num_requests_waiting`（10s 内峰值），不用仅 capacity 分项。"
+                "右轴 QPS 对照真实流量。"
+            ),
+            running_color_overrides=[
                 color_override("running qwen36-p0", "green"),
                 color_override("running qwen36-p1", "semi-dark-green"),
                 color_override("running qwen36-p2", "super-light-green"),
@@ -207,17 +271,13 @@ def build_dashboard() -> dict:
         )
     )
     panels.append(
-        ts(
+        sched_panel(
             "D 调度（d3）",
-            sched_targets(D),
+            D,
             y,
             12,
-            desc="出词卡 running / waiting / deferred。WAITING_FOR_REMOTE_KVS 会计入 deferred。",
-            overrides=[
-                color_override("running qwen36-d3", "purple"),
-                color_override("waiting qwen36-d3", "red"),
-                color_override("deferred qwen36-d3", "orange"),
-            ],
+            desc="出词卡 running / waiting / deferred（10s 峰值）。WAITING_FOR_REMOTE_KVS 多在 deferred。右轴 QPS。",
+            running_color_overrides=[color_override("running qwen36-d3", "purple")],
         )
     )
     y += 8
@@ -497,7 +557,8 @@ def build_dashboard() -> dict:
                     "同一张看板，图按 **P / D** 拆开。数据源是 `prometheus-qwen36`（:9108），"
                     "只取 `job=vllm_qwen36_pd_engines`。\n\n"
                     "- **P**：`:8510` p0、`:8511` p1、`:8512` p2，`role=prefill`。"
-                    "E2E 是预填充墙钟，不含出词。\n"
+                    "E2E 是预填充墙钟，不含出词。"
+                    "调度图 running 偏小是正常现象（prefill 完即转 D）。\n"
                     "- **D**：`:8513` d3，`role=decode`。E2E 含等 KV 和 184 个 token。\n"
                     "- **不含** `:8500` nginx，避免和引擎重复计数。\n"
                     "- GPU0–2 画在 P，GPU3 画在 D。\n"

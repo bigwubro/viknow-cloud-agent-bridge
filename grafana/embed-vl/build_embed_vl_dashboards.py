@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import re
-from copy import deepcopy
 from pathlib import Path
 
 DS = {"type": "prometheus", "uid": "efphcpq654uf4f"}

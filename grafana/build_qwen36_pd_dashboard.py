@@ -248,40 +248,6 @@ def build_dashboard() -> dict:
     ]
     y += 4
 
-    panels.append(row("调度队列", y))
-    y += 1
-
-    panels.append(
-        sched_panel(
-            "P 调度（p0 / p1 / p2）",
-            P,
-            y,
-            0,
-            desc=(
-                "预填充引擎：running 只含**正在算 prefill 的请求**（通常每卡个位数），"
-                "不会像 D 那样堆几十条 decode。"
-                "waiting 用 `num_requests_waiting`（3s 内峰值），不用仅 capacity 分项。"
-                "右轴 QPS 对照真实流量。"
-            ),
-            running_color_overrides=[
-                color_override("running qwen36-p0", "green"),
-                color_override("running qwen36-p1", "semi-dark-green"),
-                color_override("running qwen36-p2", "super-light-green"),
-            ],
-        )
-    )
-    panels.append(
-        sched_panel(
-            "D 调度（d3）",
-            D,
-            y,
-            12,
-            desc="出词卡 running / waiting / deferred（3s 峰值）。WAITING_FOR_REMOTE_KVS 多在 deferred。右轴 QPS。",
-            running_color_overrides=[color_override("running qwen36-d3", "purple")],
-        )
-    )
-    y += 8
-
     panels.append(row("吞吐 tok/s", y))
     y += 1
     panels.append(
@@ -541,6 +507,39 @@ def build_dashboard() -> dict:
             0,
             w=24,
             unit="celsius",
+        )
+    )
+    y += 8
+
+    panels.append(row("调度队列", y))
+    y += 1
+    panels.append(
+        sched_panel(
+            "P 调度（p0 / p1 / p2）",
+            P,
+            y,
+            0,
+            desc=(
+                "预填充引擎：running 只含**正在算 prefill 的请求**（通常每卡个位数），"
+                "不会像 D 那样堆几十条 decode。"
+                "waiting 用 `num_requests_waiting`（3s 内峰值），不用仅 capacity 分项。"
+                "右轴 QPS 对照真实流量。"
+            ),
+            running_color_overrides=[
+                color_override("running qwen36-p0", "green"),
+                color_override("running qwen36-p1", "semi-dark-green"),
+                color_override("running qwen36-p2", "super-light-green"),
+            ],
+        )
+    )
+    panels.append(
+        sched_panel(
+            "D 调度（d3）",
+            D,
+            y,
+            12,
+            desc="出词卡 running / waiting / deferred（3s 峰值）。WAITING_FOR_REMOTE_KVS 多在 deferred。右轴 QPS。",
+            running_color_overrides=[color_override("running qwen36-d3", "purple")],
         )
     )
     y += 8

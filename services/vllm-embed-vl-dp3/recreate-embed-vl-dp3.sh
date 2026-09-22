@@ -79,10 +79,15 @@ docker run -d \
   "$IMAGE" \
   -c "$SERVE_CMD"
 
-sleep 5
-curl -sf -H "Authorization: Bearer ${EMBED_VL_API_KEY}" "http://127.0.0.1:${PORT}/v1/models" | python3 -c "
-import sys, json
-d = json.load(sys.stdin)
-print('models:', [m['id'] for m in d.get('data', [])])
-"
+for i in 1 2 3 4 5 6 7 8 9 10 11 12; do
+  if curl -sf -H "Authorization: Bearer ${EMBED_VL_API_KEY}" "http://127.0.0.1:${PORT}/v1/models" >/tmp/embed-vl-models.json 2>/dev/null; then
+    python3 -c "import json; d=json.load(open('/tmp/embed-vl-models.json')); print('models:', [m['id'] for m in d.get('data', [])])"
+    break
+  fi
+  sleep 10
+done
+if [[ ! -f /tmp/embed-vl-models.json ]]; then
+  echo "API not ready; check: docker logs ${NAME}" >&2
+  exit 1
+fi
 echo "Done. :8611 / :8612 are free; point clients at :${PORT} only."

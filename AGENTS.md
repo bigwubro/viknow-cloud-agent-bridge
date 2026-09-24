@@ -24,6 +24,10 @@
 
 每次对 **阿里云**（ACK / ACR / RDS / Tair / OSS / RAM 等）的操作、变更、登录探测，必须追加写入 [`docs/cloud-ops-log.md`](docs/cloud-ops-log.md)（倒序、用文件内模板）。不记 AWS。禁止把密码、AK/SK、kubeconfig 原文写进该文件或任何提交。
 
+### 验证
+
+界面改动优先用接口、日志或一张截图确认。只有用户明确要求看操作过程时才录屏。
+
 ### 禁止
 
 - 不要在本跳板仓库里实现 ViKnow 业务功能

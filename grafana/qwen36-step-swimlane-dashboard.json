@@ -1,0 +1,408 @@
+{
+  "dashboard": {
+    "title": "Qwen3.6 Step Swimlane · E / P+D 双预算",
+    "uid": "qwen36-step-swimlane",
+    "tags": ["qwen36", "vllm", "swimlane", "batch"],
+    "timezone": "browser",
+    "schemaVersion": 39,
+    "version": 3,
+    "refresh": "5s",
+    "time": {"from": "now-15m", "to": "now"},
+    "annotations": {"list": []},
+    "templating": {"list": []},
+    "panels": [
+      {
+        "id": 50,
+        "type": "row",
+        "title": "每 step token 时序（双图 · E 与 P/D 独立预算）",
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 0},
+        "collapsed": false,
+        "panels": []
+      },
+      {
+        "id": 18,
+        "type": "text",
+        "title": "预算说明",
+        "gridPos": {"h": 3, "w": 24, "x": 0, "y": 1},
+        "transparent": true,
+        "options": {
+          "mode": "markdown",
+          "content": "**Encoder 预算 ≠ `vllm_batch_total_tokens`。** 两者默认上限都是 `--max-num-batched-tokens`（16384），但是**独立计数、独立扣减**：\n\n- **Encoder 图**：`vllm_batch_encoder_output_embeddings`（output embeddings，不是 total_tokens）\n- **P/D 图**：`vllm_batch_context_tokens` + `vllm_batch_generation_tokens`（= total_tokens，**不含** encoder）\n\n实际每 step 用量**通常不相等**（例如 E=7920、P+D=1059 很常见）。"
+        }
+      },
+      {
+        "id": 19,
+        "type": "timeseries",
+        "title": "Encoder output embeddings / step（预算 A · 单线）",
+        "description": "vllm_batch_encoder_output_embeddings：上一 iteration 新算的 MM encoder 输出 embedding 数。与 total_tokens 无关。虚线 = 16384 上限。",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+        "datasource": {"type": "prometheus", "uid": "efxtwpht5answc"},
+        "fieldConfig": {
+          "defaults": {
+            "min": 0,
+            "max": 16384,
+            "custom": {"drawStyle": "line", "lineWidth": 2, "fillOpacity": 15, "spanNulls": false},
+            "color": {"mode": "fixed", "fixedColor": "blue"},
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "red", "value": 16384}
+              ]
+            }
+          },
+          "overrides": [
+            {"matcher": {"id": "byName", "options": "budget 16384"}, "properties": [
+              {"id": "custom.lineStyle", "value": {"dash": [10, 10], "fill": "dash"}},
+              {"id": "color", "value": {"fixedColor": "red", "mode": "fixed"}},
+              {"id": "custom.fillOpacity", "value": 0},
+              {"id": "custom.lineWidth", "value": 1}
+            ]}
+          ]
+        },
+        "options": {"legend": {"displayMode": "list", "placement": "bottom"}},
+        "targets": [
+          {"expr": "max_over_time(vllm_batch_encoder_output_embeddings[10s])", "legendFormat": "encoder embeds (max/10s)", "refId": "A"},
+          {"expr": "16384", "legendFormat": "budget 16384", "refId": "B"}
+        ]
+      },
+      {
+        "id": 20,
+        "type": "timeseries",
+        "title": "Prefill + Decode tokens / step（预算 B · 双线）",
+        "description": "context_tokens=prefill，generation_tokens=decode。vllm_batch_total_tokens = 两者之和，不含 encoder。",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+        "datasource": {"type": "prometheus", "uid": "efxtwpht5answc"},
+        "fieldConfig": {
+          "defaults": {
+            "min": 0,
+            "max": 16384,
+            "custom": {"drawStyle": "line", "lineWidth": 2, "fillOpacity": 10, "spanNulls": false}
+          },
+          "overrides": [
+            {"matcher": {"id": "byName", "options": "prefill tokens"}, "properties": [{"id": "color", "value": {"fixedColor": "green", "mode": "fixed"}}]},
+            {"matcher": {"id": "byName", "options": "decode tokens"}, "properties": [{"id": "color", "value": {"fixedColor": "purple", "mode": "fixed"}}]},
+            {"matcher": {"id": "byName", "options": "budget 16384"}, "properties": [
+              {"id": "custom.lineStyle", "value": {"dash": [10, 10], "fill": "dash"}},
+              {"id": "color", "value": {"fixedColor": "red", "mode": "fixed"}},
+              {"id": "custom.fillOpacity", "value": 0},
+              {"id": "custom.lineWidth", "value": 1}
+            ]}
+          ]
+        },
+        "options": {"legend": {"displayMode": "list", "placement": "bottom"}},
+        "targets": [
+          {"expr": "max_over_time(vllm_batch_context_tokens[10s])", "legendFormat": "prefill tokens (max/10s)", "refId": "A"},
+          {"expr": "max_over_time(vllm_batch_generation_tokens[10s])", "legendFormat": "decode tokens (max/10s)", "refId": "B"},
+          {"expr": "16384", "legendFormat": "budget 16384", "refId": "C"}
+        ]
+      },
+      {
+        "id": 100,
+        "type": "row",
+        "title": "泳道 1 · 请求生命周期（CPU → 调度 → GPU 一步）",
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 12},
+        "collapsed": false,
+        "panels": []
+      },
+      {
+        "id": 1,
+        "type": "text",
+        "title": "生命周期总览",
+        "gridPos": {"h": 6, "w": 16, "x": 0, "y": 13},
+        "transparent": true,
+        "options": {
+          "mode": "html",
+          "code": {
+            "language": "html",
+            "showLineNumbers": false
+          },
+          "content": "<div style=\"font-family:system-ui,sans-serif;font-size:13px;line-height:1.45\">\n<div style=\"display:flex;align-items:stretch;gap:6px;margin-bottom:10px\">\n  <div style=\"flex:1;border:2px solid #5794f2;border-radius:8px;padding:10px;background:rgba(87,148,242,.08)\">\n    <div style=\"font-weight:700;color:#5794f2;margin-bottom:4px\">① CPU · MM Processor</div>\n    <div style=\"color:#ccc\">解码图片/视频 · SHM cache</div>\n    <div style=\"font-size:11px;color:#999;margin-top:6px\">不占 GPU 16384 · 进 scheduler 前</div>\n  </div>\n  <div style=\"display:flex;align-items:center;color:#888;font-size:20px\">→</div>\n  <div style=\"flex:1;border:2px solid #ffb357;border-radius:8px;padding:10px;background:rgba(255,179,87,.08)\">\n    <div style=\"font-weight:700;color:#ffb357;margin-bottom:4px\">② Scheduler · schedule()</div>\n    <div style=\"color:#ccc\">决定本 step 装多少 E 和 P/D</div>\n    <div style=\"font-size:11px;color:#999;margin-top:6px\">维护 waiting[] / skipped_waiting[] / running[]</div>\n  </div>\n  <div style=\"display:flex;align-items:center;color:#888;font-size:20px\">→</div>\n  <div style=\"flex:1.2;border:2px solid #73bf69;border-radius:8px;padding:10px;background:rgba(115,191,105,.08)\">\n    <div style=\"font-weight:700;color:#73bf69;margin-bottom:4px\">③ GPU · 1 个 engine step</div>\n    <div style=\"color:#ccc\"><b>先 E</b> vision encoder → <b>后 P/D</b> LLM forward</div>\n    <div style=\"font-size:11px;color:#999;margin-top:6px\">不是两个 step · 是同一 iteration 内两段 GPU 计算</div>\n  </div>\n</div>\n<div style=\"padding:8px 12px;border-left:4px solid #f2495c;background:rgba(242,73,92,.06);border-radius:4px;color:#ddd;font-size:12px\">\n  <b>队列高 ≠ token 预算打满</b>：<code>waiting[]</code>=可调度但 budget/KV/slot 不够；<code>skipped_waiting[]</code>=本轮跳过（blocked/LoRA/async KV 等）。见右侧曲线。\n</div>\n</div>"
+        }
+      },
+      {
+        "id": 2,
+        "type": "timeseries",
+        "title": "调度队列（waiting / skipped_waiting / running）",
+        "description": "对齐 vLLM v1 scheduler.py：running=len(running)；waiting=len(waiting)（Prometheus reason=capacity）；skipped_waiting=len(skipped_waiting)（Prometheus reason=deferred）。不含 waiting total 汇总线。",
+        "gridPos": {"h": 6, "w": 8, "x": 16, "y": 13},
+        "datasource": {"type": "prometheus", "uid": "efphcpq654uf4f"},
+        "fieldConfig": {
+          "defaults": {
+            "custom": {"drawStyle": "line", "lineWidth": 1, "fillOpacity": 15},
+            "min": 0
+          },
+          "overrides": [
+            {"matcher": {"id": "byName", "options": "running"}, "properties": [{"id": "color", "value": {"fixedColor": "green", "mode": "fixed"}}]},
+            {"matcher": {"id": "byName", "options": "waiting"}, "properties": [{"id": "color", "value": {"fixedColor": "red", "mode": "fixed"}}, {"id": "custom.fillOpacity", "value": 25}]},
+            {"matcher": {"id": "byName", "options": "skipped_waiting"}, "properties": [{"id": "color", "value": {"fixedColor": "orange", "mode": "fixed"}}]}
+          ]
+        },
+        "targets": [
+          {"expr": "vllm:num_requests_running{model_name=\"Qwen/Qwen3.6-35B-A3B-FP8\"}", "legendFormat": "running", "refId": "A"},
+          {"expr": "vllm:num_requests_waiting_by_reason{model_name=\"Qwen/Qwen3.6-35B-A3B-FP8\",reason=\"capacity\"}", "legendFormat": "waiting", "refId": "B"},
+          {"expr": "vllm:num_requests_waiting_by_reason{model_name=\"Qwen/Qwen3.6-35B-A3B-FP8\",reason=\"deferred\"}", "legendFormat": "skipped_waiting", "refId": "C"}
+        ]
+      },
+      {
+        "id": 200,
+        "type": "row",
+        "title": "泳道 2 · Step N 放大（双预算 · 先 E 后 P/D）",
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 19},
+        "collapsed": false,
+        "panels": []
+      },
+      {
+        "id": 3,
+        "type": "text",
+        "title": "Step 结构说明",
+        "gridPos": {"h": 4, "w": 8, "x": 0, "y": 20},
+        "transparent": true,
+        "options": {
+          "mode": "markdown",
+          "content": "### 同一 iteration 内的 GPU 顺序\n\n```\nStep N\n┌─────────────────────────────────────┐\n│ 预算 A  Encoder  ≤ 16384 embeds     │ → Vision Encoder\n│         ↓                           │\n│ 预算 B  LLM P+D  ≤ 16384 tokens     │ → Transformer + Sample\n└─────────────────────────────────────┘\n```\n\n**两套 16384 独立扣减，不要 E+P+D 相加后和一个 16384 比。**\n\n右侧 Bar gauge = 上一 iteration 预算利用率（来自 iteration 日志 exporter）。"
+        }
+      },
+      {
+        "id": 4,
+        "type": "bargauge",
+        "title": "预算 A · Encoder output embeddings / 16384",
+        "description": "vllm_batch_encoder_output_embeddings，上一 iteration 的 MM encoder 输出 embedding 数。",
+        "gridPos": {"h": 4, "w": 8, "x": 8, "y": 20},
+        "datasource": {"type": "prometheus", "uid": "efxtwpht5answc"},
+        "fieldConfig": {
+          "defaults": {
+            "min": 0,
+            "max": 16384,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "yellow", "value": 12000},
+                {"color": "red", "value": 15000}
+              ]
+            },
+            "color": {"mode": "thresholds"},
+            "unit": "none"
+          }
+        },
+        "options": {
+          "orientation": "horizontal",
+          "displayMode": "gradient",
+          "showUnfilled": true,
+          "reduceOptions": {"calcs": ["lastNotNull"]}
+        },
+        "targets": [
+          {"expr": "vllm_batch_encoder_output_embeddings", "legendFormat": "E embeds", "refId": "A"}
+        ]
+      },
+      {
+        "id": 5,
+        "type": "bargauge",
+        "title": "预算 B · LLM P+D tokens / 16384",
+        "description": "vllm_batch_total_tokens = context_tokens + generation_tokens，不含 encoder。",
+        "gridPos": {"h": 4, "w": 8, "x": 16, "y": 20},
+        "datasource": {"type": "prometheus", "uid": "efxtwpht5answc"},
+        "fieldConfig": {
+          "defaults": {
+            "min": 0,
+            "max": 16384,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "yellow", "value": 12000},
+                {"color": "red", "value": 15000}
+              ]
+            },
+            "color": {"mode": "thresholds"},
+            "unit": "none"
+          }
+        },
+        "options": {
+          "orientation": "horizontal",
+          "displayMode": "gradient",
+          "showUnfilled": true,
+          "reduceOptions": {"calcs": ["lastNotNull"]}
+        },
+        "targets": [
+          {"expr": "vllm_batch_total_tokens", "legendFormat": "P+D tokens", "refId": "A"}
+        ]
+      },
+      {
+        "id": 6,
+        "type": "stat",
+        "title": "E · inputs",
+        "gridPos": {"h": 3, "w": 3, "x": 0, "y": 24},
+        "datasource": {"type": "prometheus", "uid": "efxtwpht5answc"},
+        "fieldConfig": {"defaults": {"decimals": 0, "color": {"mode": "fixed", "fixedColor": "blue"}}},
+        "options": {"colorMode": "background", "graphMode": "none", "reduceOptions": {"calcs": ["lastNotNull"]}},
+        "targets": [{"expr": "vllm_batch_encoder_inputs", "legendFormat": "inputs", "refId": "A"}]
+      },
+      {
+        "id": 7,
+        "type": "stat",
+        "title": "E · embeds",
+        "gridPos": {"h": 3, "w": 3, "x": 3, "y": 24},
+        "datasource": {"type": "prometheus", "uid": "efxtwpht5answc"},
+        "fieldConfig": {"defaults": {"decimals": 0, "color": {"mode": "fixed", "fixedColor": "blue"}}},
+        "options": {"colorMode": "background", "graphMode": "area", "reduceOptions": {"calcs": ["lastNotNull"]}},
+        "targets": [{"expr": "vllm_batch_encoder_output_embeddings", "legendFormat": "embeds", "refId": "A"}]
+      },
+      {
+        "id": 8,
+        "type": "stat",
+        "title": "P · reqs",
+        "gridPos": {"h": 3, "w": 3, "x": 6, "y": 24},
+        "datasource": {"type": "prometheus", "uid": "efxtwpht5answc"},
+        "fieldConfig": {"defaults": {"decimals": 0, "color": {"mode": "fixed", "fixedColor": "green"}}},
+        "options": {"colorMode": "background", "graphMode": "none", "reduceOptions": {"calcs": ["lastNotNull"]}},
+        "targets": [{"expr": "vllm_batch_context_requests", "legendFormat": "P", "refId": "A"}]
+      },
+      {
+        "id": 9,
+        "type": "stat",
+        "title": "P · tokens",
+        "gridPos": {"h": 3, "w": 3, "x": 9, "y": 24},
+        "datasource": {"type": "prometheus", "uid": "efxtwpht5answc"},
+        "fieldConfig": {"defaults": {"decimals": 0, "color": {"mode": "fixed", "fixedColor": "green"}}},
+        "options": {"colorMode": "background", "graphMode": "area", "reduceOptions": {"calcs": ["lastNotNull"]}},
+        "targets": [{"expr": "vllm_batch_context_tokens", "legendFormat": "P tok", "refId": "A"}]
+      },
+      {
+        "id": 10,
+        "type": "stat",
+        "title": "D · reqs",
+        "gridPos": {"h": 3, "w": 3, "x": 12, "y": 24},
+        "datasource": {"type": "prometheus", "uid": "efxtwpht5answc"},
+        "fieldConfig": {"defaults": {"decimals": 0, "color": {"mode": "fixed", "fixedColor": "purple"}}},
+        "options": {"colorMode": "background", "graphMode": "none", "reduceOptions": {"calcs": ["lastNotNull"]}},
+        "targets": [{"expr": "vllm_batch_generation_requests", "legendFormat": "D", "refId": "A"}]
+      },
+      {
+        "id": 11,
+        "type": "stat",
+        "title": "D · tokens",
+        "gridPos": {"h": 3, "w": 3, "x": 15, "y": 24},
+        "datasource": {"type": "prometheus", "uid": "efxtwpht5answc"},
+        "fieldConfig": {"defaults": {"decimals": 0, "color": {"mode": "fixed", "fixedColor": "purple"}}},
+        "options": {"colorMode": "background", "graphMode": "area", "reduceOptions": {"calcs": ["lastNotNull"]}},
+        "targets": [{"expr": "vllm_batch_generation_tokens", "legendFormat": "D tok", "refId": "A"}]
+      },
+      {
+        "id": 12,
+        "type": "timeseries",
+        "title": "双预算利用率趋势（%）",
+        "gridPos": {"h": 3, "w": 6, "x": 18, "y": 24},
+        "datasource": {"type": "prometheus", "uid": "efxtwpht5answc"},
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percentunit",
+            "min": 0,
+            "max": 1,
+            "custom": {"drawStyle": "line", "lineWidth": 2, "fillOpacity": 20}
+          },
+          "overrides": [
+            {"matcher": {"id": "byName", "options": "E / 16384"}, "properties": [{"id": "color", "value": {"fixedColor": "blue", "mode": "fixed"}}]},
+            {"matcher": {"id": "byName", "options": "P+D / 16384"}, "properties": [{"id": "color", "value": {"fixedColor": "green", "mode": "fixed"}}]}
+          ]
+        },
+        "targets": [
+          {"expr": "vllm_batch_encoder_output_embeddings / 16384", "legendFormat": "E / 16384", "refId": "A"},
+          {"expr": "vllm_batch_total_tokens / 16384", "legendFormat": "P+D / 16384", "refId": "B"}
+        ]
+      },
+      {
+        "id": 300,
+        "type": "row",
+        "title": "泳道 3 · 三个维度（别混加）",
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 27},
+        "collapsed": false,
+        "panels": []
+      },
+      {
+        "id": 13,
+        "type": "text",
+        "title": "维度对照表",
+        "gridPos": {"h": 5, "w": 10, "x": 0, "y": 28},
+        "transparent": true,
+        "options": {
+          "mode": "markdown",
+          "content": "| 维度 | 上限 | 单位 | 本 dashboard 指标 | 能否相加 |\n|------|------|------|-------------------|----------|\n| **并发 request** | 64 | 条 | `P reqs + D reqs` | ❌ 与 token 不同维 |\n| **LLM token** | 16384 | P+D tokens | `vllm_batch_total_tokens` | ✅ 只加 P 和 D |\n| **Encoder** | ~16384 | output embeds | `vllm_batch_encoder_output_embeddings` | ❌ 不和 P+D 比 |\n\n**上限默认都是 16384，但用量通常不相等。** 例如日志里常见：`encoder output embeddings: 7920` 同时 `context+generation tokens: 1059`。"
+        }
+      },
+      {
+        "id": 14,
+        "type": "bargauge",
+        "title": "维度 1 · P+D reqs / 64 slots",
+        "gridPos": {"h": 5, "w": 5, "x": 10, "y": 28},
+        "datasource": {"type": "prometheus", "uid": "efxtwpht5answc"},
+        "fieldConfig": {
+          "defaults": {
+            "min": 0,
+            "max": 64,
+            "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 48}, {"color": "red", "value": 60}]},
+            "color": {"mode": "thresholds"}
+          }
+        },
+        "options": {"orientation": "vertical", "displayMode": "lcd", "showUnfilled": true, "reduceOptions": {"calcs": ["lastNotNull"]}},
+        "targets": [{"expr": "vllm_batch_context_requests + vllm_batch_generation_requests", "legendFormat": "P+D reqs", "refId": "A"}]
+      },
+      {
+        "id": 15,
+        "type": "bargauge",
+        "title": "维度 2 · P+D tokens / 16384",
+        "gridPos": {"h": 5, "w": 5, "x": 15, "y": 28},
+        "datasource": {"type": "prometheus", "uid": "efxtwpht5answc"},
+        "fieldConfig": {
+          "defaults": {
+            "min": 0,
+            "max": 16384,
+            "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 12000}, {"color": "red", "value": 15000}]},
+            "color": {"mode": "thresholds"}
+          }
+        },
+        "options": {"orientation": "vertical", "displayMode": "lcd", "showUnfilled": true, "reduceOptions": {"calcs": ["lastNotNull"]}},
+        "targets": [{"expr": "vllm_batch_total_tokens", "legendFormat": "P+D tok", "refId": "A"}]
+      },
+      {
+        "id": 16,
+        "type": "bargauge",
+        "title": "维度 3 · E embeds / 16384",
+        "gridPos": {"h": 5, "w": 4, "x": 20, "y": 28},
+        "datasource": {"type": "prometheus", "uid": "efxtwpht5answc"},
+        "fieldConfig": {
+          "defaults": {
+            "min": 0,
+            "max": 16384,
+            "thresholds": {"mode": "absolute", "steps": [{"color": "blue", "value": null}, {"color": "yellow", "value": 12000}, {"color": "red", "value": 15000}]},
+            "color": {"mode": "thresholds"}
+          }
+        },
+        "options": {"orientation": "vertical", "displayMode": "lcd", "showUnfilled": true, "reduceOptions": {"calcs": ["lastNotNull"]}},
+        "targets": [{"expr": "vllm_batch_encoder_output_embeddings", "legendFormat": "E embed", "refId": "A"}]
+      },
+      {
+        "id": 17,
+        "type": "timeseries",
+        "title": "三维度时序（reqs / P+D tok / E embed）",
+        "gridPos": {"h": 7, "w": 24, "x": 0, "y": 33},
+        "datasource": {"type": "prometheus", "uid": "efxtwpht5answc"},
+        "fieldConfig": {
+          "defaults": {"custom": {"drawStyle": "line", "lineWidth": 1, "fillOpacity": 10}, "min": 0},
+          "overrides": [
+            {"matcher": {"id": "byRegexp", "options": "/embed.*/"}, "properties": [{"id": "custom.axisPlacement", "value": "right"}, {"id": "color", "value": {"fixedColor": "blue", "mode": "fixed"}}]},
+            {"matcher": {"id": "byRegexp", "options": "/P\\+D reqs.*/"}, "properties": [{"id": "custom.axisPlacement", "value": "left"}, {"id": "color", "value": {"fixedColor": "orange", "mode": "fixed"}}]}
+          ]
+        },
+        "targets": [
+          {"expr": "vllm_batch_context_requests + vllm_batch_generation_requests", "legendFormat": "P+D reqs (≤64)", "refId": "A"},
+          {"expr": "vllm_batch_total_tokens", "legendFormat": "P+D tokens (≤16384)", "refId": "B"},
+          {"expr": "vllm_batch_encoder_output_embeddings", "legendFormat": "E embeds (≤16384)", "refId": "C"}
+        ]
+      }
+    ]
+  },
+  "overwrite": true,
+  "folderUid": ""
+}

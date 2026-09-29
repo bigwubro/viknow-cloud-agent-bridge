@@ -1,0 +1,2529 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "description": "原「一个实例」看板按 3P+1D 对齐：同一 dashboard，图按 P / D 分开。数据源 prometheus-qwen36 :9108。",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "id": 1,
+      "type": "row",
+      "title": "总览 · 左 P（三张预填充）　右 D（一张出词）　不含 :8500",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "P 引擎",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "efxtwpht5answc"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 0,
+        "y": 1
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "unit": "short",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "green"
+          }
+        }
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "expr": "count(vllm:num_requests_running{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=~\"127.0.0.1:8510|127.0.0.1:8511|127.0.0.1:8512\"})",
+          "legendFormat": "P 引擎",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "efxtwpht5answc"
+          }
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "P running",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "efxtwpht5answc"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 3,
+        "y": 1
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "unit": "short",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "green"
+          }
+        }
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(vllm:num_requests_running{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=~\"127.0.0.1:8510|127.0.0.1:8511|127.0.0.1:8512\"})",
+          "legendFormat": "P running",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "efxtwpht5answc"
+          }
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "P waiting",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "efxtwpht5answc"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 6,
+        "y": 1
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "unit": "short",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "orange"
+          }
+        }
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(vllm:num_requests_waiting{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=~\"127.0.0.1:8510|127.0.0.1:8511|127.0.0.1:8512\"})",
+          "legendFormat": "P waiting",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "efxtwpht5answc"
+          }
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "P KV",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "efxtwpht5answc"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 9,
+        "y": 1
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 2,
+          "unit": "percentunit",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "yellow"
+          }
+        }
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "expr": "avg(vllm:kv_cache_usage_perc{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=~\"127.0.0.1:8510|127.0.0.1:8511|127.0.0.1:8512\"})",
+          "legendFormat": "P KV",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "efxtwpht5answc"
+          }
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "P prompt tok/s",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "efxtwpht5answc"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 12,
+        "y": 1
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "unit": "cps",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "green"
+          }
+        }
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(vllm:prompt_tokens_total{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=~\"127.0.0.1:8510|127.0.0.1:8511|127.0.0.1:8512\"}[$__rate_interval]))",
+          "legendFormat": "P prompt tok/s",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "efxtwpht5answc"
+          }
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "stat",
+      "title": "D 引擎",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "efxtwpht5answc"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 15,
+        "y": 1
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "unit": "short",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "purple"
+          }
+        }
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "expr": "count(vllm:num_requests_running{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=\"127.0.0.1:8513\"})",
+          "legendFormat": "D 引擎",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "efxtwpht5answc"
+          }
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "stat",
+      "title": "D running",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "efxtwpht5answc"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 18,
+        "y": 1
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "unit": "short",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "purple"
+          }
+        }
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(vllm:num_requests_running{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=\"127.0.0.1:8513\"})",
+          "legendFormat": "D running",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "efxtwpht5answc"
+          }
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "stat",
+      "title": "D waiting",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "efxtwpht5answc"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 21,
+        "y": 1
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "unit": "short",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "super-light-red"
+          }
+        }
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(vllm:num_requests_waiting{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=\"127.0.0.1:8513\"})",
+          "legendFormat": "D waiting",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "efxtwpht5answc"
+          }
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "stat",
+      "title": "D KV",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "efxtwpht5answc"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 2,
+          "unit": "percentunit",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "purple"
+          }
+        }
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "expr": "avg(vllm:kv_cache_usage_perc{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=\"127.0.0.1:8513\"})",
+          "legendFormat": "D KV",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "efxtwpht5answc"
+          }
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "stat",
+      "title": "D decode tok/s",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "efxtwpht5answc"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "unit": "cps",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "purple"
+          }
+        }
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(vllm:generation_tokens_total{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=\"127.0.0.1:8513\"}[$__rate_interval]))",
+          "legendFormat": "D decode tok/s",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "efxtwpht5answc"
+          }
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "type": "stat",
+      "title": "D 成功 QPS",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "efxtwpht5answc"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 2,
+          "unit": "reqps",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "purple"
+          }
+        }
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(vllm:request_success_total{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=\"127.0.0.1:8513\"}[$__rate_interval]))",
+          "legendFormat": "D 成功 QPS",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "efxtwpht5answc"
+          }
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "type": "stat",
+      "title": "P 成功 QPS",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "efxtwpht5answc"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 2,
+          "unit": "reqps",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "green"
+          }
+        }
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(vllm:request_success_total{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=~\"127.0.0.1:8510|127.0.0.1:8511|127.0.0.1:8512\"}[$__rate_interval]))",
+          "legendFormat": "P 成功 QPS",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "efxtwpht5answc"
+          }
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "type": "row",
+      "title": "吞吐 tok/s",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 9
+      },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 15,
+      "type": "timeseries",
+      "title": "P prompt tok/s（按引擎）",
+      "description": "预填充侧新算的 prompt token/s。",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "efxtwpht5answc"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 10
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "spanNulls": true,
+            "showPoints": "never",
+            "lineInterpolation": "linear"
+          },
+          "min": 0,
+          "unit": "cps"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum by (service) (rate(vllm:prompt_tokens_total{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=~\"127.0.0.1:8510|127.0.0.1:8511|127.0.0.1:8512\"}[$__rate_interval]))",
+          "legendFormat": "{{service}}",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "efxtwpht5answc"
+          },
+          "editorMode": "code",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 16,
+      "type": "timeseries",
+      "title": "D decode tok/s",
+      "description": "出词侧生成 token/s。MTP 接受的也算在这里。",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "efxtwpht5answc"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 10
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "spanNulls": true,
+            "showPoints": "never",
+            "lineInterpolation": "linear"
+          },
+          "min": 0,
+          "unit": "cps"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum by (service) (rate(vllm:generation_tokens_total{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=\"127.0.0.1:8513\"}[$__rate_interval]))",
+          "legendFormat": "{{service}}",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "efxtwpht5answc"
+          },
+          "editorMode": "code",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 17,
+      "type": "row",
+      "title": "端到端与分段时延",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 18
+      },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 18,
+      "type": "timeseries",
+      "title": "P E2E（预填充侧，少样本只画平均）",
+      "description": "P 引擎完成一次预填充的墙钟。不含出词。",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "efxtwpht5answc"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 19
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "spanNulls": true,
+            "showPoints": "never",
+            "lineInterpolation": "linear"
+          },
+          "min": 0,
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "expr": "(sum(increase(vllm:e2e_request_latency_seconds_sum{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=~\"127.0.0.1:8510|127.0.0.1:8511|127.0.0.1:8512\"}[$__rate_interval])) / clamp_min(sum(increase(vllm:e2e_request_latency_seconds_count{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=~\"127.0.0.1:8510|127.0.0.1:8511|127.0.0.1:8512\"}[$__rate_interval])), 1e-9))",
+          "legendFormat": "avg",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "efxtwpht5answc"
+          },
+          "editorMode": "code",
+          "range": true
+        },
+        {
+          "expr": "histogram_quantile(0.5, sum by(le) (increase(vllm:e2e_request_latency_seconds_bucket{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=~\"127.0.0.1:8510|127.0.0.1:8511|127.0.0.1:8512\"}[$__rate_interval]))) and on() (sum(increase(vllm:e2e_request_latency_seconds_count{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=~\"127.0.0.1:8510|127.0.0.1:8511|127.0.0.1:8512\"}[$__rate_interval])) > 8)",
+          "legendFormat": "p50",
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "efxtwpht5answc"
+          },
+          "editorMode": "code",
+          "range": true
+        },
+        {
+          "expr": "histogram_quantile(0.9, sum by(le) (increase(vllm:e2e_request_latency_seconds_bucket{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=~\"127.0.0.1:8510|127.0.0.1:8511|127.0.0.1:8512\"}[$__rate_interval]))) and on() (sum(increase(vllm:e2e_request_latency_seconds_count{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=~\"127.0.0.1:8510|127.0.0.1:8511|127.0.0.1:8512\"}[$__rate_interval])) > 8)",
+          "legendFormat": "p90",
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "efxtwpht5answc"
+          },
+          "editorMode": "code",
+          "range": true
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by(le) (increase(vllm:e2e_request_latency_seconds_bucket{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=~\"127.0.0.1:8510|127.0.0.1:8511|127.0.0.1:8512\"}[$__rate_interval]))) and on() (sum(increase(vllm:e2e_request_latency_seconds_count{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=~\"127.0.0.1:8510|127.0.0.1:8511|127.0.0.1:8512\"}[$__rate_interval])) > 8)",
+          "legendFormat": "p95",
+          "refId": "D",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "efxtwpht5answc"
+          },
+          "editorMode": "code",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 19,
+      "type": "timeseries",
+      "title": "D E2E（出词侧，少样本只画平均）",
+      "description": "D 引擎完成一次出词的墙钟，含等 KV。",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "efxtwpht5answc"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 19
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "spanNulls": true,
+            "showPoints": "never",
+            "lineInterpolation": "linear"
+          },
+          "min": 0,
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "expr": "(sum(increase(vllm:e2e_request_latency_seconds_sum{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=\"127.0.0.1:8513\"}[$__rate_interval])) / clamp_min(sum(increase(vllm:e2e_request_latency_seconds_count{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=\"127.0.0.1:8513\"}[$__rate_interval])), 1e-9))",
+          "legendFormat": "avg",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "efxtwpht5answc"
+          },
+          "editorMode": "code",
+          "range": true
+        },
+        {
+          "expr": "histogram_quantile(0.5, sum by(le) (increase(vllm:e2e_request_latency_seconds_bucket{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=\"127.0.0.1:8513\"}[$__rate_interval]))) and on() (sum(increase(vllm:e2e_request_latency_seconds_count{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=\"127.0.0.1:8513\"}[$__rate_interval])) > 8)",
+          "legendFormat": "p50",
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "efxtwpht5answc"
+          },
+          "editorMode": "code",
+          "range": true
+        },
+        {
+          "expr": "histogram_quantile(0.9, sum by(le) (increase(vllm:e2e_request_latency_seconds_bucket{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=\"127.0.0.1:8513\"}[$__rate_interval]))) and on() (sum(increase(vllm:e2e_request_latency_seconds_count{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=\"127.0.0.1:8513\"}[$__rate_interval])) > 8)",
+          "legendFormat": "p90",
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "efxtwpht5answc"
+          },
+          "editorMode": "code",
+          "range": true
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by(le) (increase(vllm:e2e_request_latency_seconds_bucket{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=\"127.0.0.1:8513\"}[$__rate_interval]))) and on() (sum(increase(vllm:e2e_request_latency_seconds_count{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=\"127.0.0.1:8513\"}[$__rate_interval])) > 8)",
+          "legendFormat": "p95",
+          "refId": "D",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "efxtwpht5answc"
+          },
+          "editorMode": "code",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 20,
+      "type": "timeseries",
+      "title": "P 排队 / 预填充（平均）",
+      "description": "短窗 rate(sum)/rate(count)。勿用 increase 做平均：restart-pd 后会出现「几天」假峰与负 queue。",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "efxtwpht5answc"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 27
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "spanNulls": true,
+            "showPoints": "never",
+            "lineInterpolation": "linear"
+          },
+          "min": 0,
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "expr": "((sum(rate(vllm:request_queue_time_seconds_sum{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=~\"127.0.0.1:8510|127.0.0.1:8511|127.0.0.1:8512\"}[$__rate_interval])) / clamp_min(sum(rate(vllm:request_queue_time_seconds_count{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=~\"127.0.0.1:8510|127.0.0.1:8511|127.0.0.1:8512\"}[$__rate_interval])), 1e-9)) and on() (sum(increase(vllm:request_queue_time_seconds_count{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=~\"127.0.0.1:8510|127.0.0.1:8511|127.0.0.1:8512\"}[$__rate_interval])) > 0.5))",
+          "legendFormat": "queue avg",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "efxtwpht5answc"
+          },
+          "editorMode": "code",
+          "range": true
+        },
+        {
+          "expr": "((sum(rate(vllm:request_prefill_time_seconds_sum{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=~\"127.0.0.1:8510|127.0.0.1:8511|127.0.0.1:8512\"}[$__rate_interval])) / clamp_min(sum(rate(vllm:request_prefill_time_seconds_count{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=~\"127.0.0.1:8510|127.0.0.1:8511|127.0.0.1:8512\"}[$__rate_interval])), 1e-9)) and on() (sum(increase(vllm:request_prefill_time_seconds_count{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=~\"127.0.0.1:8510|127.0.0.1:8511|127.0.0.1:8512\"}[$__rate_interval])) > 0.5))",
+          "legendFormat": "prefill avg",
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "efxtwpht5answc"
+          },
+          "editorMode": "code",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 21,
+      "type": "timeseries",
+      "title": "D 排队 / 出词 / NIXL（平均）",
+      "description": "出词卡三段：等调度、算 184 token、拉 KV。",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "efxtwpht5answc"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 27
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "spanNulls": true,
+            "showPoints": "never",
+            "lineInterpolation": "linear"
+          },
+          "min": 0,
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "expr": "((sum(rate(vllm:request_queue_time_seconds_sum{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=\"127.0.0.1:8513\"}[$__rate_interval])) / clamp_min(sum(rate(vllm:request_queue_time_seconds_count{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=\"127.0.0.1:8513\"}[$__rate_interval])), 1e-9)) and on() (sum(increase(vllm:request_queue_time_seconds_count{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=\"127.0.0.1:8513\"}[$__rate_interval])) > 0.5))",
+          "legendFormat": "queue avg",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "efxtwpht5answc"
+          },
+          "editorMode": "code",
+          "range": true
+        },
+        {
+          "expr": "((sum(rate(vllm:request_decode_time_seconds_sum{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=\"127.0.0.1:8513\"}[$__rate_interval])) / clamp_min(sum(rate(vllm:request_decode_time_seconds_count{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=\"127.0.0.1:8513\"}[$__rate_interval])), 1e-9)) and on() (sum(increase(vllm:request_decode_time_seconds_count{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=\"127.0.0.1:8513\"}[$__rate_interval])) > 0.5))",
+          "legendFormat": "decode avg",
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "efxtwpht5answc"
+          },
+          "editorMode": "code",
+          "range": true
+        },
+        {
+          "expr": "((sum(rate(vllm:nixl_xfer_time_seconds_sum{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=\"127.0.0.1:8513\"}[$__rate_interval])) / clamp_min(sum(rate(vllm:nixl_xfer_time_seconds_count{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=\"127.0.0.1:8513\"}[$__rate_interval])), 1e-9)) and on() (sum(increase(vllm:nixl_xfer_time_seconds_count{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=\"127.0.0.1:8513\"}[$__rate_interval])) > 0.1))",
+          "legendFormat": "nixl avg",
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "efxtwpht5answc"
+          },
+          "editorMode": "code",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 22,
+      "type": "timeseries",
+      "title": "P TTFT（若有）",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "efxtwpht5answc"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 35
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "spanNulls": true,
+            "showPoints": "never",
+            "lineInterpolation": "linear"
+          },
+          "min": 0,
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "expr": "(sum(increase(vllm:time_to_first_token_seconds_sum{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=~\"127.0.0.1:8510|127.0.0.1:8511|127.0.0.1:8512\"}[$__rate_interval])) / clamp_min(sum(increase(vllm:time_to_first_token_seconds_count{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=~\"127.0.0.1:8510|127.0.0.1:8511|127.0.0.1:8512\"}[$__rate_interval])), 1e-9))",
+          "legendFormat": "avg",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "efxtwpht5answc"
+          },
+          "editorMode": "code",
+          "range": true
+        },
+        {
+          "expr": "histogram_quantile(0.5, sum by(le) (increase(vllm:time_to_first_token_seconds_bucket{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=~\"127.0.0.1:8510|127.0.0.1:8511|127.0.0.1:8512\"}[$__rate_interval]))) and on() (sum(increase(vllm:time_to_first_token_seconds_count{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=~\"127.0.0.1:8510|127.0.0.1:8511|127.0.0.1:8512\"}[$__rate_interval])) > 8)",
+          "legendFormat": "p50",
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "efxtwpht5answc"
+          },
+          "editorMode": "code",
+          "range": true
+        },
+        {
+          "expr": "histogram_quantile(0.9, sum by(le) (increase(vllm:time_to_first_token_seconds_bucket{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=~\"127.0.0.1:8510|127.0.0.1:8511|127.0.0.1:8512\"}[$__rate_interval]))) and on() (sum(increase(vllm:time_to_first_token_seconds_count{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=~\"127.0.0.1:8510|127.0.0.1:8511|127.0.0.1:8512\"}[$__rate_interval])) > 8)",
+          "legendFormat": "p90",
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "efxtwpht5answc"
+          },
+          "editorMode": "code",
+          "range": true
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by(le) (increase(vllm:time_to_first_token_seconds_bucket{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=~\"127.0.0.1:8510|127.0.0.1:8511|127.0.0.1:8512\"}[$__rate_interval]))) and on() (sum(increase(vllm:time_to_first_token_seconds_count{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=~\"127.0.0.1:8510|127.0.0.1:8511|127.0.0.1:8512\"}[$__rate_interval])) > 8)",
+          "legendFormat": "p95",
+          "refId": "D",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "efxtwpht5answc"
+          },
+          "editorMode": "code",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 23,
+      "type": "timeseries",
+      "title": "D TTFT / ITL",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "efxtwpht5answc"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 35
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "spanNulls": true,
+            "showPoints": "never",
+            "lineInterpolation": "linear"
+          },
+          "min": 0,
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "expr": "(sum(increase(vllm:time_to_first_token_seconds_sum{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=\"127.0.0.1:8513\"}[$__rate_interval])) / clamp_min(sum(increase(vllm:time_to_first_token_seconds_count{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=\"127.0.0.1:8513\"}[$__rate_interval])), 1e-9))",
+          "legendFormat": "avg",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "efxtwpht5answc"
+          },
+          "editorMode": "code",
+          "range": true
+        },
+        {
+          "expr": "histogram_quantile(0.5, sum by(le) (increase(vllm:time_to_first_token_seconds_bucket{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=\"127.0.0.1:8513\"}[$__rate_interval]))) and on() (sum(increase(vllm:time_to_first_token_seconds_count{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=\"127.0.0.1:8513\"}[$__rate_interval])) > 8)",
+          "legendFormat": "p50",
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "efxtwpht5answc"
+          },
+          "editorMode": "code",
+          "range": true
+        },
+        {
+          "expr": "(sum(increase(vllm:inter_token_latency_seconds_sum{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=\"127.0.0.1:8513\"}[$__rate_interval])) / clamp_min(sum(increase(vllm:inter_token_latency_seconds_count{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=\"127.0.0.1:8513\"}[$__rate_interval])), 1e-9))",
+          "legendFormat": "ITL avg",
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "efxtwpht5answc"
+          },
+          "editorMode": "code",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 24,
+      "type": "row",
+      "title": "KV · 前缀缓存 · MTP",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 43
+      },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 25,
+      "type": "timeseries",
+      "title": "P KV 占用",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "efxtwpht5answc"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 44
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "spanNulls": true,
+            "showPoints": "never",
+            "lineInterpolation": "linear"
+          },
+          "min": 0,
+          "unit": "percentunit",
+          "max": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "expr": "vllm:kv_cache_usage_perc{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=~\"127.0.0.1:8510|127.0.0.1:8511|127.0.0.1:8512\"}",
+          "legendFormat": "{{service}}",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "efxtwpht5answc"
+          },
+          "editorMode": "code",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 26,
+      "type": "timeseries",
+      "title": "D KV 占用",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "efxtwpht5answc"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 44
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "spanNulls": true,
+            "showPoints": "never",
+            "lineInterpolation": "linear"
+          },
+          "min": 0,
+          "unit": "percentunit",
+          "max": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "expr": "vllm:kv_cache_usage_perc{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=\"127.0.0.1:8513\"}",
+          "legendFormat": "{{service}}",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "efxtwpht5answc"
+          },
+          "editorMode": "code",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 27,
+      "type": "timeseries",
+      "title": "P prefix / Mooncake hit",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "efxtwpht5answc"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 52
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "spanNulls": true,
+            "showPoints": "never",
+            "lineInterpolation": "linear"
+          },
+          "min": 0,
+          "unit": "percentunit",
+          "max": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(vllm:prefix_cache_hits_total{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=~\"127.0.0.1:8510|127.0.0.1:8511|127.0.0.1:8512\"}[$__rate_interval])) / clamp_min(sum(rate(vllm:prefix_cache_queries_total{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=~\"127.0.0.1:8510|127.0.0.1:8511|127.0.0.1:8512\"}[$__rate_interval])), 1e-9)",
+          "legendFormat": "gpu prefix",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "efxtwpht5answc"
+          },
+          "editorMode": "code",
+          "range": true
+        },
+        {
+          "expr": "sum(rate(vllm:external_prefix_cache_hits_total{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=~\"127.0.0.1:8510|127.0.0.1:8511|127.0.0.1:8512\"}[$__rate_interval])) / clamp_min(sum(rate(vllm:external_prefix_cache_queries_total{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=~\"127.0.0.1:8510|127.0.0.1:8511|127.0.0.1:8512\"}[$__rate_interval])), 1e-9)",
+          "legendFormat": "external / Mooncake",
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "efxtwpht5answc"
+          },
+          "editorMode": "code",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 28,
+      "type": "timeseries",
+      "title": "D MTP 接受率 / NIXL 次数",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "efxtwpht5answc"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 52
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "spanNulls": true,
+            "showPoints": "never",
+            "lineInterpolation": "linear"
+          },
+          "min": 0,
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(vllm:spec_decode_num_accepted_tokens_total{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=\"127.0.0.1:8513\"}[$__rate_interval])) / clamp_min(sum(rate(vllm:spec_decode_num_draft_tokens_total{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=\"127.0.0.1:8513\"}[$__rate_interval])), 1e-9)",
+          "legendFormat": "MTP accept",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "efxtwpht5answc"
+          },
+          "editorMode": "code",
+          "range": true
+        },
+        {
+          "expr": "sum(rate(vllm:nixl_xfer_time_seconds_count{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=\"127.0.0.1:8513\"}[$__rate_interval]))",
+          "legendFormat": "NIXL xfer/s",
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "efxtwpht5answc"
+          },
+          "editorMode": "code",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 29,
+      "type": "timeseries",
+      "title": "P 抢占 /s",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "efxtwpht5answc"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 60
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "spanNulls": true,
+            "showPoints": "never",
+            "lineInterpolation": "linear"
+          },
+          "min": 0,
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum by (service) (rate(vllm:num_preemptions_total{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=~\"127.0.0.1:8510|127.0.0.1:8511|127.0.0.1:8512\"}[$__rate_interval]))",
+          "legendFormat": "{{service}}",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "efxtwpht5answc"
+          },
+          "editorMode": "code",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 30,
+      "type": "timeseries",
+      "title": "D 抢占 /s",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "efxtwpht5answc"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 60
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "spanNulls": true,
+            "showPoints": "never",
+            "lineInterpolation": "linear"
+          },
+          "min": 0,
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum by (service) (rate(vllm:num_preemptions_total{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=\"127.0.0.1:8513\"}[$__rate_interval]))",
+          "legendFormat": "{{service}}",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "efxtwpht5answc"
+          },
+          "editorMode": "code",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 31,
+      "type": "row",
+      "title": "Finish reason · 长度",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 68
+      },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 32,
+      "type": "timeseries",
+      "title": "P finish reason",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "efxtwpht5answc"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 69
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "spanNulls": true,
+            "showPoints": "never",
+            "lineInterpolation": "linear"
+          },
+          "min": 0,
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum by (finished_reason) (increase(vllm:request_success_total{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=~\"127.0.0.1:8510|127.0.0.1:8511|127.0.0.1:8512\"}[$__rate_interval]))",
+          "legendFormat": "{{finished_reason}}",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "efxtwpht5answc"
+          },
+          "editorMode": "code",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 33,
+      "type": "timeseries",
+      "title": "D finish reason",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "efxtwpht5answc"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 69
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "spanNulls": true,
+            "showPoints": "never",
+            "lineInterpolation": "linear"
+          },
+          "min": 0,
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum by (finished_reason) (increase(vllm:request_success_total{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=\"127.0.0.1:8513\"}[$__rate_interval]))",
+          "legendFormat": "{{finished_reason}}",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "efxtwpht5answc"
+          },
+          "editorMode": "code",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 34,
+      "type": "row",
+      "title": "硬件 GPU0–2 = P　GPU3 = D",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 77
+      },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 35,
+      "type": "timeseries",
+      "title": "P Tensor Active（GPU0–2）",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "efxtwpht5answc"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 78
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "spanNulls": true,
+            "showPoints": "never",
+            "lineInterpolation": "linear"
+          },
+          "min": 0,
+          "unit": "percentunit",
+          "max": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "expr": "DCGM_FI_PROF_PIPE_TENSOR_ACTIVE{job=\"dcgm_qwen36_gpu0_3\",gpu=~\"0|1|2\"}",
+          "legendFormat": "gpu {{gpu}}",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "efxtwpht5answc"
+          },
+          "editorMode": "code",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 36,
+      "type": "timeseries",
+      "title": "D Tensor Active（GPU3）",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "efxtwpht5answc"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 78
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "spanNulls": true,
+            "showPoints": "never",
+            "lineInterpolation": "linear"
+          },
+          "min": 0,
+          "unit": "percentunit",
+          "max": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "expr": "DCGM_FI_PROF_PIPE_TENSOR_ACTIVE{job=\"dcgm_qwen36_gpu0_3\",gpu=\"3\"}",
+          "legendFormat": "gpu {{gpu}}",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "efxtwpht5answc"
+          },
+          "editorMode": "code",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 37,
+      "type": "timeseries",
+      "title": "P Power W（GPU0–2）",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "efxtwpht5answc"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 86
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "spanNulls": true,
+            "showPoints": "never",
+            "lineInterpolation": "linear"
+          },
+          "min": 0,
+          "unit": "watt"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "expr": "DCGM_FI_DEV_POWER_USAGE{job=\"dcgm_qwen36_gpu0_3\",gpu=~\"0|1|2\"}",
+          "legendFormat": "gpu {{gpu}}",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "efxtwpht5answc"
+          },
+          "editorMode": "code",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 38,
+      "type": "timeseries",
+      "title": "D Power W（GPU3）",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "efxtwpht5answc"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 86
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "spanNulls": true,
+            "showPoints": "never",
+            "lineInterpolation": "linear"
+          },
+          "min": 0,
+          "unit": "watt"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "expr": "DCGM_FI_DEV_POWER_USAGE{job=\"dcgm_qwen36_gpu0_3\",gpu=\"3\"}",
+          "legendFormat": "gpu {{gpu}}",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "efxtwpht5answc"
+          },
+          "editorMode": "code",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 39,
+      "type": "timeseries",
+      "title": "P / D 温度 °C",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "efxtwpht5answc"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 94
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "spanNulls": true,
+            "showPoints": "never",
+            "lineInterpolation": "linear"
+          },
+          "min": 0,
+          "unit": "celsius"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "expr": "DCGM_FI_DEV_GPU_TEMP{job=\"dcgm_qwen36_gpu0_3\",gpu=~\"0|1|2\"}",
+          "legendFormat": "P gpu {{gpu}}",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "efxtwpht5answc"
+          },
+          "editorMode": "code",
+          "range": true
+        },
+        {
+          "expr": "DCGM_FI_DEV_GPU_TEMP{job=\"dcgm_qwen36_gpu0_3\",gpu=\"3\"}",
+          "legendFormat": "D gpu {{gpu}}",
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "efxtwpht5answc"
+          },
+          "editorMode": "code",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 40,
+      "type": "row",
+      "title": "调度队列",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 102
+      },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 41,
+      "type": "timeseries",
+      "title": "P 调度（p0 / p1 / p2）",
+      "description": "预填充引擎：running 只含**正在算 prefill 的请求**（通常每卡个位数），不会像 D 那样堆几十条 decode。waiting 用 `num_requests_waiting`（3s 内峰值），不用仅 capacity 分项。右轴 QPS 对照真实流量。",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "efxtwpht5answc"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 103
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 20,
+            "spanNulls": true,
+            "showPoints": "never",
+            "lineInterpolation": "stepAfter"
+          },
+          "min": 0,
+          "unit": "short"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "running qwen36-p0"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "green",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "running qwen36-p1"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "semi-dark-green",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "running qwen36-p2"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "super-light-green",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "^waiting "
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "red",
+                  "mode": "fixed"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 18
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "^deferred "
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "orange",
+                  "mode": "fixed"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 12
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "^QPS "
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "super-light-blue",
+                  "mode": "fixed"
+                }
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              },
+              {
+                "id": "custom.axisLabel",
+                "value": "req/s"
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    8,
+                    6
+                  ]
+                }
+              },
+              {
+                "id": "unit",
+                "value": "reqps"
+              },
+              {
+                "id": "decimals",
+                "value": 2
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "expr": "max by (service) (max_over_time(vllm:num_requests_running{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=~\"127.0.0.1:8510|127.0.0.1:8511|127.0.0.1:8512\"}[3s]))",
+          "legendFormat": "running {{service}}",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "efxtwpht5answc"
+          },
+          "editorMode": "code",
+          "range": true
+        },
+        {
+          "expr": "max by (service) (max_over_time(vllm:num_requests_waiting{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=~\"127.0.0.1:8510|127.0.0.1:8511|127.0.0.1:8512\"}[3s]))",
+          "legendFormat": "waiting {{service}}",
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "efxtwpht5answc"
+          },
+          "editorMode": "code",
+          "range": true
+        },
+        {
+          "expr": "max by (service) (max_over_time(vllm:num_requests_waiting_by_reason{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=~\"127.0.0.1:8510|127.0.0.1:8511|127.0.0.1:8512\",reason=\"deferred\"}[3s]))",
+          "legendFormat": "deferred {{service}}",
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "efxtwpht5answc"
+          },
+          "editorMode": "code",
+          "range": true
+        },
+        {
+          "expr": "sum by (service) (rate(vllm:request_success_total{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=~\"127.0.0.1:8510|127.0.0.1:8511|127.0.0.1:8512\"}[$__rate_interval]))",
+          "legendFormat": "QPS {{service}}",
+          "refId": "D",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "efxtwpht5answc"
+          },
+          "editorMode": "code",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 42,
+      "type": "timeseries",
+      "title": "D 调度（d3）",
+      "description": "出词卡 running / waiting / deferred（3s 峰值）。WAITING_FOR_REMOTE_KVS 多在 deferred。右轴 QPS。",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "efxtwpht5answc"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 103
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 20,
+            "spanNulls": true,
+            "showPoints": "never",
+            "lineInterpolation": "stepAfter"
+          },
+          "min": 0,
+          "unit": "short"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "running qwen36-d3"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "purple",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "^waiting "
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "red",
+                  "mode": "fixed"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 18
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "^deferred "
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "orange",
+                  "mode": "fixed"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 12
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "^QPS "
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "super-light-blue",
+                  "mode": "fixed"
+                }
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              },
+              {
+                "id": "custom.axisLabel",
+                "value": "req/s"
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    8,
+                    6
+                  ]
+                }
+              },
+              {
+                "id": "unit",
+                "value": "reqps"
+              },
+              {
+                "id": "decimals",
+                "value": 2
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "expr": "max by (service) (max_over_time(vllm:num_requests_running{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=\"127.0.0.1:8513\"}[3s]))",
+          "legendFormat": "running {{service}}",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "efxtwpht5answc"
+          },
+          "editorMode": "code",
+          "range": true
+        },
+        {
+          "expr": "max by (service) (max_over_time(vllm:num_requests_waiting{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=\"127.0.0.1:8513\"}[3s]))",
+          "legendFormat": "waiting {{service}}",
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "efxtwpht5answc"
+          },
+          "editorMode": "code",
+          "range": true
+        },
+        {
+          "expr": "max by (service) (max_over_time(vllm:num_requests_waiting_by_reason{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=\"127.0.0.1:8513\",reason=\"deferred\"}[3s]))",
+          "legendFormat": "deferred {{service}}",
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "efxtwpht5answc"
+          },
+          "editorMode": "code",
+          "range": true
+        },
+        {
+          "expr": "sum by (service) (rate(vllm:request_success_total{job=\"vllm_qwen36_pd_engines\",model_name=\"$model_name\",instance=\"127.0.0.1:8513\"}[$__rate_interval]))",
+          "legendFormat": "QPS {{service}}",
+          "refId": "D",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "efxtwpht5answc"
+          },
+          "editorMode": "code",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 43,
+      "type": "text",
+      "title": "口径",
+      "gridPos": {
+        "h": 5,
+        "w": 24,
+        "x": 0,
+        "y": 111
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "同一张看板，图按 **P / D** 拆开。数据源是 `prometheus-qwen36`（:9108），只取 `job=vllm_qwen36_pd_engines`。\n\n- **P**：`:8510` p0、`:8511` p1、`:8512` p2，`role=prefill`。E2E 是预填充墙钟，不含出词。调度图 running 偏小是正常现象（prefill 完即转 D）。\n- **D**：`:8513` d3，`role=decode`。E2E 含等 KV 和 184 个 token。\n- **不含** `:8500` nginx，避免和引擎重复计数。\n- GPU0–2 画在 P，GPU3 画在 D。\n- 现网 3P+1D：P token 预算 65536 / 20 GiB KV，D 16384。"
+      }
+    }
+  ],
+  "refresh": "2s",
+  "schemaVersion": 39,
+  "tags": [
+    "qwen36",
+    "vllm",
+    "3p1d",
+    "prefill",
+    "decode"
+  ],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "text": "prometheus-qwen36",
+          "value": "efxtwpht5answc"
+        },
+        "hide": 2,
+        "name": "DS_PROMETHEUS",
+        "query": "prometheus",
+        "type": "datasource"
+      },
+      {
+        "current": {
+          "text": "Qwen/Qwen3.6-35B-A3B-FP8",
+          "value": "Qwen/Qwen3.6-35B-A3B-FP8"
+        },
+        "hide": 2,
+        "name": "model_name",
+        "query": "Qwen/Qwen3.6-35B-A3B-FP8",
+        "type": "constant",
+        "skipUrlSync": true
+      }
+    ]
+  },
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  },
+  "timezone": "browser",
+  "title": "vLLM · Qwen3.6-35B · 3P+1D",
+  "uid": "b281712d-8bff-41ef-9f3f-71ad43c05e9b",
+  "version": 36
+}

@@ -1,0 +1,8 @@
+review_model: private:${VIKNOW_PRIVATE_MODEL}
+asr: actio:asr
+caption: private:${VIKNOW_PRIVATE_MODEL}
+ocr:
+  ref: actio:ocr
+  video_frame_fps: 2.0
+video_discovery: private:${VIKNOW_PRIVATE_MODEL}
+locate_anything: actio:locate_anything

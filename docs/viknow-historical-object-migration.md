@@ -73,3 +73,29 @@
 | 旧键 | 仍在 |
 | 数据库 | 未改 |
 | 旧对象 | 未删 |
+
+这条资产的索引状态是 `deleted`，没有分块，所以后面的全量搬运没有包含它。
+
+## 4. 全量执行
+
+2026-10-10 对 `status = completed` 且 `file_path` 以 `/data/viknow/` 开头的资产执行了复制和数据库改写。旧对象没有删除。
+
+| 结果 | 数量 |
+| --- | --- |
+| 符合条件的资产 | 1279 |
+| 已复制并改写 `file_path` | 1253 |
+| 源对象在网关上不存在，数据库未改 | 26 |
+| 随资产复制的缓存目录 | 0 |
+
+`file_path` 已改为 `knowledge/assets/{id}/upload/{id}{扩展名}` 的表：
+
+- `public.hyperrag_asset_status`
+- `hyperrag_kg.kg_chunk_vectors`
+- `hyperrag_kg.kg_entity_vectors`
+- `hyperrag_kg.kg_relation_vectors`
+
+分块 `metadata` 里的旧绝对路径也换成了同一条新键。抽查 `20260728141552eebf2666`：3415 条分块都指向 `knowledge/assets/20260728141552eebf2666/upload/20260728141552eebf2666.pdf`，网关对象与应用读回的文件都是 125663333 字节，分块元数据里不再含 `/data/viknow/`。
+
+26 条未搬是因为旧键已经不在桶里。其中 17 条在 `knowledge/uploads/feishu-7674904628516883756/`。这些行的 `file_path` 仍是 `/data/viknow/...`。
+
+`/data/viknow/knowledge/libraries` 下的 `mineru_cache` 和 `video_cache` 属于状态不是 `completed`，或 `file_path` 在 `/data/source/viknow/` 下的资产，这次没有搬。

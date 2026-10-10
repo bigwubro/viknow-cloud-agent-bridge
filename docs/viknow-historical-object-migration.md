@@ -26,8 +26,10 @@
 不搬：
 
 - `/data/test`，包括 `KBIndex`、`KBStore`
-- `/data/datasets`、`/home` 以及其他不在 `/data/viknow` 下的 `file_path`（约 971 条）
+- `/home` 以及其他不在 `/data/viknow` 下的 `file_path`
 - `/data/viknow/logs`、`/data/viknow/ops`、`/data/viknow/t2`，它们不是索引文件
+
+`/data/datasets` 里 `status = completed` 的视频在第 5 节单独搬运。同目录下未完成的行不在这次范围内。
 
 已经是 `*.normalized.mp4` 的源文件，新文件名保持 ` {id}.normalized.mp4`。
 
@@ -99,3 +101,29 @@
 26 条未搬是因为旧键已经不在桶里。其中 17 条在 `knowledge/uploads/feishu-7674904628516883756/`。这些行的 `file_path` 仍是 `/data/viknow/...`。
 
 `/data/viknow/knowledge/libraries` 下的 `mineru_cache` 和 `video_cache` 属于状态不是 `completed`，或 `file_path` 在 `/data/source/viknow/` 下的资产，这次没有搬。
+
+## 5. `/data/datasets` 已完成视频
+
+2026-10-10 对 `status = completed` 且 `file_path` 以 `/data/datasets/` 开头的资产做了同样的数据库改写。这些文件原来不在网关桶里，是容器能读到的本地文件，所以用 `fput_object` 上传到新键，并在大小与本地文件一致后才改 `file_path`。本地原文件保留。
+
+搬运前清点：751 条都在磁盘上，合计 55009067442 字节。`/data/datasets/LongVideoBench/videos` 680 条，`/data/datasets/LVBench/videos` 71 条。
+
+| 结果 | 数量 |
+| --- | --- |
+| 符合条件的资产 | 751 |
+| 已上传并改写 `file_path` | 751 |
+| 失败或跳过 | 0 |
+| 耗时 | 1541 秒 |
+
+新键形式是 `knowledge/assets/{id}/upload/{id}.mp4`。改写的表与第 4 节相同。抽查 `lvbench-2sriHX3PbXw`：
+
+| 检查 | 结果 |
+| --- | --- |
+| 新键 | `knowledge/assets/lvbench-2sriHX3PbXw/upload/lvbench-2sriHX3PbXw.mp4` |
+| 本地文件 | 仍在，413464073 字节 |
+| 网关对象 | 413464073 字节 |
+| `materialize_stored_path` 读回 | 413464073 字节 |
+| 分块 / 实体 / 关系 | 341 / 684 / 323，`file_path` 都是新键 |
+| 这些行的 metadata | 不再含 `/data/datasets/` |
+
+仍留在 `/data/datasets/` 的行：`failed` 69、`parsing` 5、`indexing` 1。其中 720 条分块 metadata 仍含 `/data/datasets/`，全部属于那 1 条 `indexing` 资产。另有 1 条已完成资产的实体描述正文里出现目录名 `/data/datasets/LongVideoBench/videos/`，它的 `file_path` 已经是新键。

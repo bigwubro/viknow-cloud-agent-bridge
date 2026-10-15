@@ -16,7 +16,8 @@ stop_pidfile /tmp/qwen36-pd-proxy-a.pid
 stop_pidfile /tmp/qwen36-pd-proxy-b.pid
 stop_pidfile /tmp/qwen36-pd-proxy-3p1d.pid
 docker rm -f qwen36-pd-lb qwen36-p0 qwen36-p1 qwen36-d1 qwen36-p2 qwen36-d3 \
-  qwen36-lmc-coord qwen36-lmc-p0 qwen36-lmc-p1 qwen36-lmc-p2 qwen36-lmc-d3 2>/dev/null || true
+  qwen36-lmc-coord qwen36-lmc-p0 qwen36-lmc-p1 qwen36-lmc-p2 qwen36-lmc-d3 \
+  qwen36-mooncake-master 2>/dev/null || true
 docker start vllm-vlm
 echo "restored vllm-vlm; wait for :8500"
 for i in $(seq 1 60); do

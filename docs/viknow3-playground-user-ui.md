@@ -20,10 +20,11 @@ git checkout agent/ui-playground-user
 - **`/playground/workspace`**：知识库列表（localStorage `viknow_playground_user`）
 - **`/playground/agents`**：智能体列表（`GET /api/v1/agent/agents`，与 [Agent API 文档](http://36.103.198.236:5208/start/api/agents.html) 一致）
 - **`/playground/agent/{agent_id}`**：对话页（左侧聊天 + 模型选择，右侧智能体详情；问答暂为 **Mock**，后续接 `sessions` / runs/events）
-- **BFF**（直连 PG，与 `/api/v1/users` 同一 `user_service`）：
-  - `POST /ui/playground/users`
-  - `POST /ui/playground/login`
-  - `GET /ui/playground/users/{id}`
+- **Access API**（与文档一致，Playground :5198 内挂载）：
+  - `POST /api/v1/users`、`GET /api/v1/users/{user_id}`
+  - `GET/POST /api/v1/knowledge/*`（含 `POST …/libraries/{id}/uploads`、`POST …/downloads` 预签名）
+  - `GET /api/v1/agent/agents` 等
+- 旧 `/ui/playground/users|login|s3/*` 已移除（404）
 
 ## 236 运行
 

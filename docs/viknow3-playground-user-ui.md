@@ -17,7 +17,9 @@ git checkout agent/ui-playground-user
 
 - **OpenAI Platform 风格**：深色侧栏 + 浅色主区
 - **`/playground`**：创建用户（可选显示名）、用用户 ID「登录」
-- **`/playground/workspace`**：登录后占位页（localStorage `viknow_playground_user`）
+- **`/playground/workspace`**：知识库列表（localStorage `viknow_playground_user`）
+- **`/playground/agents`**：智能体列表（`GET /api/v1/agent/agents`，与 [Agent API 文档](http://36.103.198.236:5208/start/api/agents.html) 一致）
+- **`/playground/agent/{agent_id}`**：对话页（左侧聊天 + 模型选择，右侧智能体详情；问答暂为 **Mock**，后续接 `sessions` / runs/events）
 - **BFF**（直连 PG，与 `/api/v1/users` 同一 `user_service`）：
   - `POST /ui/playground/users`
   - `POST /ui/playground/login`
@@ -32,7 +34,7 @@ cd /home/cursor-agent/src/viknow3
 python3 -m ui.server
 ```
 
-浏览器：`http://<host>:5198/playground`（默认 `VIKNOW_UI_PORT=5198`）。
+浏览器：`http://36.103.198.236:5198/playground`（默认 `VIKNOW_UI_PORT=5198`）。侧栏 **知识库 | 智能体** 平级切换。
 
 ## 测试
 

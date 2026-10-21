@@ -44,6 +44,17 @@ cd /home/cursor-agent/src/viknow3
 PYTHONPATH="$(pwd)/src:$(pwd)" python3 -m pytest tests/test_playground_user_ui.py -q
 ```
 
-## Cloud Agent 推送状态
+## Cloud Agent 推送 Gitea
 
-若 Cloud 环境 `VIKNOW_236_SSH_KEY` / Gitea 密钥无效，需在 236 容器内手动 `git push -u origin agent/ui-playground-user` 或应用 bundle。
+- **Cloud Agent VM** 上的 `VIKNOW_236_SSH_KEY` 只用于 SSH 登录 **236**，**不能**用来 `git push` 到 `git.qingxiang.tech`。
+- **跳板仓**（GitHub `viknow-cloud-agent-bridge`）的 push 与 **viknow3 业务仓**（Gitea）是两套凭据；前者可以、后者在 Cloud VM 上通常会 `Permission denied (publickey)`。
+- 业务仓请在 **236** 上用已登记 Gitea 的密钥推送，例如：
+
+```bash
+ssh cursor-agent@36.103.198.236
+cd /home/cursor-agent/src/viknow3
+GIT_SSH_COMMAND='ssh -i ~/.ssh/gitea_ljs_ed25519 -o BatchMode=yes' \
+  git push -u origin agent/viknow-v3-knowledge-mvp
+```
+
+（密钥名以 236 上 `~/.ssh/` 实际为准；`ssh -T git@git.qingxiang.tech -p 2222` 应返回 `Hi there, …`.）

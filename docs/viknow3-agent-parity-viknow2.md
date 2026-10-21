@@ -41,7 +41,7 @@
 ├─────────────────────────────────────────────────────────┤
 │ Profile 层：与 viknow-v2.yaml 同字段语义（可仍用 id viknow-v3 或别名） │
 ├─────────────────────────────────────────────────────────┤
-│ Runtime：DeepAgents + LangGraphAgent（与 viknow2 同栈；禁止长期依赖 ReAct 占位） │
+│ Runtime：DeepAgents 图，由 agentcore 常驻 agent loop 直接运行（无 Agno；禁止长期依赖 ReAct 占位） │
 ├─────────────────────────────────────────────────────────┤
 │ Skills：从 viknow2 拷贝/同步 knowledge-qa-v2 + visual-ground 全文 │
 ├─────────────────────────────────────────────────────────┤

@@ -62,3 +62,35 @@ ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=accept-new cursor-agent@36.103
 ```
 
 成功标志：Gitea `castmeta-research/viknow2` 出现分支 `agent/cloud-smoke`。
+
+### 推送 Gitea（viknow3 / viknow2 业务仓）
+
+`VIKNOW_236_SSH_KEY` **只能 SSH 登录 236**，不能 `git push` 到 `git.qingxiang.tech`。
+
+任选其一：
+
+1. **Cloud Agent 直推 Gitea**：在环境 Secrets 增加 **`VIKNOW_GITEA_SSH_KEY`**（内容为 Gitea 登记用的 **OpenSSH 私钥**全文，不是指纹）。启动后：
+
+```bash
+mkdir -p ~/.ssh && chmod 700 ~/.ssh
+printf '%s\n' "$VIKNOW_GITEA_SSH_KEY" > ~/.ssh/gitea_ed25519
+chmod 600 ~/.ssh/gitea_ed25519
+ssh -i ~/.ssh/gitea_ed25519 -p 2222 -o StrictHostKeyChecking=accept-new -T git@git.qingxiang.tech
+# 期望：Hi there, <user>! ... Gitea does not provide shell access.
+export GIT_SSH_COMMAND='ssh -i ~/.ssh/gitea_ed25519 -p 2222 -o BatchMode=yes'
+git -C /path/to/viknow3 push -u origin agent/<topic>
+```
+
+校验指纹（Gitea 页上显示的 SHA256/SHA1 需与私钥一致）：
+
+```bash
+ssh-keygen -y -f ~/.ssh/gitea_ed25519 | ssh-keygen -lf -
+python3 -c "import hashlib,base64,sys; b=base64.b64decode(sys.stdin.read().split()[1]); print(hashlib.sha1(b).hexdigest())" <<< "$(ssh-keygen -y -f ~/.ssh/gitea_ed25519)"
+```
+
+2. **经 236 推送**（236 上已有例如 `~/.ssh/gitea_ljs_ed25519`）：
+
+```bash
+ssh -i ~/.ssh/id_ed25519 cursor-agent@36.103.198.236 \
+  'cd /home/cursor-agent/src/viknow3 && GIT_SSH_COMMAND="ssh -i ~/.ssh/gitea_ljs_ed25519 -o BatchMode=yes" git push -u origin agent/<topic>'
+```

@@ -4,6 +4,7 @@
 
 - 业务仓在 Gitea：`ssh://git@git.qingxiang.tech:2222/castmeta-research/viknow2.git`
 - 真实工作区在 236：`viknow2-test-dev` 容器内的 `/workspace`
+- API / 数据模型文档站（实现以它为准）：<http://36.103.198.236:5208/>，对话接口 <http://36.103.198.236:5208/start/api/runs.html>，会话数据模型 <http://36.103.198.236:5208/model/session.html>
 - Cloud Agent 在本仓库启动后，必须 SSH 到 236 再 `docker exec` 进入开发容器
 
 ## Cursor Cloud specific instructions

@@ -7,7 +7,7 @@
 
 - 浏览器业务数据 **只调** `/api/v1/*`（Playground 进程内挂载 access 路由，服务端注入 app key）。
 - **不再使用** `/ui/playground/users|login|s3/*`（应 404）。
-- 智能体对话 **Mock**（前端 `agent.js`），真实 runs/events 后续再接。
+- 智能体对话走 **`POST /api/v1/agent/runs`** + **`GET …/runs/{id}/events?live=true`**（SSE：`message_delta`、`tool_call_*`、`run_completed`）。`viknow-v3` 为 LangGraph ReAct（236 无 `deepagents` 包时自动回退）；工具内 HyperRAG 仍为 mock。
 
 ## 自动化冒烟
 
@@ -30,7 +30,7 @@ chmod +x scripts/playground-acceptance.sh
 | 4 | 上传文件 | `POST …/libraries/{id}/uploads` → S3 PUT → `POST …/assets` |
 | 5 | 预览/下载 | `POST /api/v1/knowledge/downloads` |
 | 6 | 智能体列表 | `GET /api/v1/agent/agents` |
-| 7 | 进入对话、选模型、提问 | `GET …/agents/{id}`、`GET …/models`；回复为 Mock |
+| 7 | 进入对话、选模型、提问 | multipart `POST …/runs`（含 `library_ids`，默认 `library-1`）；侧栏可见工具调用；回复流式输出 |
 
 ## 单测
 

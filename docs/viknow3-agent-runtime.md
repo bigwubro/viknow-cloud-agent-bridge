@@ -68,3 +68,38 @@ deepagents 要求 Python ≥ 3.11，236 宿主 `python3` 是 3.10，所以用 uv
 
 1. 236 上缺 HyperRAG 运行依赖（`jieba`、私有包 `scheduler-core` 等），`manual-qa` 的真实 HyperRAG 检索不可用；对应单测在缺依赖时跳过。
 2. 早于本次的 3 个失败单测：`test_access.test_modules`（会话忙检测已修好，现在停在 HyperRAG 检索：缺 `hyperrag` 模块）、`test_algorithm_ui`（页面文案）、`test_ops_config`（`agent_model` 存的是 ops 模型 id，如 `private:qwen`，`model_resolve` 还不认识，直接接回会把模型名发成 `qwen`）。
+
+## 同一份 profile，两个装配器（2026-10-21）
+
+业务仓分支 `agent/viknow-adk-assembler`（`0e66a8d`），尚未合入 `main`，也还没部署到 `:5198`。
+
+`viknow-v2.yaml` 仍是唯一的 profile。`viknow-v3` 用 deepagents 装配，`viknow-adk` 用 ADK `LlmAgent` 装配，都在本进程的 agent loop 上跑。技能触发语由装配器追加：deepagents 用 `read_file` 读 `SKILL.md`，ADK 用 `SkillToolset` 的 `list_skills` / `load_skill`。模型都走 `resolve_openai_chat`，ADK 经 LiteLLM 接同一个地址。
+
+接入层的 `sessions` / `run_events` 两边共用。deepagents 的记忆仍是 agent 库 `public` 里的 LangGraph checkpoint，`thread_id = session_id`。ADK 的记忆在同一库的 `adk` schema（`sessions`、`events`、`app_states`、`user_states`），session id 用同一个值。删 `viknow-adk` 会话时顺带删这几张表里的行。
+
+```mermaid
+flowchart TB
+  subgraph access [access 库]
+    sessions[sessions / run_refs]
+    events[run_events]
+  end
+  profile[viknow-v2.yaml]
+  host[host.run]
+  profile --> deepAsm[deepagents 装配器]
+  profile --> adkAsm[ADK 装配器]
+  host --> deepAsm
+  host --> adkAsm
+  deepAsm --> graph[create_deep_agent]
+  adkAsm --> llm[LlmAgent + SkillToolset]
+  graph --> events
+  llm --> events
+  sessions --> host
+  subgraph agentdb [agent 库]
+    ckpt[public.checkpoints]
+    adkrows[adk.sessions / events]
+  end
+  graph --> ckpt
+  llm --> adkrows
+```
+
+236 上 `venv312` 已装 `google-adk 2.12.0`、`litellm`、`mcp`、`greenlet`。单测：`tests/test_adk_profile.py`（含 ADK 表落在 `adk` schema）、`viknow-adk` 脚本模型事件流、会话删除回归。真实模型冒烟：server-default 对「只回复一个字：好」返回「好」。`answer_review` 和 `runtime_budget` 仍未接到任一 runtime。

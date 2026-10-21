@@ -30,7 +30,7 @@ chmod +x scripts/playground-acceptance.sh
 | 4 | 上传文件 | `POST …/libraries/{id}/uploads` → S3 PUT → `POST …/assets` |
 | 5 | 预览/下载 | `POST /api/v1/knowledge/downloads` |
 | 6 | 智能体列表 | `GET /api/v1/agent/agents` |
-| 7 | 进入对话、选模型、提问 | multipart `POST …/runs`（含 `library_ids`，默认 `library-1`）；侧栏可见工具调用；回复流式输出 |
+| 7 | 进入对话 | 知识助手页须**先选一个知识库**（列表来自 `GET /api/v1/knowledge/libraries`），再提问；multipart `POST …/runs` 带单个 `library_ids`；侧栏工具 + SSE 流式回复 |
 
 ## 单测
 

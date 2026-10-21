@@ -22,14 +22,16 @@
 
 工具实现入口：`viknow.core.tools.registry.build_viknow_tool_specs` + `agent_adapters/deepagents_tools.build_deepagents_tools(profile)`。
 
-## viknow3 现状（`viknow-v3`）
+## viknow3 现状（`viknow-v3`，parity 进行中）
 
 | 项 | 现状 |
 |----|------|
-| Registry | 仅登记 3 个 tool id；无 `enabled_skills` / review / budget |
-| 实现 | `knowledge_assistant/*` + 小 mock；236 常走 LangGraph ReAct |
-| 模型 | MVP `KnowledgeAssistantModel` 固定三步，**非** viknow2 LLM 循环 |
-| Skill | 缩写 `knowledge-qa-v2`，无 `visual-ground` |
+| Profile | `knowledge_assistant/profile/viknow-v2.yaml` + `load_viknow_v2_profile()` |
+| Registry | `viknow-v3` 登记 **10** 个 tool id，与 yaml 一致 |
+| Tools | 10 个 StructuredTool，HyperRAG/Actio **mock** |
+| Skills | 从 viknow2 同步 **knowledge-qa-v2** + **visual-ground** 全文 |
+| Runtime | DeepAgents（可用时）/ ReAct 回退；LLM 见 `llm.py`（无 key 时仍用 script model） |
+| 待补 | answer_review 运行时 gate、ToolSpec JSON 与 viknow2 字节级一致、真实 LLM 236 默认 |
 
 ## 「一比一」分层定义
 

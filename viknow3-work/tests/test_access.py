@@ -94,7 +94,7 @@ class AccessTests(unittest.TestCase):
         status, no_lib = self.request(
             "POST",
             "/api/v1/agent/runs",
-            {"user_id": user["id"], "message": "你好", "profile_id": "viknow-v3"},
+            {"user_id": user["id"], "message": "你好", "profile_id": "deepagents"},
         )
         self.assertEqual(status, 422)
 

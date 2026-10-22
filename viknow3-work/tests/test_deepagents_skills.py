@@ -37,13 +37,15 @@ class DeepagentsSkillsTests(unittest.TestCase):
             self.assertTrue(skill_md.is_file(), msg=str(skill_md))
 
     def test_skills_middleware_lists_profile_skills(self) -> None:
-        backend = build_deepagents_backend("skills-test-session", self._profile.enabled_skills)
+        stage_runtime_skills("skills-test-session", self._profile.enabled_skills)
+        backend = build_deepagents_backend("skills-test-session")
         skills = _list_skills(backend, workspace_skills_source())
         names = {item["name"] for item in skills}
         self.assertEqual(names, set(self._profile.enabled_skills))
 
     def test_workspace_paths_not_repo_root(self) -> None:
-        backend = build_deepagents_backend("route-test-session", self._profile.enabled_skills)
+        stage_runtime_skills("route-test-session", self._profile.enabled_skills)
+        backend = build_deepagents_backend("route-test-session")
         self.assertIsInstance(backend, CompositeBackend)
         ws_dir = session_workspace_dir("route-test-session")
         (ws_dir / "outputs" / "marker.txt").write_text("ok", encoding="utf-8")
@@ -65,7 +67,8 @@ class DeepagentsSkillsTests(unittest.TestCase):
         graph = build_graph(None, MemorySaver(), "graph-skills-session")
         node_names = [name for name in graph.nodes if "SkillsMiddleware" in name]
         self.assertTrue(node_names)
-        backend = build_deepagents_backend("graph-skills-session", self._profile.enabled_skills)
+        stage_runtime_skills("graph-skills-session", self._profile.enabled_skills)
+        backend = build_deepagents_backend("graph-skills-session")
         middleware = SkillsMiddleware(backend=backend, sources=[workspace_skills_source()])
         skills = _list_skills(middleware._backend, workspace_skills_source())
         names = {item["name"] for item in skills}

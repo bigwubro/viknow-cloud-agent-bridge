@@ -1,0 +1,83 @@
+application_config_path: ./app.yaml
+# working_dir 由 app.yaml files_root 物化注入
+workspace: default
+enable_task_management: true
+enable_rw_lock: false
+initial_mode: read_write
+
+# scheduler / redis_uri / POSTGRES_* / Neo4j / LLM·embedding / rerank 端点 / Langfuse / MinerU 由 share 物化注入。
+
+rerank:
+  enabled: true
+  mode: text
+  top_k: 50
+  score_threshold: 0.5
+  timeout_seconds: 15
+
+env:
+  LD_LIBRARY_PATH: ${HYPERRAG_LD_LIBRARY_PATH}
+  POSTGRES_MAX_CONNECTIONS: '1000'
+  JOB_LOG_DIR: ${HYPERRAG_JOB_LOG_DIR}
+  LOG_LEVEL: ${HYPERRAG_LOG_LEVEL}
+  LOG_MODULES: hyperrag,lightrag,viknow
+  PROMPT_ENV: ${HYPERRAG_PROMPT_ENV}
+
+models:
+  embedding:
+    dim: 1024
+  video_embedding:
+    enabled: true
+    dim: 1024
+
+retrieval:
+  vector_top_k: 30
+  bm25_top_k: 60
+  image_top_k: 3
+
+knowledgebase_summary_max_chars: 8000
+knowledge_discover_asset_matches_per_library: 3
+knowledge_discover_asset_match_library_limit: 20
+knowledge_discover_catalog_query_concurrency: 4
+
+fast_ingest_enabled: true
+fast_ingest_decoding_strategy: single_model
+fast_ingest_compile_phase: FAST_INGEST
+fast_ingest_er_prompt_mode: compact
+fast_ingest_er_max_output_tokens: 512
+fast_ingest_er_description_max_chars: 48
+fast_ingest_er_retry_full_on_empty: false
+post_compile_auto_enabled: true
+post_compile_auto_interval_minutes: 15
+post_compile_hot_buffer_edge_threshold: 5000
+post_compile_max_batches_per_cycle: 2
+post_compile_batch_size: 5000
+lint_batch_size: 100
+lint_auto_start_hour: 2
+lint_auto_end_hour: 6
+
+mineru_backend: vlm-http-client
+bm25_enabled: true
+kg_vector_enabled: true
+use_structured_video_er_extraction: true
+max_doc_parse_workers: 2
+max_video_parse_workers: 2
+max_index_workers: 2
+vision_model_max_concurrent: 16
+video_asr_max_concurrent: 8
+actio_keep_asr_segment_outputs: false
+max_async: 16
+embedding_batch_num: 10
+video_embedding_max_concurrency: 4
+# Finish each batch, then retry only failures before starting the next batch.
+video_embedding_batch_size: 100
+video_embedding_batch_max_retries: 2
+task_limits:
+  doc_parse:
+    max_concurrent: 1
+    gpu_memory_mb: 0
+  chunking:
+    max_concurrent: 2
+    gpu_memory_mb: 0
+  kg_index:
+    max_concurrent: 2
+    gpu_memory_mb: 0

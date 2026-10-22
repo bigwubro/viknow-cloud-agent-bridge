@@ -1,0 +1,102 @@
+{
+  "document_file_path": "/data/test/app_data/KBStore/000602224116010528/files/20260602225552f18bae88.pdf",
+  "artifact_dir": "/home/zzz/HyperRAG/artifacts/kg_insertion/20260602225552f18bae88",
+  "cases": [
+    {
+      "id": "gdma_modes",
+      "query": "ESP32-H2 的 GDMA 控制器支持哪些数据传输模式？",
+      "expected_entities": ["GDMA Controller"],
+      "expected_chunk_keywords": ["Peripheral-to-Memory", "Memory-to-Memory"]
+    },
+    {
+      "id": "efuse_role",
+      "query": "eFuse Controller 这一章主要在讲什么？",
+      "expected_entities": ["eFuse Controller"],
+      "expected_chunk_keywords": ["eFuse Controller"]
+    },
+    {
+      "id": "gpio_matrix_io",
+      "query": "GPIO Matrix 能做哪些输入输出路由？",
+      "expected_entities": ["GPIO Matrix Signals"],
+      "expected_chunk_keywords": ["Peripheral Input via GPIO Matrix", "Peripheral Output via GPIO Matrix"]
+    },
+    {
+      "id": "interrupt_matrix_registers",
+      "query": "Interrupt Matrix 这一章有哪些寄存器部分？",
+      "expected_entities": ["Interrupt Matrix (INTMTX)"],
+      "expected_chunk_keywords": ["Interrupt Matrix Registers", "Interrupt Priority Registers"]
+    },
+    {
+      "id": "low_power_management",
+      "query": "ESP32-H2 的低功耗管理主要涉及哪些模块？",
+      "expected_entities": ["Low-Power Management", "PMU"],
+      "expected_chunk_keywords": ["Low-Power Management", "PMU"]
+    },
+    {
+      "id": "systimer_alarm",
+      "query": "System Timer 怎么产生 alarm？",
+      "expected_entities": ["System Timer (SYSTIMER)"],
+      "expected_chunk_keywords": ["System Timer Alarm Generation", "alarm"]
+    },
+    {
+      "id": "uart_gdma_mode",
+      "query": "UART Controller 是否支持 GDMA 模式？",
+      "expected_entities": ["UART Controller", "GDMA Controller"],
+      "expected_chunk_keywords": ["GDMA Mode", "Data Transfer in GDMA Mode"]
+    },
+    {
+      "id": "i2c_start",
+      "query": "I2C Controller 如何启动？",
+      "expected_entities": ["I2C Controller"],
+      "expected_chunk_keywords": ["To Start the I2C Controller"]
+    },
+    {
+      "id": "i2s_modes",
+      "query": "I2S Controller 支持哪些数据传输模式？",
+      "expected_entities": ["I2S Controller"],
+      "expected_chunk_keywords": ["TDM", "PDM"]
+    },
+    {
+      "id": "twai_topics",
+      "query": "TWAI 这一章重点讲哪些内容？",
+      "expected_entities": ["TWAI Errors", "TWAI Bit Timing"],
+      "expected_chunk_keywords": ["TWAI Properties", "TWAI Messages", "TWAI Errors", "TWAI Bit Timing"]
+    },
+    {
+      "id": "ledc_features",
+      "query": "LEDC 模块有哪些典型能力？",
+      "expected_entities": ["LED PWM Controller (LEDC)"],
+      "expected_chunk_keywords": ["LEDC", "gamma"]
+    },
+    {
+      "id": "mcpwm_etm",
+      "query": "MCPWM 和 ETM 有什么关系？",
+      "expected_entities": ["Motor Control PWM (MCPWM)"],
+      "expected_chunk_keywords": ["MCPWM-Related ETM Events", "MCPWM-Related ETM Tasks"]
+    },
+    {
+      "id": "rmt_components",
+      "query": "RMT 的发送和接收分别由哪些部分组成？",
+      "expected_entities": ["Remote Control Peripheral (RMT)", "RMT Transmitter", "RMT Receiver"],
+      "expected_chunk_keywords": ["RMT Transmitter", "RMT Receiver"]
+    },
+    {
+      "id": "parlio_module",
+      "query": "PARL_IO 是什么模块？",
+      "expected_entities": ["Parallel IO Controller (PARL_IO)"],
+      "expected_chunk_keywords": ["Parallel IO Controller"]
+    },
+    {
+      "id": "tsens_module",
+      "query": "Temperature Sensor 这一章主要讲什么？",
+      "expected_entities": ["Temperature Sensor (TSENS)"],
+      "expected_chunk_keywords": ["Temperature Sensor"]
+    },
+    {
+      "id": "adc_sampling",
+      "query": "ADC Controller 支持哪些采样模式，还能不能配合 GDMA？",
+      "expected_entities": ["ADC Controller", "GDMA Support"],
+      "expected_chunk_keywords": ["One-Shot Sampling Mode", "Multi-Channel Sampling Mode", "GDMA Support"]
+    }
+  ]
+}

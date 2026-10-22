@@ -24,7 +24,7 @@ from viknow3.application.agentcore.runtime.loop import LOOP
 
 log = logging.getLogger(__name__)
 
-GraphBuilder = Callable[[str | None, Any], Any]
+GraphBuilder = Callable[[str | None, Any, str], Any]
 
 GRAPHS: dict[str, GraphBuilder] = {
     "deepagents": deepagents_graph,
@@ -46,10 +46,10 @@ class _RunGrant:
         return bool(self.libraries())
 
 
-async def build(profile_id: str, model: str | None) -> Any:
+async def build(profile_id: str, model: str | None, session_id: str) -> Any:
     builder = GRAPHS[profile_id]
     saver = await checkpointer()
-    return await asyncio.to_thread(builder, model, saver)
+    return await asyncio.to_thread(builder, model, saver, session_id)
 
 
 async def run(state: RunState, profile: Profile, sink: EventSink, outbound: OutboundGateway) -> None:
@@ -70,7 +70,7 @@ async def run(state: RunState, profile: Profile, sink: EventSink, outbound: Outb
                     code="adk_not_configured",
                 )
         elif profile.id in GRAPHS:
-            await run_graph(await build(profile.id, state.ctx.model), events)
+            await run_graph(await build(profile.id, state.ctx.model, state.ctx.session_id), events)
         else:
             events.failed("no runtime for this profile", code="unknown_profile")
     except asyncio.CancelledError:
@@ -86,7 +86,7 @@ def session_messages(profile_id: str, session_id: str) -> list[Any]:
     """Messages the checkpointer holds for one session."""
 
     async def read() -> list[Any]:
-        graph = await build(profile_id, None)
+        graph = await build(profile_id, None, session_id)
         snapshot = await graph.aget_state(thread_config(session_id))
         return list((snapshot.values or {}).get("messages") or [])
 

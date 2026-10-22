@@ -31,6 +31,7 @@ PLAYGROUND_DATA_ROOT="${VIKNOW_PLAYGROUND_DATA_ROOT:-/data/viknow/knowledge/libr
 export VIKNOW3_DATA_DIR="${VIKNOW3_DATA_DIR:-/data/viknow}"
 export VIKNOW3_LIBRARIES_ROOT="${VIKNOW3_LIBRARIES_ROOT:-$PLAYGROUND_DATA_ROOT}"
 export VIKNOW_SCRATCH_DIR="${VIKNOW_SCRATCH_DIR:-$PLAYGROUND_DATA_ROOT/scratch}"
+export VIKNOW_AGENT_WORKSPACE_ROOT="${VIKNOW_AGENT_WORKSPACE_ROOT:-${VIKNOW_SCRATCH_DIR}/agent-workspaces}"
 
 load_env_files() {
   local f
@@ -130,23 +131,36 @@ stop_ui() {
 
 start_ui() {
   ensure_playground_data_root
-  mkdir -p "$VIKNOW_SCRATCH_DIR" "$VIKNOW3_LIBRARIES_ROOT"
+  mkdir -p "$VIKNOW_SCRATCH_DIR" "$VIKNOW_AGENT_WORKSPACE_ROOT" "$VIKNOW3_LIBRARIES_ROOT"
   load_env_files
   ensure_mineru_for_hyperrag
   export_mineru_vlm_env
+  mkdir -p "${VIKNOW_SCRATCH_DIR}/jieba-cache"
+  export JIEBA_CACHE_DIR="${JIEBA_CACHE_DIR:-${VIKNOW_SCRATCH_DIR}/jieba-cache}"
+  export TMPDIR="${TMPDIR:-${VIKNOW_SCRATCH_DIR}/tmp}"
+  mkdir -p "$TMPDIR"
   stop_ui
   "$PYTHON" -c "import deepagents, langchain_openai, langgraph.checkpoint.postgres, psycopg_pool" || {
     echo "$PYTHON lacks the agent dependencies; install with: uv pip install -p $PYTHON -e $ROOT"
     exit 1
   }
-  nohup "$PYTHON" -m ui.server >>"$LOG" 2>&1 &
+  nohup env PYTHONPATH="${PYTHONPATH}" VIKNOW3_ROOT="${VIKNOW3_ROOT}" VIKNOW3_ENV_FILE="${VIKNOW3_ENV_FILE:-}" \
+    JIEBA_CACHE_DIR="${JIEBA_CACHE_DIR}" TMPDIR="${TMPDIR}" \
+    "$PYTHON" -m ui.server >>"$LOG" 2>&1 &
   echo $! >"$PIDFILE"
-  sleep 3
-  curl -sf -o /dev/null "http://127.0.0.1:${VIKNOW_UI_PORT}/playground" || {
+  ready=0
+  for _ in $(seq 1 45); do
+    if curl -sf -o /dev/null "http://127.0.0.1:${VIKNOW_UI_PORT}/playground"; then
+      ready=1
+      break
+    fi
+    sleep 2
+  done
+  if [[ "$ready" != 1 ]]; then
     echo "Playground failed to start; tail $LOG"
     tail -20 "$LOG" || true
     exit 1
-  }
+  fi
   echo "Playground UI http://127.0.0.1:${VIKNOW_UI_PORT}/playground (pid $(cat "$PIDFILE"))"
 }
 

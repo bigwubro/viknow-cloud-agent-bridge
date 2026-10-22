@@ -83,7 +83,10 @@ def list_workspace_paths(
             if not isinstance(match, dict) or match.get("is_dir"):
                 continue
             path = _workspace_match_path(match.get("path"))
-            if path is None or _is_excluded_workspace_path(Path(path)):
+            if path is None:
+                continue
+            relative = workspace_relative_path(path)
+            if relative is None or _is_excluded_workspace_path(relative):
                 continue
             if prefixes is not None and not _path_has_prefix(path, prefixes):
                 continue

@@ -13,8 +13,6 @@ from deepagents.backends.composite import CompositeBackend
 from viknow3.application.agent.knowledge_assistant.session_workspace import (
     ensure_session_workspace,
     materialize_session_uploads,
-    purge_session_outputs,
-    purge_session_scratch,
     stage_runtime_skills,
 )
 from viknow3.application.agent.knowledge_assistant.workspace_config import (
@@ -64,7 +62,7 @@ def restore_bubblewrap_workspace(backend: Any, workspace_dir: Path) -> None:
         prepare_bubblewrap_workspace_access(backend, [path for path, _content in chunk])
 
 
-def capture_bubblewrap_workspace(backend: Any, workspace_dir: Path, session_id: str) -> None:
+def capture_bubblewrap_workspace(backend: Any, workspace_dir: Path, session_id: str = "") -> None:
     cfg = load_deepagents_workspace_config()
     paths = list_workspace_paths(backend, prefixes=_CAPTURE_WORKSPACE_PREFIXES)
     files: list[tuple[str, bytes]] = []
@@ -83,5 +81,3 @@ def capture_bubblewrap_workspace(backend: Any, workspace_dir: Path, session_id: 
     skills_dir = workspace_dir / _RUNTIME_SKILLS_DIR
     if skills_dir.exists():
         shutil.rmtree(skills_dir)
-    purge_session_scratch(session_id)
-    purge_session_outputs(session_id)

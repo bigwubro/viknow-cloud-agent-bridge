@@ -8,27 +8,23 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any, Callable
+from typing import Any
 
 from viknow3.application.agent.attached import adk_in_process_available
 from viknow3.application.agentcore.runtime.adk_runner import run_adk
-from viknow3.application.agent.knowledge_assistant.builder import build_graph as deepagents_graph
+from viknow3.application.agent.knowledge_assistant.deepagents_runner import run_deepagents_turn
 from viknow3.application.agentcore.environment.context import RunState
 from viknow3.application.agentcore.events.sink import EventSink
 from viknow3.application.agentcore.outbound.gateway import OutboundGateway
 from viknow3.application.agentcore.registry.catalog import AGENT_ADK, Profile
 from viknow3.application.agentcore.runtime.checkpoint import checkpointer
 from viknow3.application.agentcore.runtime.events import RunEvents
-from viknow3.application.agentcore.runtime.langgraph_runner import run_graph, thread_config
+from viknow3.application.agentcore.runtime.langgraph_runner import thread_config
 from viknow3.application.agentcore.runtime.loop import LOOP
 
 log = logging.getLogger(__name__)
 
-GraphBuilder = Callable[[str | None, Any, str], Any]
-
-GRAPHS: dict[str, GraphBuilder] = {
-    "deepagents": deepagents_graph,
-}
+DEEPAGENTS_PROFILE_ID = "deepagents"
 
 
 class _RunGrant:
@@ -44,12 +40,6 @@ class _RunGrant:
 
     def allowed(self) -> bool:
         return bool(self.libraries())
-
-
-async def build(profile_id: str, model: str | None, session_id: str) -> Any:
-    builder = GRAPHS[profile_id]
-    saver = await checkpointer()
-    return await asyncio.to_thread(builder, model, saver, session_id)
 
 
 async def run(state: RunState, profile: Profile, sink: EventSink, outbound: OutboundGateway) -> None:
@@ -69,8 +59,8 @@ async def run(state: RunState, profile: Profile, sink: EventSink, outbound: Outb
                     "ADK is not configured: install google-adk for in-process runs",
                     code="adk_not_configured",
                 )
-        elif profile.id in GRAPHS:
-            await run_graph(await build(profile.id, state.ctx.model, state.ctx.session_id), events)
+        elif profile.id == DEEPAGENTS_PROFILE_ID:
+            await run_deepagents_turn(state, events)
         else:
             events.failed("no runtime for this profile", code="unknown_profile")
     except asyncio.CancelledError:
@@ -86,7 +76,10 @@ def session_messages(profile_id: str, session_id: str) -> list[Any]:
     """Messages the checkpointer holds for one session."""
 
     async def read() -> list[Any]:
-        graph = await build(profile_id, None, session_id)
+        from viknow3.application.agent.knowledge_assistant.builder import build_graph
+
+        saver = await checkpointer()
+        graph = await asyncio.to_thread(build_graph, None, saver, session_id, backend=None)
         snapshot = await graph.aget_state(thread_config(session_id))
         return list((snapshot.values or {}).get("messages") or [])
 

@@ -17,6 +17,7 @@ dependencies = [
     "langchain-core>=0.3",
     "langchain-openai>=0.2",
     "deepagents>=0.7",
+    "deepagents-sandbox[langchain]>=0.0.3",
     "pyyaml>=6",
 ]
 

@@ -57,8 +57,6 @@ def unanswered_tool_calls(messages: list[BaseMessage]) -> list[ToolMessage]:
 
 
 async def run_graph(graph: Any, events: RunEvents) -> None:
-    from viknow3.application.agent.knowledge_assistant.bubblewrap_workspace import capture_bubblewrap_workspace
-
     ctx = events.state.ctx
     config = thread_config(ctx.session_id)
     snapshot = await graph.aget_state(config)
@@ -118,7 +116,4 @@ async def run_graph(graph: Any, events: RunEvents) -> None:
     except BaseException:
         events.state.output = text or None
         raise
-    finally:
-        if ctx.profile_id == "deepagents":
-            capture_bubblewrap_workspace(ctx.session_id)
     events.completed(text, usage if saw_usage else None)

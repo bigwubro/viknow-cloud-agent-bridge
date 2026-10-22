@@ -5,7 +5,7 @@ from __future__ import annotations
 from viknow3.application.agent.knowledge_assistant.profile import ViknowV2Profile
 
 _DEEPAGENTS_SKILL_STEP = """
-技能（skills）：需要详细流程时，用 read_file 读取对应 SKILL.md；复杂任务可用 write_todos 规划步骤。
+技能（skills）：需要详细流程时，用 read_file 读取 `/workspace/.skills/<技能名>/SKILL.md`；复杂任务可用 write_todos 规划步骤。
 """.strip()
 
 _ADK_SKILL_STEP = """

@@ -15,6 +15,7 @@ class SearchGrant(Protocol):
 
 
 _GRANT: ContextVar[SearchGrant | None] = ContextVar("qa_expert_grant", default=None)
+_USER_MESSAGE: ContextVar[str | None] = ContextVar("qa_expert_user_message", default=None)
 
 
 def current_grant() -> SearchGrant | None:
@@ -27,3 +28,15 @@ def bind_grant(grant: SearchGrant | None) -> Token[SearchGrant | None]:
 
 def reset_grant(token: Token[SearchGrant | None]) -> None:
     _GRANT.reset(token)
+
+
+def current_user_message() -> str | None:
+    return _USER_MESSAGE.get()
+
+
+def bind_user_message(message: str | None) -> Token[str | None]:
+    return _USER_MESSAGE.set(message)
+
+
+def reset_user_message(token: Token[str | None]) -> None:
+    _USER_MESSAGE.reset(token)

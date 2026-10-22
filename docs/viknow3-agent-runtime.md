@@ -17,7 +17,7 @@
 | 事件映射 | `langgraph_runner.py`、`events.py` | `astream_events(version="v2")` → `model_call_started` / `message_delta` / `tool_call_started` / `tool_call_completed`（带 `tool_call_id`）/ `message_completed`（真实 token 用量）/ `run_completed`。终态只写一次，状态先于终态事件落定 |
 | 会话记忆 | `checkpoint.py` | LangGraph `AsyncPostgresSaver`，库 `VIKNOW_AGENT_DSN`，`thread_id = session_id`。上一轮被中断时没答完的 tool call，下一轮开头补一条结果，避免模型接口拒收 |
 | 中断 | `environment/orchestrator.py` | `task.cancel()`；2 秒内 task 没退出就由编排器关闭 run，并在日志里打印 task 当前栈 |
-| A2A | `a2a.py` | `adk-qa`：JSON-RPC `message/send`，`contextId = session_id`（`VIKNOW_ADK_BASE_URL` 设置时登记） |
+| ADK | `adk_runner.py`、`adk_builder.py`、`adk_session.py` | `adk` profile：进程内 Google ADK `LlmAgent`，与 deepagents 共用 viknow-v2 工具 |
 | 事件存储 | `events/sink.py` → `viknow3/store.py` | 事件写 `viknow_access.run_events`（主键 `(run_id, sequence)`），SSE 和 `GET .../history` 读同一张表，重启后照样回放。终态事件与 run 的 `status/output/citations/token_usage` 同一事务写入。进程启动时把库里仍是 `running`、本进程没有 task 的 run 记为 `failed`（`run_failed`，`code=run_lost`） |
 
 Agent：`viknow-v3`（`create_deep_agent`，提示词、工具、skills 取自 viknow-v2 profile；deepagents 是必需依赖）、`manual-qa`（`knowledge_search` + 真实模型）、`langgraph-qa` / `other-agent`（回显图）、`deepagents-demo`。`VIKNOW_USE_SCRIPT_MODEL=1` 只在测试里换脚本模型。

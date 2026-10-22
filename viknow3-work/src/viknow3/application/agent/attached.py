@@ -1,13 +1,11 @@
 """Agents delivered from outside qa_expert.
 
 A LangGraph graph is run directly by agentcore. deepagents hands over the graph
-from create_deep_agent. An ADK service hands over a JSON-RPC URL in
-VIKNOW_ADK_BASE_URL and is called over A2A by agentcore.runtime.a2a.
+from create_deep_agent. ADK runs in-process via agentcore.runtime.adk_runner.
 """
 
 from __future__ import annotations
 
-import os
 from typing import Any
 
 
@@ -51,5 +49,10 @@ def echo_graph(name: str, checkpointer: Any) -> Any:
     return graph.compile(checkpointer=checkpointer, name=name)
 
 
-def adk_base_url() -> str:
-    return os.environ.get("VIKNOW_ADK_BASE_URL", "").strip()
+def adk_in_process_available() -> bool:
+    try:
+        import importlib.util
+
+        return importlib.util.find_spec("google.adk") is not None
+    except Exception:
+        return False

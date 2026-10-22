@@ -76,7 +76,7 @@ class Registry:
             AGENT_ADK: _profile(
                 AGENT_ADK,
                 f"{_V2_PROFILE.label} ADK",
-                f"{_V2_PROFILE.description}（ADK LlmAgent，viknow-v2 profile；运行需配置 VIKNOW_ADK_BASE_URL 远端 A2A）",
+                f"{_V2_PROFILE.description}（ADK LlmAgent，viknow-v2 profile；进程内 google-adk）",
                 created,
                 "adk",
                 shared_tools,

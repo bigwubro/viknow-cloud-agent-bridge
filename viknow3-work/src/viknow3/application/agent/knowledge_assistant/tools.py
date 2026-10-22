@@ -34,7 +34,7 @@ class DiscoverInput(BaseModel):
 
 
 class RefineInput(BaseModel):
-    query: str = Field(description="Current user query.")
+    query: str = Field(default="", description="Current user query.")
     conversation_context: str | None = None
     library_context: str | None = None
     precompiled_knowledge_context: str | None = None
@@ -47,8 +47,8 @@ class AnswerPlanInput(BaseModel):
 
 
 class SearchInput(BaseModel):
-    library_id: str
-    query: str
+    library_id: str = ""
+    query: str = ""
     top_k: int | None = Field(default=None, ge=1)
     threshold: float | None = Field(default=None, ge=0, le=1)
 
@@ -137,13 +137,15 @@ def knowledge_discover(query: str | None = None, top_k: int | None = None) -> st
 
 
 def query_refine(
-    query: str,
+    query: str = "",
     conversation_context: str | None = None,
     library_context: str | None = None,
     precompiled_knowledge_context: str | None = None,
     max_queries: int = 3,
 ) -> str:
     del conversation_context, library_context, precompiled_knowledge_context
+    if not (query or "").strip():
+        return _json({"error": "missing_query", "message": "query is required"})
     libs = _library_ids()
     if not libs:
         return _json({"error": "permission_denied"})
@@ -166,11 +168,16 @@ def answer_plan(query: str, library_id: str) -> str:
 
 
 def knowledge_search(
-    library_id: str,
-    query: str,
+    library_id: str = "",
+    query: str = "",
     top_k: int | None = None,
     threshold: float | None = None,
 ) -> str:
+    granted = _library_ids()
+    if not library_id and len(granted) == 1:
+        library_id = granted[0]
+    if not query.strip():
+        return _json({"error": "query_required"})
     if not _require_library(library_id):
         return _json({"error": "permission_denied"})
     return _hyperrag(

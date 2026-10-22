@@ -23,15 +23,15 @@ pip install -e .
 python -m viknow3
 ```
 
-未设置 `VIKNOW_PORT` 时默认 `127.0.0.1:5175`；236 demo 接入层为 **5197**（见 `deploy/demo/runtime.env`）。**5175 在 236 上是 viknow2-test，不是 viknow3。** 开发用的 app key 是 `dev-app-key`，默认可访问 `viknow-v3`，也可以指定 `manual-qa`。管理凭证是 `dev-admin-key`。
+未设置 `VIKNOW_PORT` 时默认 `127.0.0.1:5175`；236 demo 接入层为 **5197**（见 `deploy/demo/runtime.env`）。**5175 在 236 上是 viknow2-test，不是 viknow3。** 开发用的 app key 是 `dev-app-key`，默认智能体是 `deepagents`；`GET /api/v1/agent/agents` 列出全部已注册智能体（不按 app key 过滤）。管理凭证是 `dev-admin-key`。
 
 存储只使用同一台 Postgres，按业务分库。`VIKNOW_ACCESS_DSN` 是会话库：`users`、`sessions`、`workspaces`、`files`、`run_refs`（一轮的 `input`、`output`、`model`、`status`、`citations`、`token_usage`）、`run_events`（主键 `(run_id, sequence)`）、`run_files`（一轮用过哪些文件）。进行中的 SSE 和结束后的 `GET .../history` 读的都是 `run_events`，进程重启后照样能回放。终态事件和 run 的结束字段在同一个事务里写入。删除只写 `deleted_at`：删 session 在同一个事务里给 session、workspace、file、run、event、run_file 写入同一个时间，删 user 再加上 user 本身；其下有 `running` 的 run 时返回 409 `session_busy`。进程启动时，库里仍是 `running`、但本进程没有对应 task 的 run 记为 `failed`，并补一条 `run_failed`（`code` 为 `run_lost`）。`VIKNOW_AGENT_DSN` 是 agent 库，只放 LangGraph checkpointer 的表（`checkpoints`、`checkpoint_blobs`、`checkpoint_writes`、`checkpoint_migrations`），`thread_id` 就是 `session_id`。`VIKNOW_HYPERRAG_DSN` 是知识库目录 `knowledge_libraries`、`knowledge_assets`。运维配置仍在 `viknow_ops`。
 
-Agent Service 在 `application/agentcore`，不依赖 Agno。进程里有一个常驻的 asyncio agent loop（`runtime/loop.py`，单独的守护线程），每一轮是这个 loop 上的一个 task：`runtime/host.py` 按 profile 建图，`runtime/langgraph_runner.py` 用 `astream_events(version="v2")` 把模型 token、工具调用、token 用量映射成 ViKnow 事件。`interrupt` 取消这个 task。同一 `session_id` 的前几轮由 Postgres checkpointer 保存，上一轮被中断时没答完的 tool call 会在下一轮开头补上结果。每个 task 有自己的 contextvars，本轮可查的库只对本轮工具可见。`viknow-v3` 是知识助手（`create_deep_agent`，提示词、工具和 skills 都来自 viknow-v2 profile），`manual-qa` 先调用 `knowledge_search`，只根据检索结果回答。两者用 `config/app.yaml` 解析出的真实模型；`VIKNOW_USE_SCRIPT_MODEL=1` 时换成脚本模型，只给测试用。`langgraph-qa` 和 `other-agent` 是回显图，设置 `VIKNOW_ADK_BASE_URL`（A2A JSON-RPC 地址）时登记 `adk-qa`，用 `message/send` 调用，`contextId` 是 `session_id`。
+Agent Service 在 `application/agentcore`，不依赖 Agno。进程里有一个常驻的 asyncio agent loop（`runtime/loop.py`，单独的守护线程），每一轮是这个 loop 上的一个 task：`runtime/host.py` 按 profile 建图，`runtime/langgraph_runner.py` 用 `astream_events(version="v2")` 把模型 token、工具调用、token 用量映射成 ViKnow 事件。`interrupt` 取消这个 task。同一 `session_id` 的前几轮由 Postgres checkpointer 保存，上一轮被中断时没答完的 tool call 会在下一轮开头补上结果。每个 task 有自己的 contextvars，本轮可查的库只对本轮工具可见。注册的智能体只有两个：`deepagents`（`create_deep_agent`，viknow-v2 profile）和 `adk`（进程内 Google ADK `LlmAgent`，同一套 viknow-v2 工具）。`adk` 始终在列表中可见；未安装 `google-adk` 时 run 失败并返回 `adk_not_configured`。`VIKNOW_USE_SCRIPT_MODEL=1` 时换成脚本模型，只给测试用。
 
 当前仓库里的其余 client 仍是占位实现，用来把接入层和 SDK 的契约跑通。
 
-配置在单独的 Postgres 实例里，schema 是 `viknow_ops`，不和业务库放在一起。地址和字段加密密钥来自 `VIKNOW_OPS_DSN`、`VIKNOW_OPS_SECRET`。这两个变量没有设置时，进程会读 `~/.viknow3/ops.env`。`qa_expert` 里 `viknow-v3` 和 `manual-qa` 的主模型取 `agent_model.model_id`。管理接口是 `GET/POST /api/v1/om/config`，变更记录在 `/api/v1/om/config/changes`。测试库是同一个实例上的 `viknow_ops_test`。
+配置在单独的 Postgres 实例里，schema 是 `viknow_ops`，不和业务库放在一起。地址和字段加密密钥来自 `VIKNOW_OPS_DSN`、`VIKNOW_OPS_SECRET`。这两个变量没有设置时，进程会读 `~/.viknow3/ops.env`。`deepagents` 与 `adk` 的主模型取 `agent_model.model_id`。管理接口是 `GET/POST /api/v1/om/config`，变更记录在 `/api/v1/om/config/changes`。测试库是同一个实例上的 `viknow_ops_test`。
 
 ## 文档站 CI（Docusaurus）
 

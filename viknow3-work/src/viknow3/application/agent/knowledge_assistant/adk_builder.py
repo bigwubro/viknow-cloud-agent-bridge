@@ -14,6 +14,7 @@ from google.adk.tools.skill_toolset import SkillToolset
 from viknow3.application.agent.knowledge_assistant.instructions import runtime_instruction
 from viknow3.application.agent.knowledge_assistant.profile import load_viknow_v2_profile
 from viknow3.application.agent.knowledge_assistant.tools import build_tools
+from viknow3.application.agent.qa_expert.grant import current_user_message
 
 _SKILLS_ROOT = Path(__file__).resolve().parent / "skills"
 _ADK_APP = "viknow3_adk"
@@ -33,19 +34,52 @@ def litellm_model(model_selector: str | None = None) -> str:
     from viknow3.ops.config.model_resolve import resolve_openai_chat
 
     resolved = resolve_openai_chat(model_selector or "server-default")
+    # ADK routes through LiteLLM; mirror LangChain ChatOpenAI env so private Qwen works on 236.
+    os.environ["OPENAI_API_BASE"] = resolved.base_url.rstrip("/")
+    os.environ["OPENAI_API_KEY"] = resolved.api_key
     return f"openai/{resolved.model}"
 
 
 def _langchain_tool_to_adk(tool: Any) -> FunctionTool:
-    def _invoke(**kwargs: Any) -> Any:
-        return tool.invoke(kwargs)
+    def _invoke(*args: Any, **kwargs: Any) -> Any:
+        import json
+
+        payload: dict[str, Any]
+        if args and isinstance(args[0], dict):
+            payload = dict(args[0])
+        elif args and isinstance(args[0], str):
+            try:
+                parsed = json.loads(args[0])
+                payload = parsed if isinstance(parsed, dict) else {"query": args[0]}
+            except json.JSONDecodeError:
+                payload = {"query": args[0]}
+        else:
+            payload = dict(kwargs)
+        nested = payload.get("input")
+        if isinstance(nested, dict):
+            payload = nested
+        if tool.name == "query_refine" and not str(payload.get("query") or "").strip():
+            hint = current_user_message()
+            if hint:
+                payload = {**payload, "query": hint}
+        try:
+            return tool.invoke(payload)
+        except Exception as exc:
+            from pydantic import ValidationError
+
+            if isinstance(exc, ValidationError):
+                return json.dumps(
+                    {"error": "invalid_tool_args", "tool": tool.name, "detail": exc.errors()},
+                    ensure_ascii=False,
+                )
+            raise
 
     _invoke.__name__ = tool.name
     _invoke.__doc__ = tool.description or tool.name
     return FunctionTool(_invoke)
 
 
-def build_llm_agent(model_selector: str | None = None) -> LlmAgent:
+def build_llm_agent(model_selector: str | None = None, instruction: str | None = None) -> LlmAgent:
     if not _adk_installed():
         raise RuntimeError("google-adk is not installed")
     profile = load_viknow_v2_profile()
@@ -60,8 +94,9 @@ def build_llm_agent(model_selector: str | None = None) -> LlmAgent:
     return LlmAgent(
         name=_ADK_APP,
         model=litellm_model(model_selector),
-        instruction=runtime_instruction(profile, "adk"),
-        tools=[skill_toolset],
+        instruction=instruction or runtime_instruction(profile, "adk"),
+        # Expose retrieval tools at the top level; SkillToolset alone may hide them from the model.
+        tools=[*profile_tools, skill_toolset],
     )
 
 

@@ -10,13 +10,13 @@ import asyncio
 import logging
 from typing import Any, Callable
 
-from viknow3.application.agent.attached import adk_base_url
+from viknow3.application.agent.attached import adk_in_process_available
+from viknow3.application.agentcore.runtime.adk_runner import run_adk
 from viknow3.application.agent.knowledge_assistant.builder import build_graph as deepagents_graph
 from viknow3.application.agentcore.environment.context import RunState
 from viknow3.application.agentcore.events.sink import EventSink
 from viknow3.application.agentcore.outbound.gateway import OutboundGateway
 from viknow3.application.agentcore.registry.catalog import AGENT_ADK, Profile
-from viknow3.application.agentcore.runtime.a2a import run_a2a
 from viknow3.application.agentcore.runtime.checkpoint import checkpointer
 from viknow3.application.agentcore.runtime.events import RunEvents
 from viknow3.application.agentcore.runtime.langgraph_runner import run_graph, thread_config
@@ -62,14 +62,13 @@ async def run(state: RunState, profile: Profile, sink: EventSink, outbound: Outb
     try:
         events.started()
         if profile.runtime == "adk":
-            endpoint = adk_base_url()
-            if not endpoint:
+            if adk_in_process_available():
+                await run_adk(state, events, outbound)
+            else:
                 events.failed(
-                    "VIKNOW_ADK_BASE_URL is not set; configure the remote ADK A2A endpoint to run this agent",
+                    "ADK is not configured: install google-adk for in-process runs",
                     code="adk_not_configured",
                 )
-                return
-            await run_a2a(endpoint, events)
         elif profile.id in GRAPHS:
             await run_graph(await build(profile.id, state.ctx.model), events)
         else:

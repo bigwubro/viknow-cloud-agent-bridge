@@ -15,11 +15,9 @@ os.environ.setdefault("VIKNOW_AGENT_DSN", "postgresql://test:test@127.0.0.1:5432
 os.environ.setdefault("VIKNOW_HYPERRAG_DSN", "postgresql://test:test@127.0.0.1:5432/hyperrag")
 os.environ.setdefault("VIKNOW_USE_SCRIPT_MODEL", "1")
 
-import httpx
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
 from viknow3.application.agentcore.client import AgentClient
-from viknow3.application.agentcore.runtime import a2a
 from viknow3.application.agentcore.runtime.host import session_messages
 from viknow3.application.agentcore.runtime.langgraph_runner import unanswered_tool_calls
 from viknow3.application.agentcore.runtime.loop import LOOP
@@ -261,31 +259,13 @@ class AgentServiceTests(unittest.TestCase):
         listed = [item["id"] for item in client._inbound.registry.profiles()]
         self.assertEqual(listed, ["deepagents", "adk"])
 
-    def test_adk_without_base_url_fails_with_clear_code(self) -> None:
+    def test_adk_not_configured_when_google_adk_missing(self) -> None:
         client = AgentClient()
-        env = os.environ.pop("VIKNOW_ADK_BASE_URL", None)
-        try:
-            run = _submit(client, "session-adk-missing", "user-adk", "adk", "你好", [])
+        with patch("viknow3.application.agentcore.runtime.host.adk_in_process_available", return_value=False):
+            run = _submit(client, "session-adk-missing", "user-adk", "adk", "你好", ["library-1"])
             events = _finish(client, run["id"])
-        finally:
-            if env is not None:
-                os.environ["VIKNOW_ADK_BASE_URL"] = env
         self.assertEqual(events[-1]["type"], "run_failed")
         self.assertEqual(events[-1]["payload"]["code"], "adk_not_configured")
-
-    def test_adk_run_uses_remote_a2a_when_url_set(self) -> None:
-        client = AgentClient()
-
-        async def fake_send(endpoint: str, text: str, **kwargs: object) -> str:
-            del endpoint, text, kwargs
-            return "远端 ADK"
-
-        with patch.dict(os.environ, {"VIKNOW_ADK_BASE_URL": "http://adk.test/a2a"}):
-            with patch("viknow3.application.agentcore.runtime.a2a.send_message", fake_send):
-                run = _submit(client, "session-adk-remote", "user-adk-remote", "adk", "你好", [])
-                events = _finish(client, run["id"])
-        self.assertEqual(events[-1]["type"], "run_completed")
-        self.assertEqual(client.get(run["id"])["output"], "远端 ADK")
 
     def test_unknown_runtime_fails_the_run(self) -> None:
         from viknow3.application.agentcore.registry.catalog import _profile
@@ -297,35 +277,6 @@ class AgentServiceTests(unittest.TestCase):
         events = _finish(client, run["id"])
         self.assertEqual(events[-1]["type"], "run_failed")
         self.assertEqual(events[-1]["payload"]["code"], "unknown_profile")
-
-    def test_remote_agent_speaks_a2a(self) -> None:
-        seen: list[dict] = []
-
-        def reply(request: httpx.Request) -> httpx.Response:
-            body = json.loads(request.content)
-            seen.append(body)
-            result = {
-                "kind": "task",
-                "id": "task-1",
-                "contextId": body["params"]["message"]["contextId"],
-                "status": {"state": "completed"},
-                "artifacts": [{"parts": [{"kind": "text", "text": "ADK 回答"}]}],
-            }
-            return httpx.Response(200, json={"jsonrpc": "2.0", "id": body["id"], "result": result})
-
-        text = LOOP.call(
-            a2a.send_message("http://adk.test/a2a", "你好", context_id="session-adk", transport=httpx.MockTransport(reply))
-        )
-        self.assertEqual(text, "ADK 回答")
-        self.assertEqual(seen[0]["method"], "message/send")
-        self.assertEqual(seen[0]["params"]["message"]["contextId"], "session-adk")
-        self.assertEqual(seen[0]["params"]["message"]["parts"], [{"kind": "text", "text": "你好"}])
-
-        def error(request: httpx.Request) -> httpx.Response:
-            return httpx.Response(200, json={"jsonrpc": "2.0", "id": "1", "error": {"code": -32603, "message": "boom"}})
-
-        with self.assertRaises(a2a.A2AError):
-            LOOP.call(a2a.send_message("http://adk.test/a2a", "x", context_id="s", transport=httpx.MockTransport(error)))
 
     def test_server_default_is_the_first_model_option(self) -> None:
         listed = AgentClient().models()

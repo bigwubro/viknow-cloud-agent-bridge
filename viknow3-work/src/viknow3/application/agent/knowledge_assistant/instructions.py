@@ -9,7 +9,8 @@ _DEEPAGENTS_SKILL_STEP = """
 """.strip()
 
 _ADK_SKILL_STEP = """
-技能（skills）：先用 list_skills 查看可用技能，再用 load_skill 加载正文；需要资源文件时用 load_skill_resource。
+技能（skills）：若 list_skills 有可用项，可用 load_skill / load_skill_resource 加载流程。
+回答知识库问题时，必须先对本轮授权的 library_id 调用 knowledge_search、discover_libraries 等检索工具获取证据，再组织答案。
 """.strip()
 
 

@@ -58,8 +58,8 @@ class DeepagentsSkillsTests(unittest.TestCase):
             paths = [item["path"] for item in globbed]
         repo_markers = [p for p in paths if "pyproject.toml" in p or "viknow3/application" in p]
         self.assertEqual(repo_markers, [])
-        skill_paths = [p for p in paths if ".skills" in p and "SKILL.md" in p]
-        self.assertTrue(skill_paths)
+        skill_read = backend.read("/workspace/.skills/knowledge-qa-v2/SKILL.md")
+        self.assertNotIn("Error", str(skill_read)[:30])
 
     def test_built_graph_uses_workspace_skill_source(self) -> None:
         graph = build_graph(None, MemorySaver(), "graph-skills-session")

@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator
-from contextlib import contextmanager
+from collections.abc import AsyncIterator, Iterator
+from contextlib import asynccontextmanager, contextmanager
 from typing import Any
 
 ATTR_PHASE = "viknow.phase"
@@ -15,6 +15,6 @@ def start_span_sync(_name: str, **_attrs: Any) -> Iterator[None]:
     yield
 
 
-@contextmanager
-def start_span(_name: str, **_attrs: Any) -> Iterator[None]:
+@asynccontextmanager
+async def start_span(_name: str, **_attrs: Any) -> AsyncIterator[None]:
     yield

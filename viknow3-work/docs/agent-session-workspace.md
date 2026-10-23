@@ -52,9 +52,9 @@ finalize_session_run(session_id)
 | Runtime | 文件/执行隔离 |
 |---------|----------------|
 | DeepAgents | 整轮 `deepagents_sandbox` + bubblewrap（生产默认） |
-| ADK | 会话目录在宿主机；**`run_skill_script` / `execute`** 走 `BubblewrapScriptEnvironment`（`agent.adk.workspace.script_sandbox: bubblewrap`），仅 bind 当前 session workspace → `/workspace` |
+| ADK | 会话目录在宿主机；**`run_skill_script` / `execute`** 默认 **ADK `LocalEnvironment`**（`script_sandbox: host`） |
 
-`script_sandbox: host` 时回退为 ADK 自带 `LocalEnvironment`（子进程，无 namespace）。
+可选 `script_sandbox: bubblewrap` 仅对脚本执行启用 `BubblewrapScriptEnvironment`（一般内网 Playground 不需要）。
 
 ## 运维
 

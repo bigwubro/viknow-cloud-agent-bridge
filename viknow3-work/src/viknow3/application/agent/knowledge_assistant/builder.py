@@ -6,6 +6,7 @@ from typing import Any
 
 from viknow3.application.agent.knowledge_assistant.backends import build_filesystem_workspace_backend
 from viknow3.application.agent.knowledge_assistant.instructions import runtime_instruction
+from viknow3.application.agent.knowledge_assistant.skill_pin import pinned_skills_prompt
 from viknow3.application.agent.knowledge_assistant.llm import resolve_chat_model
 from viknow3.application.agent.knowledge_assistant.profile import load_viknow_v2_profile
 from viknow3.application.agent.knowledge_assistant.tools import build_tools
@@ -38,7 +39,11 @@ def build_graph(
         grant = current_grant()
         libraries = list(grant.libraries()) if grant is not None else []
         workspace_overlay = workspace_runtime_instruction(ws_ctx, libraries, "deepagents")
-    system_prompt = runtime_instruction(profile, "deepagents") + workspace_overlay
+    system_prompt = (
+        runtime_instruction(profile, "deepagents")
+        + pinned_skills_prompt(profile.enabled_skills)
+        + workspace_overlay
+    )
     skill_root = workspace_skills_source(cfg.backend)
     return create_deep_agent(
         model=resolve_chat_model(model_selector),

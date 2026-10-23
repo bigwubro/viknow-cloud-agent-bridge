@@ -123,7 +123,13 @@ def _actio(action: Callable[[Any], dict[str, Any]]) -> str:
 def knowledge_discover(query: str | None = None, top_k: int | None = None) -> str:
     libraries = _library_ids()
     if not libraries:
-        return _json({"error": "permission_denied", "libraries": []})
+        return _json(
+            {
+                "error": "no_library_granted",
+                "message": "当前会话未授权 library_id；请在 Playground 选择知识库后新建或继续会话。",
+                "libraries": [],
+            }
+        )
 
     def run(client: Any) -> dict[str, Any]:
         payload = client.discover(query or "", library_ids=libraries, top_k=top_k)

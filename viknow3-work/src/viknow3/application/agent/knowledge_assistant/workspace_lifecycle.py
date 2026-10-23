@@ -75,22 +75,30 @@ def workspace_runtime_instruction(
     """Runtime overlay: uploads, authorized libraries, KB-first tool policy."""
     parts: list[str] = [workspace_upload_hint(ctx.session_id)]
     libs = [str(item).strip() for item in library_ids if str(item).strip()]
+    kb_skill = "knowledge-qa-v2"
+    if runtime == "deepagents":
+        parts.append(
+            f"\n知识库问答流程以 Pinned skill `{kb_skill}` 为准；"
+            f"`.skills/` 仅为技能配置目录，不是用户知识库内容。\n"
+        )
     if libs:
         joined = ", ".join(libs)
         parts.append(
             f"\n本轮授权知识库 library_id：{joined}。"
-            " 知识库相关问题必须先调用 knowledge_discover / knowledge_search（及 skill 要求的 inspect 工具）获取证据，"
-            "禁止用 glob、grep、ls 在 workspace 里猜测答案。\n"
+            " 涉及库内资料、文档、视频、设备、手册等问题时，"
+            "必须按 skill 调用 knowledge_discover / knowledge_search（及 inspect 工具），"
+            "禁止用 glob、grep、ls 在 workspace 里猜测答案或列举「知识库文件」。\n"
         )
-        if runtime == "deepagents":
-            parts.append(
-                "匹配知识库问答时，第一个工具调用必须是 read_file 读取 "
-                f"`{_VIRTUAL_ROOT}/.skills/knowledge-qa-v2/SKILL.md`（limit=1000），再按 skill 执行。\n"
-            )
-        elif runtime == "adk":
+        if runtime == "adk":
             parts.append(
                 "匹配知识库问答时，必须先 load_skill(\"knowledge-qa-v2\")，再按 skill 调用检索工具。\n"
             )
+    else:
+        parts.append(
+            "\n本轮未授权任何 knowledge library_id；knowledge_discover / knowledge_search 会返回 "
+            "no_library_granted。此时应明确告知用户需在对话侧选择知识库，"
+            "不要用 ls 把 `.skills/` 或空 workspace 说成「用户的知识库文件」。\n"
+        )
     parts.append(
         f"\n会话工作区（虚拟路径前缀 `{_VIRTUAL_ROOT}/`）："
         f"uploads/ 用户上传，scratch/ 临时计算，outputs/ 可交付产物；"

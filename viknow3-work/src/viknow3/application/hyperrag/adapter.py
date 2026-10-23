@@ -544,6 +544,7 @@ class HyperRAGAdapter:
             return _text_file_as_single_page_pdf(path)
         if suffix not in {
             ".pdf",
+            ".docx",
             ".xlsx",
             ".png",
             ".jpg",

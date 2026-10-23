@@ -1,4 +1,8 @@
-"""DeepAgents middleware: skill load + tool gate + QA final check (viknow2 subset)."""
+"""DeepAgents middleware: skill load + tool gate + QA final check.
+
+TRANSITIONAL — not in viknow2 main. Replace with vendored viknow.agent_adapters.deepagents
+middleware stack after run_turn delegates to DeepAgentsRuntime. See docs/viknow-agent-vendor.md.
+"""
 
 from __future__ import annotations
 

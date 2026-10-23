@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import importlib.util
 import json
 import os
 import threading
@@ -181,6 +182,19 @@ class AgentServiceTests(unittest.TestCase):
         humans = [m.content for m in session_messages("deepagents", "session-history") if isinstance(m, HumanMessage)]
         self.assertEqual(humans, ["你好", "下一句"])
         self.assertEqual(session_messages("deepagents", "session-other"), [])
+
+    def test_adk_same_session_keeps_earlier_turns(self) -> None:
+        if importlib.util.find_spec("google.adk") is None:
+            self.skipTest("google-adk is not installed")
+        client = AgentClient()
+        first = _submit(client, "session-adk-history", "user-adk-history", "adk", "你好", ["library-1"])
+        _finish(client, first["id"])
+        second = _submit(client, "session-adk-history", "user-adk-history", "adk", "下一句", ["library-1"])
+        events = _finish(client, second["id"])
+        self.assertEqual(events[-1]["type"], "run_completed")
+        humans = [m.content for m in session_messages("adk", "session-adk-history") if isinstance(m, HumanMessage)]
+        self.assertEqual(humans, ["你好", "下一句"])
+        self.assertEqual(session_messages("adk", "session-adk-other"), [])
 
     def test_interrupt_cancels_an_active_search(self) -> None:
         started = threading.Event()

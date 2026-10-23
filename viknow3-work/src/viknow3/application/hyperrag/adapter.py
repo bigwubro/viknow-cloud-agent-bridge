@@ -37,6 +37,25 @@ from viknow3.application.hyperrag.scheduler_context import get_source_id
 from viknow3.application.hyperrag.table_evidence_source import bind_table_sources
 
 
+def _text_file_as_single_page_pdf(path: Path) -> Path | None:
+    """Give text assets a one-page PDF so document_inspect can render them."""
+    target = path.with_name(path.name + ".inspect.pdf")
+    try:
+        if target.exists() and target.stat().st_mtime >= path.stat().st_mtime:
+            return target
+        import fitz
+
+        document = fitz.open()
+        page = document.new_page()
+        text = path.read_text(encoding="utf-8", errors="replace")
+        page.insert_textbox(fitz.Rect(48, 48, 548, 780), text[:12000])
+        document.save(target)
+        document.close()
+    except Exception:
+        return None
+    return target
+
+
 def _hyperrag_span_attrs(phase: str, **extra: Any) -> dict[str, Any]:
     attrs: dict[str, Any] = {ATTR_PHASE: phase, **extra}
     source_id = get_source_id()
@@ -520,7 +539,10 @@ class HyperRAGAdapter:
         path = Path(file_path)
         if not path.exists() or not path.is_file():
             return None
-        if path.suffix.lower() not in {
+        suffix = path.suffix.lower()
+        if suffix in {".txt", ".md", ".markdown"}:
+            return _text_file_as_single_page_pdf(path)
+        if suffix not in {
             ".pdf",
             ".xlsx",
             ".png",
@@ -1809,6 +1831,8 @@ class HyperRAGAdapter:
             "chunk_id": chunk_id,
             "file_path": file_path,
         }
+        if not is_video and evidence_metadata.get("page") is None and evidence_metadata.get("page_number") is None:
+            evidence_metadata["page"] = 0
 
         parts = [
             EvidencePart(kind=EvidencePartKind.TEXT, text=content, metadata={"chunk_id": chunk_id})

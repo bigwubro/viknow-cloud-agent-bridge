@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import unittest
 
-from viknow3.application.agent.viknow2_adapter import AgentTurnInput, QaBoxRuntime, get_runtime
+from viknow3.application.agent.qa_box.runtime import QaBoxRuntime
+from viknow3.application.agent.viknow2_adapter import AgentTurnInput, get_runtime
 
 
 class Viknow2AdapterTests(unittest.TestCase):

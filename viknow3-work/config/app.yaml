@@ -243,6 +243,10 @@ agent:
       gpu: false
       extra_bind_mounts: []
       extra_env: {}
+  adk:
+    workspace:
+      # host = LocalEnvironment subprocess; bubblewrap = skill scripts via deepagents_sandbox
+      script_sandbox: bubblewrap
   hermes:
     home: ../../.state/hermes-home
 

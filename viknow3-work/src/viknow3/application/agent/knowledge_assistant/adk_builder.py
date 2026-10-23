@@ -8,9 +8,10 @@ from typing import Any
 
 from google.adk.agents import LlmAgent
 from google.adk.tools import FunctionTool
-from google.adk.environment._local_environment import LocalEnvironment
 from google.adk.tools.skill_toolset import SkillToolset
 
+from viknow3.application.agent.knowledge_assistant.adk_bubblewrap_environment import build_adk_script_environment
+from viknow3.application.agent.knowledge_assistant.adk_workspace_config import load_adk_workspace_config
 from viknow3.application.agent.knowledge_assistant.instructions import runtime_instruction
 from viknow3.application.agent.knowledge_assistant.profile import load_viknow_v2_profile
 from viknow3.application.agent.knowledge_assistant.tools import build_tools
@@ -97,7 +98,12 @@ def build_llm_agent(
     profile_tools = [_langchain_tool_to_adk(item) for item in build_tools(profile)]
     skills_folder = _resolve_skills_folder(session_skills_dir)
     workdir = (session_workspace_root or skills_folder).resolve()
-    environment = LocalEnvironment(working_dir=workdir)
+    adk_ws = load_adk_workspace_config()
+    environment = build_adk_script_environment(
+        workdir,
+        script_sandbox=adk_ws.script_sandbox,
+        sandbox_cfg=adk_ws.sandbox,
+    )
     skill_toolset = SkillToolset(
         skills_folder=skills_folder,
         environment=environment,

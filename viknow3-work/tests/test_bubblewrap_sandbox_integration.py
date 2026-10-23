@@ -38,7 +38,7 @@ class BubblewrapSandboxIntegrationTests(unittest.TestCase):
         try:
             restore_bubblewrap_workspace(runtime.backend, workspace_dir)
             backend = with_artifacts_root(runtime.backend)
-            result = backend.execute("echo roundtrip > /workspace/scratch/marker.txt")
+            result = backend.execute("mkdir -p /workspace/scratch && echo roundtrip > /workspace/scratch/marker.txt")
             self.assertEqual(result.exit_code, 0, msg=result.output)
             capture_bubblewrap_workspace(runtime.backend, workspace_dir, session_id)
         finally:

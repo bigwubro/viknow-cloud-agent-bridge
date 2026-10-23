@@ -8,12 +8,17 @@ from typing import Any
 
 from viknow3.application.agent.knowledge_assistant.bubblewrap_workspace import (
     capture_bubblewrap_workspace,
-    prepare_host_staging,
     restore_bubblewrap_workspace,
     with_artifacts_root,
 )
 from viknow3.application.agent.knowledge_assistant.builder import build_graph
 from viknow3.application.agent.knowledge_assistant.profile import load_viknow_v2_profile
+from viknow3.application.agent.knowledge_assistant.workspace_lifecycle import (
+    finalize_session_run,
+    prepare_session_run,
+    workspace_runtime_instruction,
+)
+from viknow3.application.agent.qa_expert.grant import current_grant
 from viknow3.application.agent.knowledge_assistant.sandbox_runtime import create_bubblewrap_sandbox
 from viknow3.application.agent.knowledge_assistant.workspace_config import load_deepagents_workspace_config
 from viknow3.application.agentcore.environment.context import RunState
@@ -28,12 +33,26 @@ async def run_deepagents_turn(state: RunState, events: RunEvents) -> None:
     cfg = load_deepagents_workspace_config()
     profile = load_viknow_v2_profile()
     session_id = state.ctx.session_id
-    workspace_dir = prepare_host_staging(session_id, profile.enabled_skills)
+    ws_ctx = prepare_session_run(session_id, profile.enabled_skills)
+    workspace_dir = ws_ctx.root
+    grant = current_grant()
+    libraries = list(grant.libraries()) if grant is not None else []
+    workspace_overlay = workspace_runtime_instruction(ws_ctx, libraries, "deepagents")
     saver = await checkpointer()
 
     if cfg.backend != "bubblewrap":
-        graph = await asyncio.to_thread(build_graph, state.ctx.model, saver, session_id, backend=None)
-        await run_graph(graph, events)
+        try:
+            graph = await asyncio.to_thread(
+                build_graph,
+                state.ctx.model,
+                saver,
+                session_id,
+                backend=None,
+                workspace_overlay=workspace_overlay,
+            )
+            await run_graph(graph, events)
+        finally:
+            await asyncio.to_thread(finalize_session_run, session_id)
         return
 
     runtime = await asyncio.to_thread(create_bubblewrap_sandbox)
@@ -48,6 +67,7 @@ async def run_deepagents_turn(state: RunState, events: RunEvents) -> None:
             saver,
             session_id,
             backend=backend,
+            workspace_overlay=workspace_overlay,
         )
         await run_graph(graph, events)
     finally:
@@ -64,3 +84,4 @@ async def run_deepagents_turn(state: RunState, events: RunEvents) -> None:
                 raise
         if runtime.close is not None:
             runtime.close()
+        await asyncio.to_thread(finalize_session_run, session_id)

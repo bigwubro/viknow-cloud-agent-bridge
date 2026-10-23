@@ -16,7 +16,7 @@ from viknow3.application.agent.knowledge_assistant.profile import load_viknow_v2
 from viknow3.application.agent.knowledge_assistant.tools import build_tools
 from viknow3.application.agent.qa_expert.grant import current_user_message
 
-_SKILLS_ROOT = Path(__file__).resolve().parent / "skills"
+_SKILLS_PACKAGE_ROOT = Path(__file__).resolve().parent / "skills"
 _ADK_APP = "viknow3_adk"
 
 
@@ -34,7 +34,6 @@ def litellm_model(model_selector: str | None = None) -> str:
     from viknow3.ops.config.model_resolve import resolve_openai_chat
 
     resolved = resolve_openai_chat(model_selector or "server-default")
-    # ADK routes through LiteLLM; mirror LangChain ChatOpenAI env so private Qwen works on 236.
     os.environ["OPENAI_API_BASE"] = resolved.base_url.rstrip("/")
     os.environ["OPENAI_API_KEY"] = resolved.api_key
     return f"openai/{resolved.model}"
@@ -79,15 +78,28 @@ def _langchain_tool_to_adk(tool: Any) -> FunctionTool:
     return FunctionTool(_invoke)
 
 
-def build_llm_agent(model_selector: str | None = None, instruction: str | None = None) -> LlmAgent:
+def _resolve_skills_folder(session_skills_dir: Path | None) -> Path:
+    if session_skills_dir is not None and session_skills_dir.is_dir() and any(session_skills_dir.iterdir()):
+        return session_skills_dir.resolve()
+    return _SKILLS_PACKAGE_ROOT.resolve()
+
+
+def build_llm_agent(
+    model_selector: str | None = None,
+    instruction: str | None = None,
+    *,
+    session_workspace_root: Path | None = None,
+    session_skills_dir: Path | None = None,
+) -> LlmAgent:
     if not _adk_installed():
         raise RuntimeError("google-adk is not installed")
     profile = load_viknow_v2_profile()
     profile_tools = [_langchain_tool_to_adk(item) for item in build_tools(profile)]
-    skills_root = _SKILLS_ROOT.resolve()
-    environment = LocalEnvironment(working_dir=skills_root)
+    skills_folder = _resolve_skills_folder(session_skills_dir)
+    workdir = (session_workspace_root or skills_folder).resolve()
+    environment = LocalEnvironment(working_dir=workdir)
     skill_toolset = SkillToolset(
-        skills_folder=skills_root,
+        skills_folder=skills_folder,
         environment=environment,
         additional_tools=profile_tools,
     )
@@ -95,7 +107,6 @@ def build_llm_agent(model_selector: str | None = None, instruction: str | None =
         name=_ADK_APP,
         model=litellm_model(model_selector),
         instruction=instruction or runtime_instruction(profile, "adk"),
-        # Expose retrieval tools at the top level; SkillToolset alone may hide them from the model.
         tools=[*profile_tools, skill_toolset],
     )
 

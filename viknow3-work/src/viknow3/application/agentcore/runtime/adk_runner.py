@@ -7,6 +7,11 @@ from google.genai import types
 from viknow3.application.agent.knowledge_assistant.adk_builder import build_llm_agent
 from viknow3.application.agent.knowledge_assistant.instructions import runtime_instruction
 from viknow3.application.agent.knowledge_assistant.profile import load_viknow_v2_profile
+from viknow3.application.agent.knowledge_assistant.workspace_lifecycle import (
+    finalize_session_run,
+    prepare_session_run,
+    workspace_runtime_instruction,
+)
 from viknow3.application.agent.qa_expert.grant import bind_user_message, current_grant, reset_user_message
 from viknow3.application.agent.knowledge_assistant.adk_events import AdkTurn, project_adk_event
 from viknow3.application.agent.knowledge_assistant.adk_session import ensure_session
@@ -23,16 +28,20 @@ async def run_adk(state: RunState, events: RunEvents, outbound: OutboundGateway)
     msg_token = bind_user_message(ctx.message)
     await ensure_session(ctx.user_id, ctx.session_id)
     profile = load_viknow_v2_profile()
-    instruction = runtime_instruction(profile, "adk")
+    workspace_ctx = prepare_session_run(ctx.session_id, profile.enabled_skills)
     grant = current_grant()
+    libraries: list[str] = []
     if grant is not None:
         libraries = [str(item) for item in grant.libraries()]
-        if libraries:
-            instruction = (
-                f"{instruction}\n\n本轮授权知识库 library_id：{', '.join(libraries)}。"
-                " 请对这些库调用 knowledge_search 获取证据后再回答。"
-            )
-    agent = build_llm_agent(ctx.model, instruction=instruction)
+    instruction = runtime_instruction(profile, "adk") + workspace_runtime_instruction(
+        workspace_ctx, libraries, "adk"
+    )
+    agent = build_llm_agent(
+        ctx.model,
+        instruction=instruction,
+        session_workspace_root=workspace_ctx.root,
+        session_skills_dir=workspace_ctx.skills_dir,
+    )
     from viknow3.application.agent.knowledge_assistant.adk_session import _session_service
 
     runner = Runner(agent=agent, app_name="viknow3_adk", session_service=_session_service())
@@ -44,4 +53,5 @@ async def run_adk(state: RunState, events: RunEvents, outbound: OutboundGateway)
             project_adk_event(events, turn, adk_event)
         events.completed(turn.text or "", None)
     finally:
+        finalize_session_run(ctx.session_id)
         reset_user_message(msg_token)

@@ -10,11 +10,7 @@ from typing import Any
 
 from deepagents.backends.composite import CompositeBackend
 
-from viknow3.application.agent.knowledge_assistant.session_workspace import (
-    ensure_session_workspace,
-    materialize_session_uploads,
-    stage_runtime_skills,
-)
+from viknow3.application.agent.knowledge_assistant.workspace_lifecycle import prepare_session_run
 from viknow3.application.agent.knowledge_assistant.workspace_config import (
     load_deepagents_workspace_config,
     session_workspace_dir,
@@ -37,10 +33,7 @@ _UPLOAD_BATCH = 25
 
 
 def prepare_host_staging(session_id: str, enabled_skills: Sequence[str]) -> Path:
-    ensure_session_workspace(session_id)
-    stage_runtime_skills(session_id, enabled_skills)
-    materialize_session_uploads(session_id)
-    return session_workspace_dir(session_id)
+    return prepare_session_run(session_id, enabled_skills).root
 
 
 def with_artifacts_root(backend: Any, artifacts_root: str = "/workspace") -> Any:

@@ -86,6 +86,16 @@ async def get_deepagents_runtime() -> Any:
         log.info("vendor runtime: loading viknow config")
         config = _viknow_app_config()
         profile = config.profile_catalog.require(config.agent.default_profile)
+        # Vendor middleware counts graph steps. The profile cap of 60 ends vague
+        # questions before a final answer on this playground.
+        if profile.runtime_budget.enabled and profile.runtime_budget.max_recursion_steps < 180:
+            profile = profile.model_copy(
+                update={
+                    "runtime_budget": profile.runtime_budget.model_copy(
+                        update={"max_recursion_steps": 180}
+                    )
+                }
+            )
         log.info("vendor runtime: loading tools for profile %s", profile.id)
         tool_configs = load_tool_configs(config)
         knowledge_adapter = None

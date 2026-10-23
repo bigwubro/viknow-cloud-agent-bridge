@@ -9,12 +9,13 @@ from typing import Any
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage
 
 from viknow3.application.agent.knowledge_assistant.adk_session import _ADK_APP, _session_service
-from viknow3.store import STORE
 
 log = logging.getLogger(__name__)
 
 
 def _session_user_id(session_id: str) -> str | None:
+    from viknow3.store import STORE
+
     for session in STORE.sessions.values():
         if not session.deleted and session.id == session_id:
             return session.user_id

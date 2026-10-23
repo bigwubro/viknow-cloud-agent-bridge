@@ -127,6 +127,27 @@ def build_asset_path(asset_id: str, file_name: str) -> str:
     return f"knowledge/assets/{asset_id}/upload/{upload_name}"
 
 
+def upload_library_file(library_id: str, file_name: str, stream: Any, content_type: str) -> dict[str, Any]:
+    """Store bytes on the object gateway from the Playground BFF (avoids browser CORS to MinIO)."""
+
+    get_library(library_id)
+    name = str(file_name or "").strip()
+    if not name:
+        raise KnowledgeError(422, {"detail": [{"loc": ["file"], "msg": "file name is required", "type": "missing"}]})
+    aid = str(uuid4())
+    path = build_asset_path(aid, name)
+    try:
+        key = s3.put_object_stream(path, stream, content_type or "application/octet-stream")
+    except s3.StorageError as exc:
+        raise KnowledgeError(exc.status, {"detail": exc.detail}) from exc
+    return {
+        "asset_id": aid,
+        "asset_path": key,
+        "library_id": library_id,
+        "content_type": content_type or "application/octet-stream",
+    }
+
+
 def presign_upload(library_id: str, file_name: str, asset_id: str | None, content_type: str) -> dict[str, Any]:
     aid = (asset_id or "").strip() or str(uuid4())
     if not _ASSET_ID.match(aid):

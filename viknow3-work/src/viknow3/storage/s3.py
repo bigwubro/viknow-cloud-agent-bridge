@@ -82,6 +82,19 @@ def head_object(asset_path: str) -> dict[str, Any]:
         raise StorageError(400, "asset_path is not an available storage object key or absolute file path") from exc
 
 
+def put_object_stream(asset_path: str, stream: Any, content_type: str) -> str:
+    """Server-side upload (Playground BFF); uses internal gateway endpoint."""
+
+    cfg = _cfg()
+    client, cfg = _client(endpoint_url=_internal_endpoint(cfg))
+    bucket = cfg.get("bucket") or ""
+    if not bucket:
+        raise StorageError(503, "s3 bucket is not configured")
+    key = object_key(asset_path)
+    client.upload_fileobj(stream, bucket, key, ExtraArgs={"ContentType": content_type or "application/octet-stream"})
+    return key
+
+
 def presign_put(asset_path: str, content_type: str) -> dict[str, Any]:
     cfg = _cfg()
     client, cfg = _client(endpoint_url=_signing_endpoint(cfg))

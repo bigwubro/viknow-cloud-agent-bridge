@@ -34,7 +34,7 @@
           <section class="pg-card">
             <h2>上传与登记</h2>
             <div class="pg-card-body">
-              <p class="pg-muted pg-help">流程：预签名 PUT → S3 → <code class="pg-mono">POST …/assets</code>。对象键示例 <code class="pg-mono">knowledge/assets/{id}/upload/…</code></p>
+              <p class="pg-muted pg-help">流程：经 Playground API 写入 S3 → <code class="pg-mono">POST …/assets</code> 登记。对象键示例 <code class="pg-mono">knowledge/assets/{id}/upload/…</code></p>
               <label class="pg-label" for="upload-file">选择文件</label>
               <input id="upload-file" class="pg-input" type="file" />
               <button id="btn-upload" class="pg-button pg-button-primary" type="button">上传并创建 Asset</button>
@@ -97,7 +97,7 @@
       </div>
     </div>
     <script src="/playground/assets/user.js?v=7"></script>
-    <script src="/playground/assets/library.js?v=8"></script>
+    <script src="/playground/assets/library.js?v=9"></script>
     <script>
       PlaygroundLibrary.requireUser();
       document.getElementById("btn-logout").addEventListener("click", () => {

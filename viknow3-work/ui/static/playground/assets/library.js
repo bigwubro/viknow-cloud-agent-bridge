@@ -38,6 +38,20 @@ const PlaygroundLibrary = (() => {
     return payload;
   }
 
+  async function apiMultipart(path, formData) {
+    const headers = {};
+    const key = (localStorage.getItem(APP_KEY_STORAGE) || window.VIKNOW_APP_KEY || "").trim();
+    if (key) {
+      headers["X-App-Key"] = key;
+    }
+    const response = await fetch(path, { method: "POST", headers, body: formData });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(detailMessage(payload));
+    }
+    return payload;
+  }
+
   function requireUser() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) {
@@ -103,14 +117,10 @@ const PlaygroundLibrary = (() => {
     );
   }
 
-  async function presignPut(libraryId, file) {
-    return api(`${KNOWLEDGE}/libraries/${encodeURIComponent(libraryId)}/uploads`, {
-      method: "POST",
-      body: JSON.stringify({
-        file_name: file.name,
-        content_type: file.type || "application/octet-stream",
-      }),
-    });
+  async function uploadLibraryFile(libraryId, file) {
+    const form = new FormData();
+    form.append("file", file, file.name);
+    return apiMultipart(`${KNOWLEDGE}/libraries/${encodeURIComponent(libraryId)}/uploads/direct`, form);
   }
 
   async function presignGet(assetPath, downloadName) {
@@ -547,21 +557,12 @@ const PlaygroundLibrary = (() => {
       uploadBtn.disabled = true;
       try {
         uploadStatus.hidden = false;
-        uploadStatus.textContent = "申请 S3 预签名 URL…";
-        const signed = await presignPut(libraryId, file);
-        uploadStatus.textContent = "上传到 S3 网关…";
-        const put = await fetch(signed.url, {
-          method: "PUT",
-          headers: { "Content-Type": signed.content_type || file.type || "application/octet-stream" },
-          body: file,
-        });
-        if (!put.ok) {
-          throw new Error(`S3 上传失败 (${put.status})`);
-        }
+        uploadStatus.textContent = "上传到对象网关…";
+        const stored = await uploadLibraryFile(libraryId, file);
         uploadStatus.textContent = "创建 Asset 记录…";
         await createAsset(libraryId, {
-          asset_id: signed.asset_id,
-          asset_path: signed.asset_path,
+          asset_id: stored.asset_id,
+          asset_path: stored.asset_path,
           title: file.name,
         });
         uploadStatus.textContent = "完成";

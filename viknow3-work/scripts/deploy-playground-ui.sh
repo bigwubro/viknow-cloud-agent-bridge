@@ -169,6 +169,9 @@ start_ui() {
     tail -20 "$LOG" || true
     exit 1
   fi
+  if [[ -f "$ROOT/scripts/set-playground-s3-cors.py" ]] && [[ -n "${VIKNOW_OPS_DSN:-}" ]]; then
+    "$PYTHON" "$ROOT/scripts/set-playground-s3-cors.py" || echo "warn: bucket CORS setup failed (browser presign PUT may fail)" >&2
+  fi
   echo "Playground UI http://127.0.0.1:${VIKNOW_UI_PORT}/playground (pid $(cat "$PIDFILE"))"
 }
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from fastapi import APIRouter, Depends, Request, Response
+from fastapi import APIRouter, Depends, File, Request, Response, UploadFile
 
 from viknow3.access.auth import AppKey, require_app
 from viknow3.access.knowledge import service
@@ -106,6 +106,22 @@ async def presign_library_upload(
     asset_id_text = str(asset_id).strip() if asset_id is not None else None
     return service.presign_upload(library_id, file_name, asset_id_text, content_type)
 
+
+@router.post("/libraries/{library_id}/uploads/direct")
+async def direct_library_upload(
+    library_id: str,
+    file: UploadFile = File(...),
+    app_key: AppKey = Depends(require_app),
+) -> dict[str, Any]:
+    """Multipart upload via Playground API (server writes to S3; no browser presigned PUT)."""
+
+    del app_key
+    return service.upload_library_file(
+        library_id,
+        file.filename or "",
+        file.file,
+        file.content_type or "application/octet-stream",
+    )
 
 
 @router.get("/libraries/{library_id}/assets/{asset_id}/index-status")

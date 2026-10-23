@@ -22,7 +22,8 @@ export VIKNOW_PRIVATE_MODEL="${VIKNOW_PRIVATE_MODEL:-Qwen/Qwen3.6-35B-A3B-FP8}"
 if [[ "${VIKNOW_PRIVATE_BASE_URL:-}" == http://*":8443"* ]]; then
   export VIKNOW_PRIVATE_BASE_URL="https://${VIKNOW_PRIVATE_BASE_URL#http://}"
 fi
-export VIKNOW_S3_PUBLIC_ENDPOINT="${VIKNOW_S3_PUBLIC_ENDPOINT:-http://127.0.0.1:19191}"
+# Browser PUT must reach MinIO on the host the user can open (not 127.0.0.1 when UI is remote).
+export VIKNOW_S3_PUBLIC_ENDPOINT="${VIKNOW_S3_PUBLIC_ENDPOINT:-http://36.103.198.236:19191}"
 # deploy.env carries VIKNOW_PRIVATE_* (same Qwen/LiteLLM path as viknow2-test :5175).
 export VIKNOW3_ENV_FILE="${VIKNOW3_ENV_FILE:-/home/cursor-agent/viknow3/pg-demo.env:/home/cursor-agent/deploy.env:/home/cursor-agent/.viknow3/ops.env}"
 export VIKNOW3_APP_KEY="${VIKNOW3_APP_KEY:-$(grep -m1 '^VIKNOW3_APP_KEY=' /home/cursor-agent/viknow3/demo.env 2>/dev/null | cut -d= -f2-)}"

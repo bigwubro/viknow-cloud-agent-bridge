@@ -1,0 +1,15 @@
+config/deploy.test.env
+__pycache__/
+*.pyc
+.state/
+.pytest_cache/
+*.egg-info/
+external/schedule-core/
+
+# Docusaurus
+website/node_modules/
+website/build/
+website/.docusaurus/
+
+# Generated API reference (CI)
+docs/api/

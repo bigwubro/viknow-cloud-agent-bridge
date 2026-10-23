@@ -1,0 +1,3 @@
+# HyperRAG engine (dev3.0). Core runtime only — no torch/mineru/moviepy.
+# Full indexing (MinerU / video / VAD): pip install -e "external/HyperRAG[index]"
+-e external/HyperRAG

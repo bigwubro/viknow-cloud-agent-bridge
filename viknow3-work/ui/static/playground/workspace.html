@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ViKnow Playground · 知识库</title>
+    <link rel="stylesheet" href="/playground/assets/playground.css?v=9" />
+  </head>
+  <body class="pg-body">
+    <div class="pg-shell">
+      <aside class="pg-sidebar" aria-label="导航">
+        <div class="pg-sidebar-head">
+          <div class="pg-brand-mark">V</div>
+          <div>
+            <div class="pg-brand-title">ViKnow</div>
+            <div class="pg-brand-sub">Playground</div>
+          </div>
+        </div>
+        <nav class="pg-nav">
+          <a class="pg-nav-item pg-nav-active" href="/playground/workspace">知识库</a>
+          <a class="pg-nav-item" href="/playground/agents">智能体</a>
+        </nav>
+        <button id="btn-logout" class="pg-button-sidebar pg-sidebar-logout" type="button">退出登录</button>
+      </aside>
+      <main class="pg-main pg-workspace-fill">
+        <div class="pg-main-inner">
+          <header class="pg-header pg-header-row">
+            <div>
+              <p class="pg-overline">Knowledge</p>
+              <h1>知识库</h1>
+              <p class="pg-muted">Library 与 Asset 走 <code class="pg-mono">/api/v1/knowledge</code>；文件经预签名上传至对象网关后登记。</p>
+            </div>
+          </header>
+
+          <section class="pg-card">
+            <h2>新建</h2>
+            <div class="pg-card-body">
+              <div class="pg-form-row">
+                <div class="pg-grow">
+                  <label class="pg-label" for="new-library-id">Library ID</label>
+                  <input id="new-library-id" class="pg-input" type="text" placeholder="例如 demo-course" />
+                </div>
+                <div class="pg-grow">
+                  <label class="pg-label" for="new-library-title">标题（可选）</label>
+                  <input id="new-library-title" class="pg-input" type="text" placeholder="展示名称" />
+                </div>
+                <button id="btn-create-library" class="pg-button pg-button-primary pg-align-end" type="button">创建</button>
+              </div>
+              <p id="library-form-error" class="pg-error" hidden></p>
+            </div>
+          </section>
+
+          <section class="pg-card">
+            <h2>全部知识库</h2>
+            <div class="pg-card-body">
+              <div id="libraries-loading" class="pg-muted">加载中…</div>
+              <ul id="library-list" class="pg-list" hidden></ul>
+              <p id="library-list-empty" class="pg-muted" hidden>暂无知识库，请先创建。</p>
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
+    <script src="/playground/assets/user.js?v=7"></script>
+    <script src="/playground/assets/library.js?v=6"></script>
+    <script>
+      PlaygroundLibrary.requireUser();
+      document.getElementById("btn-logout").addEventListener("click", () => {
+        localStorage.removeItem("viknow_playground_user");
+        window.location.href = "/playground";
+      });
+      PlaygroundLibrary.initLibraryListPage();
+    </script>
+  </body>
+</html>

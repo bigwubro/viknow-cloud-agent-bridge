@@ -21,6 +21,34 @@
    - `git commit` 后 `git push -u origin agent/<topic>`
 5. 结束时汇报：分支名、`git log --oneline origin/main..HEAD`、`git diff --stat origin/main...HEAD`
 
+### viknow3 Playground（`:5198`）— 改完必 push + 部署
+
+业务仓 Gitea：`castmeta-research/viknow3`。236 源码目录：`/home/cursor-agent/src/viknow3`。
+
+**只改跳板仓 `viknow3-work/` 或只 push GitHub 不算完成**；Playground 读的是 236 上该目录 + `scripts/deploy-playground-ui.sh` 拉起的进程。
+
+每次改动 agent / HyperRAG / Playground 相关代码，在同一任务内做完：
+
+1. **同步到 236**（`rsync`/`scp` 或 236 上 `git pull` 你的 `agent/<topic>` 分支）
+2. **单测**：`/home/cursor-agent/viknow3/venv312/bin/python -m pytest`（至少本次改动涉及的用例）
+3. **部署**：`cd /home/cursor-agent/src/viknow3 && bash scripts/deploy-playground-ui.sh restart`
+4. **冒烟**：`curl -sf http://127.0.0.1:5198/playground`；必要时在 236 上 `PYTHONPATH=src` 调 `knowledge_discover` 等
+5. **推送 Gitea**：`agent/<topic>` 分支（见下节「推送 Gitea」）
+
+`VIKNOW_236_SSH_KEY` 若为单行 PEM，需恢复换行后再 `chmod 600`，否则 `Load key: error in libcrypto`：
+
+```bash
+python3 - <<'PY'
+import os, re
+raw = os.environ["VIKNOW_236_SSH_KEY"]
+if "BEGIN OPENSSH" in raw and "\n" not in raw.strip():
+    m = re.search(r"(-----BEGIN OPENSSH PRIVATE KEY-----)(.+?)(-----END OPENSSH PRIVATE KEY-----)", raw)
+    raw = f"{m.group(1)}\n{m.group(2).replace(' ', chr(10))}\n{m.group(3)}\n"
+open(os.path.expanduser("~/.ssh/id_ed25519"), "w").write(raw)
+PY
+chmod 600 ~/.ssh/id_ed25519
+```
+
 ### 阿里云操作台账（必做）
 
 每次对 **阿里云**（ACK / ACR / RDS / Tair / OSS / RAM 等）的操作、变更、登录探测，必须追加写入 [`docs/cloud-ops-log.md`](docs/cloud-ops-log.md)（倒序、用文件内模板）。不记 AWS。禁止把密码、AK/SK、kubeconfig 原文写进该文件或任何提交。

@@ -1,0 +1,65 @@
+[project]
+name = "hyperrag"
+version = "0.2.0"
+description = "基于HyperRAG构建的多模态RAG知识搜索引擎"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "asyncpg",
+    "jieba",
+    "langchain-text-splitters",
+    "pgvector",
+    "nano-vectordb",
+    "numpy",
+    "loguru>=0.7.3",
+    "neo4j",
+    "pydantic>=2.10,<3.0",
+    "pyyaml>=6.0,<7.0",
+    "pillow>=11.3.0",
+    "redis>=7.1.0",
+    "tiktoken",
+    "tqdm",
+    "openai",
+    "langfuse",
+    "openpyxl>=3.1.5",
+    "pypptx-with-oxml>=1.0.3,<2",
+    "scheduler-core",
+]
+
+[project.optional-dependencies]
+index = [
+    "mineru[pipeline,vlm]>=2.1.10",
+    "moviepy>=2.2.1",
+    "silero-vad>=6.0.0",
+    "torchcodec",
+    "nvidia-ml-py",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/hyperrag"]
+
+[[tool.uv.index]]
+url = "https://pypi.tuna.tsinghua.edu.cn/simple"
+
+[tool.uv.sources]
+scheduler-core = { git = "ssh://git@git.qingxiang.tech:2222/castmeta-research/schedule-core.git", tag = "v0.1.5" }
+
+[dependency-groups]
+chunker-experiments = [
+    "chonkie==1.7.0",
+    "llama-index-core==0.14.23",
+    "sentence-transformers==5.7.0",
+]
+dev = [
+    "pytest>=8.4.1",
+    "pytest-asyncio>=0.23.8",
+    "pytest-timeout>=2.3,<3.0",
+    "setuptools>=82.0.0",
+]

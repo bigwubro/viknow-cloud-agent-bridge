@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# Run MinerU CLI inside the hyperrag-test image with host knowledge data bind-mounted.
+set -euo pipefail
+IMAGE="${HYPERRAG_TEST_IMAGE:-viknow2-catalog-upgrade:hyperrag-test-dd8bf2a6}"
+HOST_ROOT="${VIKNOW3_DATA_DIR:-$HOME/viknow3/data}"
+CONTAINER_ROOT="/mnt/viknow-data"
+map_path() {
+  local p="$1"
+  if [[ "$p" == "$HOST_ROOT"* ]]; then
+    printf '%s%s' "$CONTAINER_ROOT" "${p#"$HOST_ROOT"}"
+  else
+    printf '%s' "$p"
+  fi
+}
+args=()
+prev=""
+for a in "$@"; do
+  if [[ "$prev" == "-p" || "$prev" == "-o" ]]; then
+    args+=("$(map_path "$a")")
+  else
+    args+=("$a")
+  fi
+  prev="$a"
+done
+exec docker run --rm -i --network host \
+  -v "${HOST_ROOT}:${CONTAINER_ROOT}" \
+  -e MINERU_VL_SERVER="${MINERU_VL_SERVER:-}" \
+  -e MINERU_VL_API_KEY="${MINERU_VL_API_KEY:-}" \
+  -e OPENAI_API_KEY="${OPENAI_API_KEY:-${MINERU_VL_API_KEY:-}}" \
+  -e MINERU_VL_MODEL_NAME="${MINERU_VL_MODEL_NAME:-vllm/mineru}" \
+  -e HYPERRAG_MINERU_VL_MODEL_NAME="${HYPERRAG_MINERU_VL_MODEL_NAME:-vllm/mineru}" \
+  --entrypoint mineru "$IMAGE" "${args[@]}"

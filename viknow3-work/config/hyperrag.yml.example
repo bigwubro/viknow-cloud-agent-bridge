@@ -1,0 +1,11 @@
+# Copy to a real path and set VIKNOW_HYPERRAG_CONFIG.
+# Optional: VIKNOW_HYPERRAG_REPO_ROOT=external/HyperRAG (default: inferred from config path)
+
+working_dir: ${VIKNOW_HYPERRAG_WORKING_DIR}
+redis_uri: ${VIKNOW_REDIS_URL}
+
+share:
+  redis:
+    url: ${VIKNOW_REDIS_URL}
+
+default_workspace: default

@@ -1,0 +1,29 @@
+name: Docs site
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "docs/**"
+      - "website/**"
+      - "scripts/deploy-docs-site.sh"
+      - "scripts/export_openapi.py"
+      - "openapi/**"
+      - ".gitea/workflows/docs-site.yml"
+  workflow_dispatch:
+
+jobs:
+  build-deploy:
+    name: Build and deploy Docusaurus
+    runs-on: python-312-uv
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and deploy to 236 (:3022)
+        env:
+          NPM_CONFIG_CACHE: /cache/npm
+          VIKNOW_DOCS_DEPLOY_ROOT: /data/wuzihan/docusaurus
+        run: |
+          bash scripts/deploy-docs-site.sh

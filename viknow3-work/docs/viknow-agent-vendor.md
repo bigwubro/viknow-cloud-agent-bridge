@@ -35,4 +35,4 @@ VIKNOW2_SRC=/home/cursor-agent/work/viknow2 VIKNOW2_REV=main \
 
 外壳 `QaBoxRuntime.run_turn` → 委托 **`viknow.agent_adapters.deepagents.DeepAgentsRuntime`**（或 viknow2 对外统一的 `AgentRuntime` 入口），事件映射到 `RunEvents`。
 
-当前状态：vendor 已落仓；`qa_box` 仍为过渡实现，待按上表完成 delegate 后删除重复模块。
+当前状态：Playground `run_turn` 已委托 `DeepAgentsRuntime`（`viknow2_adapter/vendor*`）；共用 `agentcore/runtime/checkpoint`；`thread_id=session_id`。`qa_box` 中 builder/tools/harness 仍待删除。

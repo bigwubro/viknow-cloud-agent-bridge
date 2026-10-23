@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from typing import Any
 
 from viknow3.application.agentcore.registry.catalog import AGENT_DEEPAGENTS
@@ -11,13 +10,18 @@ from viknow3.application.agentcore.runtime.loop import LOOP
 
 
 async def _deepagents_messages(session_id: str) -> list[Any]:
-    from viknow3.application.agent.qa_box.builder import build_graph
     from viknow3.application.agentcore.runtime.checkpoint import checkpointer
 
     saver = await checkpointer()
-    graph = await asyncio.to_thread(build_graph, None, saver, session_id, backend=None)
-    snapshot = await graph.aget_state(thread_config(session_id))
-    return list((snapshot.values or {}).get("messages") or [])
+    config = thread_config(session_id)
+    tup = await saver.aget_tuple(config)
+    if tup is None:
+        return []
+    checkpoint = tup.checkpoint if hasattr(tup, "checkpoint") else tup[0]
+    if not isinstance(checkpoint, dict):
+        return []
+    values = checkpoint.get("channel_values") or checkpoint.get("values") or {}
+    return list(values.get("messages") or [])
 
 
 async def session_messages_async(profile_id: str, session_id: str) -> list[Any]:

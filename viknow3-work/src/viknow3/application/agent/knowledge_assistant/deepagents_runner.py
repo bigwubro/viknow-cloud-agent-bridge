@@ -71,17 +71,18 @@ async def run_deepagents_turn(state: RunState, events: RunEvents) -> None:
         )
         await run_graph(graph, events)
     finally:
-        if setup_ok:
-            try:
+        try:
+            if setup_ok:
                 await asyncio.to_thread(
                     capture_bubblewrap_workspace,
                     runtime.backend,
                     workspace_dir,
                     session_id,
                 )
-            except Exception:
-                log.exception("bubblewrap capture failed for session %s", session_id)
-                raise
-        if runtime.close is not None:
-            runtime.close()
-        await asyncio.to_thread(finalize_session_run, session_id)
+        except Exception:
+            log.exception("bubblewrap capture failed for session %s", session_id)
+            raise
+        finally:
+            if runtime.close is not None:
+                runtime.close()
+            await asyncio.to_thread(finalize_session_run, session_id)

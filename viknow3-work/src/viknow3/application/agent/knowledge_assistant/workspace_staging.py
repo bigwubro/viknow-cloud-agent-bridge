@@ -76,7 +76,10 @@ def list_workspace_paths(
     )
     paths: list[str] = []
     for root in search_roots:
-        result = glob("**/*", path=root)
+        try:
+            result = glob("**/*", path=root)
+        except Exception:
+            continue
         if getattr(result, "error", None):
             continue
         for match in getattr(result, "matches", None) or []:

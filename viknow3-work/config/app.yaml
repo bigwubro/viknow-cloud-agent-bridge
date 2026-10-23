@@ -218,7 +218,8 @@ agent:
     skill_reminder:
       enabled: true
     summarization:
-      trigger_fraction: 0.6
+      # null = disabled until model profile is resolved from ops for all selectors.
+      trigger_fraction: null
       keep_fraction: 0.05
     workspace:
       backend: bubblewrap

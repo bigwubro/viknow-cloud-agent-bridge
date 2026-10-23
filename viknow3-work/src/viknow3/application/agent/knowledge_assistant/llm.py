@@ -27,10 +27,13 @@ def resolve_chat_model(model_selector: str | None = None) -> Any:
 
     from langchain_openai import ChatOpenAI
 
+    # deepagents SummarizationMiddleware uses fractional limits; needs max_input_tokens profile.
+    max_input_tokens = int(os.environ.get("VIKNOW_CHAT_MAX_INPUT_TOKENS", "256000"))
     return ChatOpenAI(
         model=resolved.model,
         api_key=resolved.api_key,
         base_url=resolved.base_url,
         temperature=resolved.temperature,
         stream_usage=True,
+        profile={"max_input_tokens": max_input_tokens},
     )

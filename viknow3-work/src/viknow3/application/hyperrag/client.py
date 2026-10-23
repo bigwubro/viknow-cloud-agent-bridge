@@ -94,19 +94,7 @@ class HyperragClient:
             "message": result.message,
         }
 
-    def discover(
-        self,
-        query: str,
-        *,
-        library_ids: list[str] | None = None,
-        top_k: int | None = None,
-    ) -> dict[str, Any]:
-        """Rank libraries. ``library_ids`` limits the catalog the caller may read."""
-        matches = self._adapter.discover_libraries(
-            query or "",
-            top_k=top_k,
-            library_ids=library_ids,
-        )
+    def _library_rows_from_matches(self, matches: list[Any]) -> list[dict[str, Any]]:
         libraries: list[dict[str, Any]] = []
         for match in matches:
             library = match.library
@@ -129,20 +117,46 @@ class HyperragClient:
                     ],
                 }
             )
-        if not libraries and library_ids:
-            # Catalog match can be empty for meta queries ("有哪些知识库"); still return granted libs.
-            for library in self._adapter.list_libraries(library_ids=library_ids):
-                libraries.append(
-                    {
-                        "library_id": library.id,
-                        "title": library.name,
-                        "summary": library.description or "",
-                        "score": 1.0,
-                        "reason": "granted_library_catalog",
-                        "top_files": [],
-                    }
-                )
-        if top_k is not None:
+        return libraries
+
+    def discover(
+        self,
+        query: str,
+        *,
+        library_ids: list[str] | None = None,
+        top_k: int | None = None,
+    ) -> dict[str, Any]:
+        """viknow2 knowledge.py multi-library path: catalog discover → rerank → list."""
+        normalized_query = (query or "").strip()
+        matches = self._adapter.discover_libraries(
+            normalized_query,
+            top_k=top_k,
+            library_ids=library_ids,
+        )
+        libraries = self._library_rows_from_matches(matches)
+        if not libraries and normalized_query:
+            matches = self._adapter.search_libraries(
+                normalized_query,
+                top_k=top_k,
+                library_ids=library_ids,
+            )
+            libraries = self._library_rows_from_matches(matches)
+        if not libraries:
+            listed = self._adapter.list_libraries(library_ids=library_ids)
+            libraries = [
+                {
+                    "library_id": library.id,
+                    "title": library.name,
+                    "summary": library.description or "",
+                    "score": 1.0,
+                    "reason": "knowledge library overview match",
+                    "top_files": [],
+                }
+                for library in listed
+            ]
+            if top_k is not None:
+                libraries = libraries[:top_k]
+        elif top_k is not None:
             libraries = libraries[:top_k]
         return {"query": query or "", "libraries": libraries, "source": "hyperrag"}
 

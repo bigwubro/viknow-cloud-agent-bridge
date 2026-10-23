@@ -152,18 +152,9 @@ class KnowledgeToolClientTests(unittest.TestCase):
     def test_tools_call_the_client_inside_the_grant(self) -> None:
         token = bind_grant(_Grant(["lib-a"]))
         try:
-            with patch("viknow3.application.hyperrag.client.HYPERAG.discover") as discover:
-                discover.return_value = {
-                    "query": "q",
-                    "libraries": [
-                        {"library_id": "lib-a", "title": "A", "summary": "", "top_files": []},
-                        {"library_id": "lib-b", "title": "B", "summary": "", "top_files": []},
-                    ],
-                    "source": "hyperrag",
-                }
-                payload = json.loads(knowledge_discover("q", top_k=1))
+            payload = json.loads(knowledge_discover("q", top_k=1))
+            self.assertEqual(payload["source"], "run_allowlist")
             self.assertEqual([item["library_id"] for item in payload["libraries"]], ["lib-a"])
-            self.assertEqual(discover.call_args.kwargs["library_ids"], ["lib-a"])
 
             with patch("viknow3.application.hyperrag.client.HYPERAG.search") as search:
                 search.return_value = {"library_id": "lib-a", "query": "q", "evidence": [], "source": "hyperrag"}

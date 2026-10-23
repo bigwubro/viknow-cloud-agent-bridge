@@ -123,6 +123,26 @@ def _actio(action: Callable[[Any], dict[str, Any]]) -> str:
         return _json({"error": "actio_error", "status": exc.status, "detail": exc.detail})
 
 
+def _discover_run_allowlist_entry(library_id: str, client: Any) -> dict[str, Any]:
+    """viknow2 knowledge.py: single explicit run library (Playground), before HyperRAG discover."""
+    title = library_id
+    summary = "Explicitly selected knowledge library for this run."
+    try:
+        for row in client._adapter.list_libraries(library_ids=[library_id]):
+            title = row.name or library_id
+            summary = row.description or summary
+    except Exception:
+        pass
+    return {
+        "library_id": library_id,
+        "title": title,
+        "summary": summary,
+        "score": 1.0,
+        "reason": "run_allowlist",
+        "top_files": [],
+    }
+
+
 def knowledge_discover(query: str | None = None, top_k: int | None = None) -> str:
     libraries = _library_ids()
     if not libraries:
@@ -133,6 +153,15 @@ def knowledge_discover(query: str | None = None, top_k: int | None = None) -> st
                 "libraries": [],
             }
         )
+
+    # viknow2: len(allowed) <= 1 and not oracle → return run allowlist without catalog query.
+    if len(libraries) <= 1:
+        from viknow3.application.hyperrag.client import HYPERAG
+
+        rows = [_discover_run_allowlist_entry(libraries[0], HYPERAG)]
+        if top_k is not None:
+            rows = rows[:top_k]
+        return _json({"query": query or "", "libraries": rows, "source": "run_allowlist"})
 
     def run(client: Any) -> dict[str, Any]:
         payload = client.discover(query or "", library_ids=libraries, top_k=top_k)

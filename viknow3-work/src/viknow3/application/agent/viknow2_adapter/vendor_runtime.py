@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 
 from viknow.core.runtime.domain import AgentOp, AgentOpType
@@ -38,11 +39,35 @@ class ViknowVendorRuntime:
             library_ids=library_ids or None,
             use_precompiled_knowledge=False,
         )
+        log.info("vendor turn %s: submitting", turn.run_id)
         await runtime.submit(op)
+        run_state = runtime._runs[turn.run_id]
         terminal: str | None = None
         while terminal is None:
-            event = await runtime.next_event(turn.run_id)
-            terminal = apply_vendor_event(event, events, state)
+            event_task = asyncio.create_task(runtime.next_event(turn.run_id))
+            agent_task = run_state.task
+            if agent_task is None:
+                event_task.cancel()
+                events.failed("vendor runtime did not start a task")
+                break
+            done, _pending = await asyncio.wait(
+                {event_task, agent_task},
+                return_when=asyncio.FIRST_COMPLETED,
+            )
+            if event_task in done:
+                event = event_task.result()
+                terminal = apply_vendor_event(event, events, state)
+                continue
+            event_task.cancel()
+            try:
+                await event_task
+            except asyncio.CancelledError:
+                pass
+            exc = agent_task.exception() if agent_task.done() and not agent_task.cancelled() else None
+            message = f"{type(exc).__name__}: {exc}" if exc is not None else "vendor run ended without a terminal event"
+            log.error("vendor turn %s failed before a terminal event: %s", turn.run_id, message)
+            events.failed(message)
+            terminal = "failed"
         return AgentTurnResult(
             output=state.output or "",
             citations=state.citations or {},

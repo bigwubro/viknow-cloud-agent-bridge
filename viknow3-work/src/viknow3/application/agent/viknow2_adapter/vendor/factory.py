@@ -56,8 +56,12 @@ def _viknow_app_config():
     skills = _skills_dir()
     checkpointer = config.agent.deepagents.checkpointer.model_copy(update={"enabled": False})
     deepagents = config.agent.deepagents.model_copy(update={"checkpointer": checkpointer})
+    # Playground uses viknow3 Postgres checkpointer. Do not open viknow2's Redis scheduler.
+    unified = config.share.scheduler.unified.model_copy(update={"enabled": False})
+    scheduler = config.share.scheduler.model_copy(update={"unified": unified})
+    share = config.share.model_copy(update={"scheduler": scheduler})
     agent = config.agent.model_copy(update={"skill_dirs": (skills,), "deepagents": deepagents})
-    return config.model_copy(update={"agent": agent})
+    return config.model_copy(update={"agent": agent, "share": share})
 
 
 async def get_deepagents_runtime() -> Any:
@@ -74,8 +78,10 @@ async def get_deepagents_runtime() -> Any:
         from viknow.core.config import load_tool_configs
         from viknow.core.runtime.builder import build_agent_runtime
 
+        log.info("vendor runtime: loading viknow config")
         config = _viknow_app_config()
         profile = config.profile_catalog.require(config.agent.default_profile)
+        log.info("vendor runtime: loading tools for profile %s", profile.id)
         tool_configs = load_tool_configs(config)
         knowledge_adapter = None
         try:
@@ -85,6 +91,7 @@ async def get_deepagents_runtime() -> Any:
         except Exception:
             log.warning("HyperRAG adapter unavailable for vendor runtime; knowledge tools may fail", exc_info=True)
         root = _repo_root()
+        log.info("vendor runtime: building DeepAgentsRuntime")
         runtime = build_agent_runtime(
             config,
             profile=profile,

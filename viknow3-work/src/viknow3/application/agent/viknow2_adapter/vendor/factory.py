@@ -59,9 +59,14 @@ def _viknow_app_config():
     # Playground uses viknow3 Postgres checkpointer. Do not open viknow2's Redis scheduler.
     unified = config.share.scheduler.unified.model_copy(update={"enabled": False})
     scheduler = config.share.scheduler.model_copy(update={"unified": unified})
-    share = config.share.model_copy(update={"scheduler": scheduler})
+    # viknow2 files_root (/data/viknow) is not writable by the playground user.
+    files_root = Path(os.environ.get("VIKNOW_VENDOR_FILES_ROOT", str(root / ".state" / "vendor-files"))).resolve()
+    files_root.mkdir(parents=True, exist_ok=True)
+    (files_root / "state").mkdir(parents=True, exist_ok=True)
+    share = config.share.model_copy(update={"scheduler": scheduler, "files_root": files_root})
+    app = config.app.model_copy(update={"files_root": files_root, "state_dir": files_root / "state"})
     agent = config.agent.model_copy(update={"skill_dirs": (skills,), "deepagents": deepagents})
-    return config.model_copy(update={"agent": agent, "share": share})
+    return config.model_copy(update={"agent": agent, "share": share, "app": app})
 
 
 async def get_deepagents_runtime() -> Any:

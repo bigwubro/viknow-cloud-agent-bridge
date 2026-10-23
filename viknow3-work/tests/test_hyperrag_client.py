@@ -191,7 +191,7 @@ class KnowledgeToolClientTests(unittest.TestCase):
         with patch("viknow3.application.hyperrag.client.HYPERAG.discover") as discover:
             payload = json.loads(knowledge_discover("q"))
         discover.assert_not_called()
-        self.assertEqual(payload["error"], "permission_denied")
+        self.assertEqual(payload["error"], "no_library_granted")
 
 
 if __name__ == "__main__":

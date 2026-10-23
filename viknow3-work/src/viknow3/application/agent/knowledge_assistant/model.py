@@ -86,7 +86,7 @@ class KnowledgeAssistantModel(BaseChatModel):
                     {
                         "id": "call-refine",
                         "name": "query_refine",
-                        "args": {"query": question, "library_id": library_id},
+                        "args": {"query": question},
                     }
                 ],
             )

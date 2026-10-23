@@ -16,16 +16,19 @@ from pydantic import BaseModel, Field
 from viknow3.application.agent.knowledge_assistant.planning import answer_plan as plan_answer
 from viknow3.application.agent.knowledge_assistant.planning import refine_queries
 from viknow3.application.agent.knowledge_assistant.profile import ViknowV2Profile, load_viknow_v2_profile
-from viknow3.application.agent.qa_expert.grant import current_grant
+from viknow3.application.agent.knowledge_assistant.library_scope import (
+    granted_library_ids,
+    library_allowed,
+    resolve_library_id,
+)
 
 
 def _library_ids() -> list[str]:
-    grant = current_grant()
-    return [] if grant is None else [str(item) for item in grant.libraries()]
+    return granted_library_ids()
 
 
 def _require_library(library_id: str) -> bool:
-    return library_id in _library_ids()
+    return library_allowed(library_id)
 
 
 class DiscoverInput(BaseModel):
@@ -152,10 +155,9 @@ def query_refine(
     del conversation_context, library_context, precompiled_knowledge_context
     if not (query or "").strip():
         return _json({"error": "missing_query", "message": "query is required"})
-    libs = _library_ids()
-    if not libs:
+    library_id = resolve_library_id(None)
+    if not _require_library(library_id):
         return _json({"error": "permission_denied"})
-    library_id = libs[0]
     try:
         payload = refine_queries(query, library_id, max_queries=max_queries)
     except Exception as exc:
@@ -179,9 +181,7 @@ def knowledge_search(
     top_k: int | None = None,
     threshold: float | None = None,
 ) -> str:
-    granted = _library_ids()
-    if not library_id and len(granted) == 1:
-        library_id = granted[0]
+    library_id = resolve_library_id(library_id)
     if not query.strip():
         return _json({"error": "query_required"})
     if not _require_library(library_id):
@@ -300,17 +300,9 @@ def uploaded_image_search(
     library_id: str | None = None,
     image_data_url: str | None = None,
 ) -> str:
-    libraries = _library_ids()
-    if library_id:
-        if library_id not in libraries:
-            return _json({"error": "permission_denied"})
-        chosen = library_id
-    elif len(libraries) == 1:
-        chosen = libraries[0]
-    elif not libraries:
+    chosen = resolve_library_id(library_id)
+    if not _require_library(chosen):
         return _json({"error": "permission_denied"})
-    else:
-        return _json({"error": "library_id is required"})
     if not (image_data_url or "").strip():
         return _json({"error": "image_data_url is required", "source": "hyperrag"})
     return _hyperrag(

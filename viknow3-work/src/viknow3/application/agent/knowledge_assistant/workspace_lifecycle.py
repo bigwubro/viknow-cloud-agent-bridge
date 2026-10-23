@@ -88,6 +88,9 @@ def workspace_runtime_instruction(
             " 涉及库内资料、文档、视频、设备、手册等问题时，"
             "必须按 skill 调用 knowledge_discover / knowledge_search（及 inspect 工具），"
             "禁止用 glob、grep、ls 在 workspace 里猜测答案或列举「知识库文件」。\n"
+            "与 viknow2 一致：knowledge_discover / query_refine 不传 library_id（范围由本轮授权决定）；"
+            "knowledge_search 等可省略 library_id（单库会话会自动落到授权库，多库须显式选择）；"
+            "list_*_segments / inspect 须带正确的 library_id。\n"
         )
         if runtime == "adk":
             parts.append(

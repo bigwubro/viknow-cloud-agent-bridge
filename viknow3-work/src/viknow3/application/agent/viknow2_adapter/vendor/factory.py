@@ -45,10 +45,10 @@ def _viknow_app_config():
     else:
         config = load_app_config(workspace_root=root)
     skills = _skills_dir()
-        checkpointer = config.agent.deepagents.checkpointer.model_copy(update={"enabled": False})
-        deepagents = config.agent.deepagents.model_copy(update={"checkpointer": checkpointer})
-        agent = config.agent.model_copy(update={"skill_dirs": (skills,), "deepagents": deepagents})
-        return config.model_copy(update={"agent": agent})
+    checkpointer = config.agent.deepagents.checkpointer.model_copy(update={"enabled": False})
+    deepagents = config.agent.deepagents.model_copy(update={"checkpointer": checkpointer})
+    agent = config.agent.model_copy(update={"skill_dirs": (skills,), "deepagents": deepagents})
+    return config.model_copy(update={"agent": agent})
 
 
 async def get_deepagents_runtime() -> Any:

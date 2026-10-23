@@ -62,6 +62,11 @@ finalize_session_run(session_id)
 - 观测：run 日志带 `session_id`；`finalize` 返回写入 artifact 数量。
 - 236 Playground：`VIKNOW_AGENT_WORKSPACE_ROOT` 已在 `deploy-playground-ui.sh` 设置。
 
+## 会话消息（`session_messages`）
+
+- `session_messages("deepagents", session_id)`：LangGraph Postgres checkpointer 中的 `messages`。
+- `session_messages("adk", session_id)`：ADK `adk` schema 中该 session 的 events，转换为 LangChain `HumanMessage` / `AIMessage` / `ToolMessage`（需 access 库中存在该 `session_id` 以解析 `user_id`）。
+
 ## 与 Access API 的关系
 
 - `POST …/sessions/{id}/files` → `STORE.files`（用户上传）。

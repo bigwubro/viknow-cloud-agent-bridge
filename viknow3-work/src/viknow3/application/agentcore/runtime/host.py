@@ -17,10 +17,7 @@ from viknow3.application.agentcore.environment.context import RunState
 from viknow3.application.agentcore.events.sink import EventSink
 from viknow3.application.agentcore.outbound.gateway import OutboundGateway
 from viknow3.application.agentcore.registry.catalog import AGENT_ADK, Profile
-from viknow3.application.agentcore.runtime.checkpoint import checkpointer
 from viknow3.application.agentcore.runtime.events import RunEvents
-from viknow3.application.agentcore.runtime.langgraph_runner import thread_config
-from viknow3.application.agentcore.runtime.loop import LOOP
 
 log = logging.getLogger(__name__)
 
@@ -73,14 +70,6 @@ async def run(state: RunState, profile: Profile, sink: EventSink, outbound: Outb
 
 
 def session_messages(profile_id: str, session_id: str) -> list[Any]:
-    """Messages the checkpointer holds for one session."""
+    from viknow3.application.agentcore.runtime.session_messages import session_messages as _session_messages
 
-    async def read() -> list[Any]:
-        from viknow3.application.agent.knowledge_assistant.builder import build_graph
-
-        saver = await checkpointer()
-        graph = await asyncio.to_thread(build_graph, None, saver, session_id, backend=None)
-        snapshot = await graph.aget_state(thread_config(session_id))
-        return list((snapshot.values or {}).get("messages") or [])
-
-    return LOOP.call(read())
+    return _session_messages(profile_id, session_id)

@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Agentic RAG：删原文件 / 重建索引后，历史引用还能否打开</title>
+<style>
+  :root {
+    --bg: #f4f1ea;
+    --paper: #fffdf8;
+    --ink: #1c1915;
+    --muted: #5e584e;
+    --line: #e4dccf;
+    --accent: #1f4b3a;
+    --open: #1b7f4e;
+    --open-bg: #e7f6ee;
+    --miss: #a33b32;
+    --miss-bg: #fdecea;
+    --maybe: #8a5a12;
+    --maybe-bg: #fff4df;
+    --na: #5c6570;
+    --na-bg: #eef1f4;
+    --text: #1d4e89;
+    --text-bg: #e8f1fb;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 17px/1.7 "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Noto Serif SC", serif;
+  }
+  header {
+    background: var(--accent);
+    color: #f6f3ec;
+    padding: 36px 20px 28px;
+  }
+  header .wrap, main { max-width: 1080px; margin: 0 auto; }
+  header h1 { font-size: 30px; line-height: 1.35; margin: 0 0 10px; font-weight: 650; }
+  header p { margin: 0; max-width: 760px; color: #e4efe8; }
+  main { padding: 28px 20px 72px; }
+  h2 { font-size: 23px; margin: 36px 0 10px; }
+  h3 { font-size: 18px; margin: 0 0 8px; }
+  p { margin: 0 0 12px; }
+  .lead {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 18px 20px;
+    margin-top: -22px;
+    box-shadow: 0 8px 24px rgba(40, 30, 10, 0.05);
+  }
+  .legend { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 0; }
+  .pill {
+    display: inline-block;
+    border-radius: 999px;
+    padding: 2px 10px;
+    font: 13px/1.6 "Segoe UI", "PingFang SC", "Noto Sans SC", sans-serif;
+    white-space: nowrap;
+  }
+  .open { color: var(--open); background: var(--open-bg); }
+  .miss { color: var(--miss); background: var(--miss-bg); }
+  .maybe { color: var(--maybe); background: var(--maybe-bg); }
+  .na { color: var(--na); background: var(--na-bg); }
+  .text { color: var(--text); background: var(--text-bg); }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    overflow: hidden;
+    margin: 12px 0 8px;
+    font: 14.5px/1.55 "Segoe UI", "PingFang SC", "Noto Sans SC", sans-serif;
+  }
+  th, td { text-align: left; vertical-align: top; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+  th { background: #f7f3ea; font-weight: 650; }
+  tr:last-child td { border-bottom: 0; }
+  td:first-child, th:first-child { white-space: nowrap; }
+  .note { color: var(--muted); font-size: 14px; }
+  .cards { display: grid; gap: 12px; }
+  details {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 12px 16px;
+  }
+  summary { cursor: pointer; font-weight: 650; font-size: 18px; }
+  summary::-webkit-details-marker { color: var(--accent); }
+  .meta { color: var(--muted); font-size: 14px; margin: 6px 0 10px; }
+  ul { margin: 6px 0 12px; padding-left: 1.2em; }
+  li { margin: 4px 0; }
+  code {
+    font: 13px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    background: #f3efe6;
+    padding: 1px 5px;
+    border-radius: 4px;
+  }
+  .model {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin: 12px 0;
+  }
+  .model article {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 14px;
+  }
+  .model h3 { font-size: 16px; }
+  footer { color: var(--muted); font-size: 13px; margin-top: 28px; }
+  @media (max-width: 800px) {
+    .model { grid-template-columns: 1fr; }
+    header h1 { font-size: 24px; }
+    td:first-child, th:first-child { white-space: normal; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1>删原文件，或重建索引之后，历史会话里的图片 chunk 还能否打开</h1>
+    <p>对照 WeKnora、RAGFlow、Dify、FastGPT、LightRAG、AnythingLLM、Cognee。只看文件生命周期和历史引用，不看技能与记忆。</p>
+  </div>
+</header>
+<main>
+  <section class="lead">
+    <p>这些系统把引用文字抄进会话记录，图片字节留在索引或对象存储里。历史会话再打开时，文字从记录里读，图片按当时的地址再去取。删原文件会把索引和图片对象一起清掉，文字还在，图片打不开。重建索引通常留下原文件、换掉 chunk；图片多半也换掉或删掉，旧地址打不开。FastGPT 是例外：重训把图片清掉被当成缺陷修过。</p>
+    <p>没有一家把「已经被某条消息引用过的图片」复制到会话自己的路径，或做到引用计数之后再删。</p>
+    <div class="legend">
+      <span class="pill text">文字还在</span>
+      <span class="pill open">能打开</span>
+      <span class="pill miss">打不开</span>
+      <span class="pill maybe">不一定，看清理是否打中</span>
+      <span class="pill na">没有这种图片 chunk</span>
+    </div>
+    <p class="note">调研截止 2026-09-29。依据是公开仓库当前主分支、issue 和文档，不是把这些产品跑一遍。</p>
+  </section>
+
+  <h2>删除原文件之后</h2>
+  <p>原文件、chunk、从文档里抽出的图片，都按文档 id 清掉。会话记录不改。所以历史里看得到当时的文字，点图片或按旧 chunk id 打开会失败。</p>
+  <table>
+    <thead>
+      <tr>
+        <th>系统</th>
+        <th>原文件</th>
+        <th>历史里的文字</th>
+        <th>历史里的图片 chunk</th>
+        <th>旧 chunk 还能打开吗</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>WeKnora</td>
+        <td><span class="pill miss">删掉</span></td>
+        <td><span class="pill text">还在消息 JSON 里</span></td>
+        <td><span class="pill miss">导出图删掉，URL 还在消息里</span></td>
+        <td><span class="pill miss">打不开</span> 按 chunk id 查是 404，图片链接也 404</td>
+      </tr>
+      <tr>
+        <td>RAGFlow</td>
+        <td><span class="pill miss">删掉</span></td>
+        <td><span class="pill text">还在会话 reference 里</span></td>
+        <td><span class="pill miss">按 chunk 去对象存储删除</span></td>
+        <td><span class="pill miss">打不开</span> <code>/v1/document/image/</code> 取的是活对象</td>
+      </tr>
+      <tr>
+        <td>Dify</td>
+        <td><span class="pill miss">删掉</span></td>
+        <td><span class="pill text">还在 retriever_resources.content</span></td>
+        <td><span class="pill miss">抽出的图和附件都删</span></td>
+        <td><span class="pill miss">打不开</span> 旧 segment 没了，原文签名也找不到文件</td>
+      </tr>
+      <tr>
+        <td>FastGPT</td>
+        <td><span class="pill miss">集合删除时清掉</span></td>
+        <td><span class="pill text">聊天记录里的 q/a 还在</span></td>
+        <td><span class="pill miss">clearCollectionImages，受 ALLOW_IMAGE_DELETE 控制</span></td>
+        <td><span class="pill miss">详情打不开</span> 点引用会去读还活着的数据行</td>
+      </tr>
+      <tr>
+        <td>LightRAG</td>
+        <td><span class="pill miss">须先删旧文件才能再传</span></td>
+        <td><span class="pill na">回答文本若写进了对答，只是字符串</span></td>
+        <td><span class="pill na">没有会话图片引用</span></td>
+        <td><span class="pill na">没有可打开的旧图片 chunk</span></td>
+      </tr>
+      <tr>
+        <td>AnythingLLM</td>
+        <td><span class="pill maybe">移出工作区删向量；文档库里的原件另说</span></td>
+        <td><span class="pill text">聊天记录单独留着</span></td>
+        <td><span class="pill na">引用是来源信息，不是解析图对象</span></td>
+        <td><span class="pill na">不能按旧图片 chunk 打开</span></td>
+      </tr>
+      <tr>
+        <td>Cognee</td>
+        <td><span class="pill miss">forget 默认连原文件一起删</span></td>
+        <td><span class="pill na">没有会话引用快照</span></td>
+        <td><span class="pill na">没有</span></td>
+        <td><span class="pill na">没有可打开的旧图片 chunk</span></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>重建索引之后</h2>
+  <p>原文件一般留下。chunk id 换新。历史文字仍是当时抄下来的那一份。图片是活指针：对象被换掉或删掉，旧会话就打不开。RAGFlow 的清理顺序经常漏删图片对象，所以旧图有时还能打开，这是漏清，不是为历史保留。</p>
+  <table>
+    <thead>
+      <tr>
+        <th>系统</th>
+        <th>原文件</th>
+        <th>历史文字</th>
+        <th>旧图片 chunk</th>
+        <th>旧引用还能打开吗</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>WeKnora</td>
+        <td><span class="pill open">留下，预览仍可用</span></td>
+        <td><span class="pill text">还在</span></td>
+        <td><span class="pill miss">导出图删除后按新 uuid 重写</span></td>
+        <td><span class="pill miss">图片打不开</span> 悬停按旧 chunk id 查询 404。原文预览不是那张引用图</td>
+      </tr>
+      <tr>
+        <td>RAGFlow</td>
+        <td><span class="pill open">留下</span></td>
+        <td><span class="pill text">还在</span></td>
+        <td><span class="pill maybe">打算删，但先删了索引再找图，经常找不到对象</span></td>
+        <td><span class="pill maybe">对象还在就能打开，删掉就打不开</span></td>
+      </tr>
+      <tr>
+        <td>Dify</td>
+        <td><span class="pill open">留下，每次打开重新签名</span></td>
+        <td><span class="pill text">还在</span></td>
+        <td><span class="pill maybe">更新任务删的是 segment 和向量，没有删图片对象</span></td>
+        <td><span class="pill open">原文能打开</span>；<span class="pill miss">旧 segment 打不开</span>。正文里的图片文件这次清理没覆盖，可能仍能打开</td>
+      </tr>
+      <tr>
+        <td>FastGPT</td>
+        <td><span class="pill open">集合还在</span></td>
+        <td><span class="pill text">q/a 还在</span></td>
+        <td><span class="pill open">4.9.8 起重训丢图被修掉，图应留下</span></td>
+        <td><span class="pill miss">旧数据 id 的详情打不开</span>；<span class="pill open">图片对象按修复目标应仍能打开</span></td>
+      </tr>
+      <tr>
+        <td>LightRAG</td>
+        <td><span class="pill miss">同名文件必须先删再传，等于删了再索引</span></td>
+        <td><span class="pill na">无引用快照</span></td>
+        <td><span class="pill miss">旧 chunk、向量、独占图节点删除</span></td>
+        <td><span class="pill na">没有可打开的旧图片 chunk</span></td>
+      </tr>
+      <tr>
+        <td>AnythingLLM</td>
+        <td><span class="pill open">重嵌用不删文档库原件</span></td>
+        <td><span class="pill text">聊天记录还在</span></td>
+        <td><span class="pill na">向量按 docId 换掉，无图片 chunk 引用</span></td>
+        <td><span class="pill na">不能打开旧的解析图</span></td>
+      </tr>
+      <tr>
+        <td>Cognee</td>
+        <td><span class="pill maybe">再次 cognify 前若 forget，原文件默认删除</span></td>
+        <td><span class="pill na">无引用快照</span></td>
+        <td><span class="pill miss">图和向量按 data_id 清</span></td>
+        <td><span class="pill na">没有可打开的旧图片 chunk</span></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>文件生命周期和历史引用怎么挂在一起</h2>
+  <div class="model">
+    <article>
+      <h3>文字快照，图片活指针</h3>
+      <p>WeKnora、RAGFlow、Dify。回答时把 chunk 正文写进消息。图片只存 id 或 URL。删文档或重建时清索引对象，不回写历史消息。</p>
+    </article>
+    <article>
+      <h3>问答快照，详情读活数据</h3>
+      <p>FastGPT。列表上的问题和答案留在聊天记录。点开引用、看图，都回到知识库当前的数据和图。重训换 id 后详情失败；图片按资产保留，丢图算故障。</p>
+    </article>
+    <article>
+      <h3>索引和文件同生同灭</h3>
+      <p>LightRAG、Cognee。没有「这条消息引用了哪张解析图」的账。删文档就是删索引。AnythingLLM 的聊天记录另存，但也不留解析图。</p>
+    </article>
+  </div>
+  <p>三家都用文档 id 当清理键：WeKnora 是 <code>knowledge_id</code>，RAGFlow 是 <code>doc_id</code>，Dify 是 <code>document_id</code>，FastGPT 是 <code>collectionId</code>。清理顺序都是先收齐图片地址，再删 chunk，再删对象。失败只记日志，不回滚已经删掉的数据库行。会话表不在这条链上。</p>
+
+  <h2>每家怎么管</h2>
+  <div class="cards">
+    <details open>
+      <summary>WeKnora</summary>
+      <p class="meta">索引在 Postgres（chunk、向量、BM25）和可选 Neo4j。原文件键是 <code>{tenant}/{knowledge}/{uuid}.ext</code>。抽出的图在 <code>{tenant}/exports/{uuid}.ext</code>，不挂在 knowledge 目录下。</p>
+      <ul>
+        <li>重建：<code>reparseKnowledge</code> 先 <code>cleanupKnowledgeResources</code>。删向量、chunk、图数据库命名空间，并 <code>deleteExtractedImages</code>。原文件 <code>FilePath</code> 不动。新 chunk 用新的 uuid。</li>
+        <li>删除：先删知识行，再删原文件和导出图（2026-07 的删除顺序修正）。chunk、向量、图一并清。文件删失败会留下孤儿，这是他们接受的失败方式。</li>
+        <li>历史：<code>knowledge_references</code> 是整段检索结果的 JSON，含正文和 <code>image_info</code>。重建和删除都不改它。</li>
+        <li>打开方式：悬停用 <code>GET /chunks/by-id/:id</code> 读活 chunk，旧 id 404。点开抽屉读的是消息里的文字。图片请求的是 exports 上的旧 URL。</li>
+      </ul>
+    </details>
+    <details>
+      <summary>RAGFlow</summary>
+      <p class="meta">原文件、chunk 缩略图都在按知识库分桶的对象存储。会话表另存 <code>reference</code>。</p>
+      <ul>
+        <li>重建：<code>reset_document_for_reparse</code> 把进度打回未开始，按 <code>doc_id</code> 删索引 chunk，再调用 <code>delete_chunk_images</code>。后者要先搜到 chunk，再用 chunk id 当对象键删除。索引已经删空时，这一步经常删不到图。</li>
+        <li>删除文档：<code>remove_document</code> 在 chunk 还在时删图片对象和缩略图，再删任务和索引。原文件一起删。删除失败记日志，继续。</li>
+        <li>历史：打开会话只是把已存字段整理成 <code>content</code> 和 <code>image_id</code>。官方把 <code>img_id</code> 写成「该 chunk 的快照 id」，指的是对象存储里的页图，不是把图片字节写进会话。</li>
+        <li>打开方式：<code>GET /v1/document/image/{知识库id}-{对象名}</code> 现取 JPEG。对象还在就能开，对象没了就失败。正文不受影响。</li>
+      </ul>
+    </details>
+    <details>
+      <summary>Dify</summary>
+      <p class="meta">消息元数据存 <code>retriever_resources</code>：dataset、document、segment、分数、content。图片是 segment 正文里的 upload file。</p>
+      <ul>
+        <li>重建：<code>document_indexing_update_task</code> 按 <code>index_node_id</code> 清向量和关键词，成功后删掉旧 <code>DocumentSegment</code>，再跑一遍索引。这段代码不删原上传文件，也不调用删图片对象的逻辑。</li>
+        <li>删除：文档行先硬删。<code>clean_document_task</code> / <code>batch_clean_document_task</code> 再删向量、segment、从正文解析出的图片、附件和原文件。<code>storage.delete</code> 失败只记日志。</li>
+        <li>历史：content 留在消息上。segment_id 在重建后指向已经不存在的行。「查看原文」每次读取重新签发：上传文件是短时签名，网页是原 URL。issue #21068 里维护者说明，旧会话每次打开都会重新签名。</li>
+        <li>打开方式：文档还在时原文能开。文档删了，原文和图都打不开。重建后旧 segment 打不开；图片对象因为更新任务没删，可能仍能打开。</li>
+      </ul>
+    </details>
+    <details>
+      <summary>FastGPT</summary>
+      <p class="meta">聊天记录和知识库数据分表。引用列表保存收瘦后的 quote，其中 q/a 保留（PR #6977 有断言）。</p>
+      <ul>
+        <li>重建：重训会换掉该集合下的数据行，旧 data id 作废。issue #4431：大文件重分块给图片写了 <code>expiredTime</code>，超时任务把图删了。PR #4757 把这件事修掉，4.9.8 的说明是「重训时过期图片索引没清干净导致丢图」。修复目标是重训后图片还在。</li>
+        <li>删除集合：删训练数据、数据文本、数据行，并 <code>clearCollectionImages</code>。关联图还要看 <code>ALLOW_IMAGE_DELETE</code>（讨论 #5035）。</li>
+        <li>历史：列表上的问答文字还在。点开引用走 <code>getQuoteData</code>，按当前数据行读取。行没了，详情失败。</li>
+        <li>聊天里用户上传的文件在 GridFS，大约 7 天过期，和知识库图片不是一条生命周期。</li>
+      </ul>
+    </details>
+    <details>
+      <summary>LightRAG、AnythingLLM、Cognee</summary>
+      <ul>
+        <li>LightRAG：同名文件不能直接覆盖，必须先删再传。<code>adelete_by_doc_id</code> 删该文档的 chunk 和向量；只属于该文档的图节点删除，多文档共用的实体只改 <code>source_id</code>。没有把图片 chunk 挂到会话上。</li>
+        <li>AnythingLLM：从工作区移除文档时按 <code>docId</code> 删向量、<code>workspace_documents</code> 和 <code>document_vectors</code>。聊天记录留下，用于导出，不作为记忆。引用是来源信息。文档库里的原件和「移出工作区」不是同一步。<code>/img</code> 生成的图会跟聊天存，那是生图，不是解析出的 chunk 图。</li>
+        <li>Cognee：<code>forget(data_id)</code> 清关系记录、图和向量。原文件默认删除，<code>memory_only=true</code> 才留。共用图节点要等最后一个引用消失。没有会话级引用，也没有图片留给历史。</li>
+      </ul>
+    </details>
+  </div>
+
+  <h2>若要让历史继续看见那张图</h2>
+  <p>索引里的导出图可以换、可以删，这和 RAGFlow 删文档、Dify 删文档、WeKnora 重建时的清理是同一类账，用来避免对象堆积。历史打不开，是因为图片地址写进了消息，字节没有跟着消息走。</p>
+  <p>要同时满足「索引可重建」和「旧会话还能看见图」，图片得有第二份归属：写进消息时复制到会话自己的路径，或者给对象做引用计数，直到没有任何消息再指向它才删。上面七家里没有一家做成这一点。FastGPT 只是把重训误删知识库图片修掉了，旧的数据 id 仍然打不开。</p>
+
+  <footer>
+    <p>主要依据：WeKnora <code>knowledge_process.go</code> 的 <code>reparseKnowledge</code> / <code>cleanupKnowledgeResources</code>，PR #880 与 2026-07 删除顺序修正；RAGFlow <code>reset_document_for_reparse</code>（提交 0f6f7b3c）、<code>delete_chunk_images</code>、<code>GET /image/&lt;image_id&gt;</code>；Dify <code>document_indexing_update_task</code>、<code>clean_document_task</code>、PR #27600、issue #21068；FastGPT PR #6977、issue #4431、PR #4757、讨论 #5035。LightRAG、AnythingLLM、Cognee 没有读到会话图片引用的实现，表中记为没有这种对象。</p>
+  </footer>
+</main>
+</body>
+</html>

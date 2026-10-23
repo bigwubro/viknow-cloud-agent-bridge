@@ -129,6 +129,19 @@ class HyperragClient:
                     ],
                 }
             )
+        if not libraries and library_ids:
+            # Catalog match can be empty for meta queries ("有哪些知识库"); still return granted libs.
+            for library in self._adapter.list_libraries(library_ids=library_ids):
+                libraries.append(
+                    {
+                        "library_id": library.id,
+                        "title": library.name,
+                        "summary": library.description or "",
+                        "score": 1.0,
+                        "reason": "granted_library_catalog",
+                        "top_files": [],
+                    }
+                )
         if top_k is not None:
             libraries = libraries[:top_k]
         return {"query": query or "", "libraries": libraries, "source": "hyperrag"}

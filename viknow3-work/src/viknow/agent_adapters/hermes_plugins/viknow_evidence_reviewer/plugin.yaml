@@ -1,0 +1,6 @@
+name: viknow-evidence-reviewer
+version: 0.1.0
+description: "ViKnow demo plugin for inspecting source video from unified evidence objects."
+author: "ViKnow"
+tools:
+  - video_inspect

@@ -1,0 +1,6 @@
+name: viknow-test
+version: 0.1.0
+description: "Minimal ViKnow plugin used to verify Hermes plugin loading and tool calls."
+author: "ViKnow"
+tools:
+  - viknow_test_answer

@@ -1,0 +1,4 @@
+[submodule "external/HyperRAG"]
+	path = external/HyperRAG
+	url = ssh://git@git.qingxiang.tech:2222/castmeta-research/HyperRAG.git
+	branch = dev3.0

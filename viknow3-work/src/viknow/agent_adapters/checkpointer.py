@@ -7,8 +7,6 @@ from contextlib import AbstractAsyncContextManager
 from pathlib import Path
 from typing import Any
 
-from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
-
 from viknow.core.config import CheckpointerConfig, PersistenceBackend
 
 
@@ -27,6 +25,8 @@ class SqliteCheckpointerProvider:
         async with self._lock:
             if self._checkpointer is not None:
                 return self._checkpointer
+            from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
+
             self.sqlite_path.parent.mkdir(parents=True, exist_ok=True)
             self._context = AsyncSqliteSaver.from_conn_string(str(self.sqlite_path))
             self._checkpointer = await self._context.__aenter__()

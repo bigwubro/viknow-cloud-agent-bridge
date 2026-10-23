@@ -33,17 +33,26 @@ def _skills_dir() -> Path:
     return _repo_root() / "skills"
 
 
+def _viknow_config_path(root: Path) -> Path:
+    override = os.environ.get("VIKNOW_VENDOR_APP_CONFIG", "").strip()
+    if override:
+        return Path(override).expanduser().resolve()
+    v2_root = Path(os.environ.get("VIKNOW2_ROOT", "/home/cursor-agent/work/viknow2")).expanduser()
+    for base in (v2_root, root):
+        for rel in ("config/local/app.yaml", "config/app.yaml"):
+            candidate = (base / rel).resolve()
+            if candidate.is_file():
+                return candidate
+    return (root / "config" / "app.yaml").resolve()
+
+
 @lru_cache(maxsize=1)
 def _viknow_app_config():
     from viknow.core.config import load_app_config
 
     root = _repo_root()
-    for candidate in (root / "config" / "local" / "app.yaml", root / "config" / "app.yaml"):
-        if candidate.is_file():
-            config = load_app_config(candidate, workspace_root=root)
-            break
-    else:
-        config = load_app_config(workspace_root=root)
+    config_path = _viknow_config_path(root)
+    config = load_app_config(config_path, workspace_root=config_path.parent.parent)
     skills = _skills_dir()
     checkpointer = config.agent.deepagents.checkpointer.model_copy(update={"enabled": False})
     deepagents = config.agent.deepagents.model_copy(update={"checkpointer": checkpointer})

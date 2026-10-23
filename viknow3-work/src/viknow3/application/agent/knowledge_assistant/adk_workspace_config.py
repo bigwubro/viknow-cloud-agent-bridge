@@ -12,7 +12,7 @@ from viknow3.application.agent.knowledge_assistant.workspace_config import (
 
 @dataclass(frozen=True)
 class AdkWorkspaceConfig:
-    script_sandbox: str = "bubblewrap"
+    script_sandbox: str = "host"
     sandbox: DeepagentsSandboxConfig = DeepagentsSandboxConfig()
 
 
@@ -26,6 +26,6 @@ def load_adk_workspace_config() -> AdkWorkspaceConfig:
     ws = adk.get("workspace")
     if not isinstance(ws, dict):
         return AdkWorkspaceConfig(sandbox=load_deepagents_workspace_config().sandbox)
-    mode = str(ws.get("script_sandbox") or "bubblewrap").strip().lower()
+    mode = str(ws.get("script_sandbox") or "host").strip().lower()
     sandbox = load_deepagents_workspace_config().sandbox
     return AdkWorkspaceConfig(script_sandbox=mode, sandbox=sandbox)

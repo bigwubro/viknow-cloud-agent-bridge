@@ -245,8 +245,8 @@ agent:
       extra_env: {}
   adk:
     workspace:
-      # host = LocalEnvironment subprocess; bubblewrap = skill scripts via deepagents_sandbox
-      script_sandbox: bubblewrap
+      # host = LocalEnvironment (default); bubblewrap = optional script-level deepagents_sandbox
+      script_sandbox: host
   hermes:
     home: ../../.state/hermes-home
 

@@ -8,6 +8,7 @@ from typing import Any
 
 from google.adk.agents import LlmAgent
 from google.adk.tools import FunctionTool
+from google.adk.environment._local_environment import LocalEnvironment
 from google.adk.tools.skill_toolset import SkillToolset
 
 from viknow3.application.agent.knowledge_assistant.adk_bubblewrap_environment import build_adk_script_environment

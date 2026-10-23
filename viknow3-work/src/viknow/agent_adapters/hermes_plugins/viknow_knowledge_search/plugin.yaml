@@ -1,0 +1,7 @@
+name: viknow-knowledge-search
+version: 0.1.0
+description: "ViKnow knowledge search plugin that returns unified evidence objects."
+author: "ViKnow"
+tools:
+  - knowledge_discover
+  - knowledge_search

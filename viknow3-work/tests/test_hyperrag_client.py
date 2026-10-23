@@ -7,7 +7,7 @@ import unittest
 from typing import Any
 from unittest.mock import patch
 
-from viknow3.application.agent.knowledge_assistant.tools import (
+from viknow3.application.agent.qa_box.tools import (
     knowledge_discover,
     knowledge_search,
     list_doc_segments,

@@ -6,8 +6,8 @@ from deepagents.backends.composite import CompositeBackend
 from deepagents.backends.filesystem import FilesystemBackend
 from deepagents.backends.protocol import BackendProtocol
 
-from viknow3.application.agent.knowledge_assistant.session_workspace import ensure_session_workspace
-from viknow3.application.agent.knowledge_assistant.workspace_config import load_deepagents_workspace_config
+from viknow3.application.agent.qa_box.session_workspace import ensure_session_workspace
+from viknow3.application.agent.qa_box.workspace_config import load_deepagents_workspace_config
 
 _WORKSPACE_ROUTE = "/workspace/"
 

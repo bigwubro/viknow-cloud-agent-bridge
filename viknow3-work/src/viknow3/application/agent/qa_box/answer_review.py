@@ -6,7 +6,7 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
-from viknow3.application.agent.knowledge_assistant.profile import AnswerReviewConfig
+from viknow3.application.agent.qa_box.profile import AnswerReviewConfig
 
 
 @dataclass(frozen=True)

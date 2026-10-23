@@ -8,11 +8,11 @@ from typing import Any
 from langchain.agents.middleware.types import AgentMiddleware, AgentState, ContextT, ResponseT
 from langchain_core.messages import ToolMessage
 
-from viknow3.application.agent.knowledge_assistant.library_scope import resolve_library_id
-from viknow3.application.agentcore.harness.context import current_harness
-from viknow3.application.agentcore.harness.envelope import tool_gate_blocked
-from viknow3.application.agentcore.harness.skill_reminder import render_skill_reminder
-from viknow3.application.agentcore.harness.tool_gate import (
+from viknow3.application.agent.qa_box.library_scope import resolve_library_id
+from viknow3.application.agent.qa_box.harness.context import current_harness
+from viknow3.application.agent.qa_box.harness.envelope import tool_gate_blocked
+from viknow3.application.agent.qa_box.harness.skill_reminder import render_skill_reminder
+from viknow3.application.agent.qa_box.harness.tool_gate import (
     LIBRARY_ARG_TOOLS,
     WORKFLOW_TOOLS,
     skill_path_matches,

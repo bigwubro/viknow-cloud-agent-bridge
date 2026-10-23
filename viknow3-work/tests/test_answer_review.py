@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import unittest
 
-from viknow3.application.agent.knowledge_assistant.answer_review import review_answer
-from viknow3.application.agent.knowledge_assistant.profile import AnswerReviewConfig
+from viknow3.application.agent.qa_box.answer_review import review_answer
+from viknow3.application.agent.qa_box.profile import AnswerReviewConfig
 
 
 class AnswerReviewTests(unittest.TestCase):

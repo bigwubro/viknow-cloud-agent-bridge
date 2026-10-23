@@ -195,7 +195,7 @@ def _submit_rows(
 
 def _first_run_libraries(profile_id: str, value: Any) -> list[str]:
     library_ids = _library_ids(value)
-    if profile_id in ("deepagents", "adk") and not library_ids:
+    if profile_id == "deepagents" and not library_ids:
         raise AgentError(
             422,
             {"detail": [{"loc": ["body", "library_ids"], "msg": "select one knowledge library", "type": "missing"}]},

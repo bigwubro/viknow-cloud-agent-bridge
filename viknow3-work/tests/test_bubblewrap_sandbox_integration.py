@@ -10,15 +10,15 @@ import unittest
 
 os.environ.setdefault("VIKNOW_USE_SCRIPT_MODEL", "1")
 
-from viknow3.application.agent.knowledge_assistant.bubblewrap_workspace import (
+from viknow3.application.agent.qa_box.bubblewrap_workspace import (
     capture_bubblewrap_workspace,
     restore_bubblewrap_workspace,
     with_artifacts_root,
 )
-from viknow3.application.agent.knowledge_assistant.bubblewrap_workspace import prepare_host_staging
-from viknow3.application.agent.knowledge_assistant.profile import load_viknow_v2_profile
-from viknow3.application.agent.knowledge_assistant.sandbox_runtime import create_bubblewrap_sandbox
-from viknow3.application.agent.knowledge_assistant.workspace_config import session_workspace_dir
+from viknow3.application.agent.qa_box.bubblewrap_workspace import prepare_host_staging
+from viknow3.application.agent.qa_box.profile import load_viknow_v2_profile
+from viknow3.application.agent.qa_box.sandbox_runtime import create_bubblewrap_sandbox
+from viknow3.application.agent.qa_box.workspace_config import session_workspace_dir
 
 
 @unittest.skipUnless(platform.system() == "Linux" and shutil.which("bwrap"), "requires Linux bubblewrap")

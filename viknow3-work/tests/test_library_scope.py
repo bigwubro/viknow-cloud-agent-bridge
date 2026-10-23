@@ -6,8 +6,8 @@ import json
 import unittest
 from unittest.mock import patch
 
-from viknow3.application.agent.knowledge_assistant.library_scope import resolve_library_id
-from viknow3.application.agent.knowledge_assistant.tools import knowledge_search
+from viknow3.application.agent.qa_box.library_scope import resolve_library_id
+from viknow3.application.agent.qa_box.tools import knowledge_search
 from viknow3.application.agent.qa_expert.grant import bind_grant, reset_grant
 
 

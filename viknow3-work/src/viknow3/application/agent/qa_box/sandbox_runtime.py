@@ -6,7 +6,7 @@ import platform
 from dataclasses import dataclass
 from typing import Any, Callable
 
-from viknow3.application.agent.knowledge_assistant.workspace_config import load_deepagents_workspace_config
+from viknow3.application.agent.qa_box.workspace_config import load_deepagents_workspace_config
 
 
 @dataclass

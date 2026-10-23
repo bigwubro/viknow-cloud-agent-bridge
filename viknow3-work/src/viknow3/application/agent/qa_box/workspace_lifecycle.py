@@ -8,7 +8,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-from viknow3.application.agent.knowledge_assistant.session_workspace import (
+from viknow3.application.agent.qa_box.session_workspace import (
     ensure_session_workspace,
     materialize_session_uploads,
     purge_session_outputs,
@@ -16,7 +16,7 @@ from viknow3.application.agent.knowledge_assistant.session_workspace import (
     stage_runtime_skills,
     workspace_upload_hint,
 )
-from viknow3.application.agent.knowledge_assistant.workspace_config import (
+from viknow3.application.agent.qa_box.workspace_config import (
     load_deepagents_workspace_config,
     session_workspace_dir,
 )
@@ -92,10 +92,6 @@ def workspace_runtime_instruction(
             "knowledge_search 等可省略 library_id（单库会话会自动落到授权库，多库须显式选择）；"
             "list_*_segments / inspect 须带正确的 library_id。\n"
         )
-        if runtime == "adk":
-            parts.append(
-                "匹配知识库问答时，必须先 load_skill(\"knowledge-qa-v2\")，再按 skill 调用检索工具。\n"
-            )
     else:
         parts.append(
             "\n本轮未授权任何 knowledge library_id；knowledge_discover / knowledge_search 会返回 "

@@ -13,12 +13,12 @@ from deepagents.backends.composite import CompositeBackend
 from deepagents.middleware.skills import SkillsMiddleware, _list_skills
 from langgraph.checkpoint.memory import MemorySaver
 
-from viknow3.application.agent.knowledge_assistant.backends import build_filesystem_workspace_backend
-from viknow3.application.agent.knowledge_assistant.builder import build_graph
-from viknow3.application.agent.knowledge_assistant.profile import load_viknow_v2_profile
-from viknow3.application.agent.knowledge_assistant.workspace_config import session_workspace_dir
-from viknow3.application.agent.knowledge_assistant.bubblewrap_workspace import prepare_host_staging
-from viknow3.application.agent.knowledge_assistant.workspace_staging import workspace_skills_source
+from viknow3.application.agent.qa_box.backends import build_filesystem_workspace_backend
+from viknow3.application.agent.qa_box.builder import build_graph
+from viknow3.application.agent.qa_box.profile import load_viknow_v2_profile
+from viknow3.application.agent.qa_box.workspace_config import session_workspace_dir
+from viknow3.application.agent.qa_box.bubblewrap_workspace import prepare_host_staging
+from viknow3.application.agent.qa_box.workspace_staging import workspace_skills_source
 
 
 class DeepagentsSkillsTests(unittest.TestCase):

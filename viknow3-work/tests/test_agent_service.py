@@ -186,19 +186,6 @@ class AgentServiceTests(unittest.TestCase):
         self.assertEqual(humans, ["你好", "下一句"])
         self.assertEqual(session_messages("deepagents", "session-other"), [])
 
-    def test_adk_same_session_keeps_earlier_turns(self) -> None:
-        if importlib.util.find_spec("google.adk") is None:
-            self.skipTest("google-adk is not installed")
-        client = AgentClient()
-        first = _submit(client, "session-adk-history", "user-adk-history", "adk", "你好", ["library-1"])
-        _finish(client, first["id"])
-        second = _submit(client, "session-adk-history", "user-adk-history", "adk", "下一句", ["library-1"])
-        events = _finish(client, second["id"])
-        self.assertEqual(events[-1]["type"], "run_completed")
-        humans = [m.content for m in session_messages("adk", "session-adk-history") if isinstance(m, HumanMessage)]
-        self.assertEqual(humans, ["你好", "下一句"])
-        self.assertEqual(session_messages("adk", "session-adk-other"), [])
-
     def test_interrupt_cancels_an_active_search(self) -> None:
         started = threading.Event()
         release = threading.Event()
@@ -210,7 +197,7 @@ class AgentServiceTests(unittest.TestCase):
             return '{"error":"permission_denied"}'
 
         client = AgentClient()
-        with patch("viknow3.application.agent.knowledge_assistant.tools.knowledge_search", block):
+        with patch("viknow3.application.agent.qa_box.tools.knowledge_search", block):
             run = _submit(client, "session-cancel", "user-cancel", "deepagents", "清洁燃气气孔是为了防止什么", ["library-1"])
             reader = ThreadPoolExecutor(max_workers=1).submit(_finish, client, run["id"])
             self.assertTrue(started.wait(5))
@@ -222,7 +209,7 @@ class AgentServiceTests(unittest.TestCase):
         self.assertEqual(client.get(run["id"])["status"], "interrupted")
 
         with patch(
-            "viknow3.application.agent.knowledge_assistant.tools.knowledge_search",
+            "viknow3.application.agent.qa_box.tools.knowledge_search",
             lambda library_id, query, **kwargs: json.dumps(
                 {"library_id": library_id, "query": query, "evidence": [], "source": "hyperrag"}
             ),
@@ -269,20 +256,6 @@ class AgentServiceTests(unittest.TestCase):
         ]
         closing = unanswered_tool_calls(history)
         self.assertEqual([item.tool_call_id for item in closing], ["b"])
-
-    def test_adk_is_always_registered(self) -> None:
-        client = AgentClient()
-        self.assertIsNotNone(client.profile("adk"))
-        listed = [item["id"] for item in client._inbound.registry.profiles()]
-        self.assertEqual(listed, ["deepagents", "adk"])
-
-    def test_adk_not_configured_when_google_adk_missing(self) -> None:
-        client = AgentClient()
-        with patch("viknow3.application.agentcore.runtime.host.adk_in_process_available", return_value=False):
-            run = _submit(client, "session-adk-missing", "user-adk", "adk", "你好", ["library-1"])
-            events = _finish(client, run["id"])
-        self.assertEqual(events[-1]["type"], "run_failed")
-        self.assertEqual(events[-1]["payload"]["code"], "adk_not_configured")
 
     def test_unknown_runtime_fails_the_run(self) -> None:
         from viknow3.application.agentcore.registry.catalog import _profile

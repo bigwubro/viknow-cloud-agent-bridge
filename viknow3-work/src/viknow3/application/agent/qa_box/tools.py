@@ -13,10 +13,10 @@ from typing import Any, Callable
 from langchain_core.tools import StructuredTool
 from pydantic import BaseModel, Field
 
-from viknow3.application.agent.knowledge_assistant.planning import answer_plan as plan_answer
-from viknow3.application.agent.knowledge_assistant.planning import refine_queries
-from viknow3.application.agent.knowledge_assistant.profile import ViknowV2Profile, load_viknow_v2_profile
-from viknow3.application.agent.knowledge_assistant.library_scope import (
+from viknow3.application.agent.qa_box.planning import answer_plan as plan_answer
+from viknow3.application.agent.qa_box.planning import refine_queries
+from viknow3.application.agent.qa_box.profile import ViknowV2Profile, load_viknow_v2_profile
+from viknow3.application.agent.qa_box.library_scope import (
     granted_library_ids,
     library_allowed,
     resolve_library_id,

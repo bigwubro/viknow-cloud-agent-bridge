@@ -6,8 +6,8 @@ from contextvars import ContextVar
 from dataclasses import dataclass
 from typing import Any, Callable
 
-from viknow3.application.agentcore.harness.citations import CitationRegistry
-from viknow3.application.agentcore.harness.facts import HarnessRunFacts
+from viknow3.application.agent.qa_box.harness.citations import CitationRegistry
+from viknow3.application.agent.qa_box.harness.facts import HarnessRunFacts
 
 EmitFn = Callable[[str, dict[str, Any]], None]
 

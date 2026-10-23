@@ -1,17 +1,17 @@
-"""Unified session transcript for deepagents (LangGraph) and ADK."""
+"""Session transcript for the QA agent (LangGraph checkpoint)."""
 
 from __future__ import annotations
 
 import asyncio
 from typing import Any
 
-from viknow3.application.agentcore.registry.catalog import AGENT_ADK, AGENT_DEEPAGENTS
+from viknow3.application.agentcore.registry.catalog import AGENT_DEEPAGENTS
 from viknow3.application.agentcore.runtime.langgraph_runner import thread_config
 from viknow3.application.agentcore.runtime.loop import LOOP
 
 
 async def _deepagents_messages(session_id: str) -> list[Any]:
-    from viknow3.application.agent.knowledge_assistant.builder import build_graph
+    from viknow3.application.agent.qa_box.builder import build_graph
     from viknow3.application.agentcore.runtime.checkpoint import checkpointer
 
     saver = await checkpointer()
@@ -20,26 +20,12 @@ async def _deepagents_messages(session_id: str) -> list[Any]:
     return list((snapshot.values or {}).get("messages") or [])
 
 
-async def _adk_messages(session_id: str) -> list[Any]:
-    from viknow3.application.agent.knowledge_assistant.adk_session_messages import (
-        _session_user_id,
-        load_adk_session_messages,
-    )
-
-    user_id = _session_user_id(session_id)
-    if not user_id:
-        return []
-    return await load_adk_session_messages(user_id, session_id)
-
-
 async def session_messages_async(profile_id: str, session_id: str) -> list[Any]:
-    if profile_id == AGENT_ADK:
-        return await _adk_messages(session_id)
     if profile_id == AGENT_DEEPAGENTS:
         return await _deepagents_messages(session_id)
     return []
 
 
 def session_messages(profile_id: str, session_id: str) -> list[Any]:
-    """LangChain messages for a session (checkpoint or ADK events)."""
+    """LangChain messages for a session (checkpoint)."""
     return LOOP.call(session_messages_async(profile_id, session_id))

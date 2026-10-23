@@ -7,8 +7,8 @@ import unittest
 
 os.environ.setdefault("VIKNOW_USE_SCRIPT_MODEL", "1")
 
-from viknow3.application.agent.knowledge_assistant.profile import load_viknow_v2_profile
-from viknow3.application.agent.knowledge_assistant.tools import build_tools
+from viknow3.application.agent.qa_box.profile import load_viknow_v2_profile
+from viknow3.application.agent.qa_box.tools import build_tools
 from viknow3.application.agentcore.registry.catalog import Registry
 
 

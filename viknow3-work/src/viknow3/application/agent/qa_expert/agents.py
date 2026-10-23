@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from viknow3.application.agent.knowledge_assistant.llm import resolve_chat_model, script_model_enabled
+from viknow3.application.agent.qa_box.llm import resolve_chat_model, script_model_enabled
 from viknow3.application.agent.qa_expert.model import ScriptedModel
 from viknow3.application.agent.qa_expert.tools import knowledge_search
 

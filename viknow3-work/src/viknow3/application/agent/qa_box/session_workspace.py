@@ -7,7 +7,7 @@ import shutil
 from collections.abc import Sequence
 from pathlib import Path
 
-from viknow3.application.agent.knowledge_assistant.workspace_config import (
+from viknow3.application.agent.qa_box.workspace_config import (
     load_deepagents_workspace_config,
     session_workspace_dir,
 )

@@ -5,8 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from viknow3.application.agent.knowledge_assistant.library_scope import resolve_library_id
-from viknow3.application.agentcore.harness.facts import HarnessRunFacts
+from viknow3.application.agent.qa_box.library_scope import resolve_library_id
+from viknow3.application.agent.qa_box.harness.facts import HarnessRunFacts
 
 WORKFLOW_TOOLS = frozenset(
     {

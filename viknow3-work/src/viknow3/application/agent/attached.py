@@ -1,8 +1,4 @@
-"""Agents delivered from outside qa_expert.
-
-A LangGraph graph is run directly by agentcore. deepagents hands over the graph
-from create_deep_agent. ADK runs in-process via agentcore.runtime.adk_runner.
-"""
+"""Optional LangGraph helpers for tests and demos."""
 
 from __future__ import annotations
 
@@ -47,12 +43,3 @@ def echo_graph(name: str, checkpointer: Any) -> Any:
     graph.add_edge(START, "reply")
     graph.add_edge("reply", END)
     return graph.compile(checkpointer=checkpointer, name=name)
-
-
-def adk_in_process_available() -> bool:
-    try:
-        import importlib.util
-
-        return importlib.util.find_spec("google.adk") is not None
-    except Exception:
-        return False

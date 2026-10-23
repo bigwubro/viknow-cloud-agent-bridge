@@ -4,19 +4,19 @@ from __future__ import annotations
 
 from typing import Any
 
-from viknow3.application.agent.knowledge_assistant.backends import build_filesystem_workspace_backend
-from viknow3.application.agent.knowledge_assistant.middleware.qa_harness import QaHarnessMiddleware
-from viknow3.application.agent.knowledge_assistant.instructions import runtime_instruction
-from viknow3.application.agent.knowledge_assistant.skill_pin import pinned_skills_prompt
-from viknow3.application.agent.knowledge_assistant.llm import resolve_chat_model
-from viknow3.application.agent.knowledge_assistant.profile import load_viknow_v2_profile
-from viknow3.application.agent.knowledge_assistant.tools import build_tools
-from viknow3.application.agent.knowledge_assistant.workspace_config import load_deepagents_workspace_config
-from viknow3.application.agent.knowledge_assistant.workspace_lifecycle import (
+from viknow3.application.agent.qa_box.backends import build_filesystem_workspace_backend
+from viknow3.application.agent.qa_box.middleware.qa_harness import QaHarnessMiddleware
+from viknow3.application.agent.qa_box.instructions import runtime_instruction
+from viknow3.application.agent.qa_box.skill_pin import pinned_skills_prompt
+from viknow3.application.agent.qa_box.llm import resolve_chat_model
+from viknow3.application.agent.qa_box.profile import load_viknow_v2_profile
+from viknow3.application.agent.qa_box.tools import build_tools
+from viknow3.application.agent.qa_box.workspace_config import load_deepagents_workspace_config
+from viknow3.application.agent.qa_box.workspace_lifecycle import (
     prepare_session_run,
     workspace_runtime_instruction,
 )
-from viknow3.application.agent.knowledge_assistant.workspace_staging import workspace_skills_source
+from viknow3.application.agent.qa_box.workspace_staging import workspace_skills_source
 from viknow3.application.agent.qa_expert.grant import current_grant
 
 

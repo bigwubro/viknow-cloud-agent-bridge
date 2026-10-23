@@ -12,7 +12,7 @@ def script_model_enabled() -> bool:
 
 def resolve_chat_model(model_selector: str | None = None) -> Any:
     if script_model_enabled():
-        from viknow3.application.agent.knowledge_assistant.model import KnowledgeAssistantModel
+        from viknow3.application.agent.qa_box.model import KnowledgeAssistantModel
 
         return KnowledgeAssistantModel()
 

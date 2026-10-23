@@ -7,7 +7,7 @@ from typing import Any
 
 def __getattr__(name: str) -> Any:
     if name == "build_graph":
-        from viknow3.application.agent.knowledge_assistant.builder import build_graph
+        from viknow3.application.agent.qa_box.builder import build_graph
 
         return build_graph
     raise AttributeError(name)

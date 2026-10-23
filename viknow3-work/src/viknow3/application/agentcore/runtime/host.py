@@ -10,18 +10,14 @@ import asyncio
 import logging
 from typing import Any
 
-from viknow3.application.agent.attached import adk_in_process_available
-from viknow3.application.agentcore.runtime.adk_runner import run_adk
-from viknow3.application.agent.knowledge_assistant.deepagents_runner import run_deepagents_turn
+from viknow3.application.agent.qa_box.deepagents_runner import run_deepagents_turn
 from viknow3.application.agentcore.environment.context import RunState
 from viknow3.application.agentcore.events.sink import EventSink
 from viknow3.application.agentcore.outbound.gateway import OutboundGateway
-from viknow3.application.agentcore.registry.catalog import AGENT_ADK, Profile
+from viknow3.application.agentcore.registry.catalog import AGENT_DEEPAGENTS, Profile
 from viknow3.application.agentcore.runtime.events import RunEvents
 
 log = logging.getLogger(__name__)
-
-DEEPAGENTS_PROFILE_ID = "deepagents"
 
 
 class _RunGrant:
@@ -48,15 +44,7 @@ async def run(state: RunState, profile: Profile, sink: EventSink, outbound: Outb
     bind_grant(_RunGrant(state, outbound))
     try:
         events.started()
-        if profile.runtime == "adk":
-            if adk_in_process_available():
-                await run_adk(state, events, outbound)
-            else:
-                events.failed(
-                    "ADK is not configured: install google-adk for in-process runs",
-                    code="adk_not_configured",
-                )
-        elif profile.id == DEEPAGENTS_PROFILE_ID:
+        if profile.id == AGENT_DEEPAGENTS:
             await run_deepagents_turn(state, events)
         else:
             events.failed("no runtime for this profile", code="unknown_profile")

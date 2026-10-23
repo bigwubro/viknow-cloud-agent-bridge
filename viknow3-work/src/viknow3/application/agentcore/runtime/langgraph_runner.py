@@ -6,7 +6,7 @@ from typing import Any
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage
 
-from viknow3.application.agentcore.harness.context import current_harness
+from viknow3.application.agent.qa_box.harness.context import current_harness
 from viknow3.application.agentcore.runtime.events import RunEvents
 
 RECURSION_LIMIT = 60

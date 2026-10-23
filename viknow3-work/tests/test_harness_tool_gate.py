@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import unittest
 
-from viknow3.application.agentcore.harness.facts import HarnessRunFacts
-from viknow3.application.agentcore.harness.tool_gate import evaluate_tool_gate
+from viknow3.application.agent.qa_box.harness.facts import HarnessRunFacts
+from viknow3.application.agent.qa_box.harness.tool_gate import evaluate_tool_gate
 
 
 class HarnessToolGateTests(unittest.TestCase):

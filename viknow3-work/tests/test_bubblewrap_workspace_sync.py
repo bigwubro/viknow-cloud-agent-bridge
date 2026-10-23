@@ -10,12 +10,12 @@ from types import SimpleNamespace
 
 os.environ.setdefault("VIKNOW_USE_SCRIPT_MODEL", "1")
 
-from viknow3.application.agent.knowledge_assistant.bubblewrap_workspace import (
+from viknow3.application.agent.qa_box.bubblewrap_workspace import (
     capture_bubblewrap_workspace,
     prepare_host_staging,
     restore_bubblewrap_workspace,
 )
-from viknow3.application.agent.knowledge_assistant.profile import load_viknow_v2_profile
+from viknow3.application.agent.qa_box.profile import load_viknow_v2_profile
 
 
 class _MemorySandbox:

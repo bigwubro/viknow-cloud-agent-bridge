@@ -244,10 +244,6 @@ agent:
       gpu: false
       extra_bind_mounts: []
       extra_env: {}
-  adk:
-    workspace:
-      # host = LocalEnvironment (default); bubblewrap = optional script-level deepagents_sandbox
-      script_sandbox: host
   hermes:
     home: ../../.state/hermes-home
 

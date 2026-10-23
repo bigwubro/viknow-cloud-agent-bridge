@@ -82,11 +82,11 @@ class AccessTests(unittest.TestCase):
 
         status, profiles = self.request("GET", "/api/v1/agent/profiles")
         self.assertEqual(profiles["default_profile"], "deepagents")
-        self.assertEqual([item["id"] for item in profiles["profiles"]], ["deepagents", "adk"])
+        self.assertEqual([item["id"] for item in profiles["profiles"]], ["deepagents"])
 
         status, agents = self.request("GET", "/api/v1/agent/agents")
         self.assertEqual(status, 200)
-        self.assertEqual([item["id"] for item in agents], ["deepagents", "adk"])
+        self.assertEqual([item["id"] for item in agents], ["deepagents"])
 
         status, _ = self.request("GET", "/api/v1/agent/profiles/deepagents", key="nope")
         self.assertEqual(status, 401)

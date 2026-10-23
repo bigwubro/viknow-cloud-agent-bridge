@@ -8,8 +8,8 @@ import unittest
 
 os.environ.setdefault("VIKNOW_USE_SCRIPT_MODEL", "1")
 
-from viknow3.application.agent.knowledge_assistant.profile import load_viknow_v2_profile
-from viknow3.application.agent.knowledge_assistant.workspace_lifecycle import (
+from viknow3.application.agent.qa_box.profile import load_viknow_v2_profile
+from viknow3.application.agent.qa_box.workspace_lifecycle import (
     finalize_session_run,
     prepare_session_run,
     workspace_runtime_instruction,
@@ -41,9 +41,9 @@ class SessionWorkspaceLifecycleTests(unittest.TestCase):
 
     def test_runtime_instruction_kb_policy(self) -> None:
         ctx = prepare_session_run("instr-session", ())
-        text = workspace_runtime_instruction(ctx, ["lib-a"], "adk")
+        text = workspace_runtime_instruction(ctx, ["lib-a"], "deepagents")
         self.assertIn("knowledge_search", text)
-        self.assertIn("load_skill", text)
+        self.assertIn("knowledge-qa-v2", text)
         self.assertIn("glob", text)
 
 

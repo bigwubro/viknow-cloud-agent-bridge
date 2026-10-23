@@ -6,7 +6,9 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
-from viknow3.application.agent.knowledge_assistant.profile import load_viknow_v2_profile
+from viknow3.application.agent.qa_box.profile import load_viknow_v2_profile
+
+# Single QA profile exposed to access layer (black box is always deepagents / viknow-v2).
 from viknow3.clock import now, stamp
 
 _V2_PROFILE = load_viknow_v2_profile()
@@ -15,7 +17,6 @@ ALLOWED_MODELS = ("siliconflow:Qwen/Qwen3.6-35B-A3B",)
 SERVER_DEFAULT_MODEL = "server-default"
 
 AGENT_DEEPAGENTS = "deepagents"
-AGENT_ADK = "adk"
 
 
 @dataclass
@@ -71,14 +72,6 @@ class Registry:
                 f"{_V2_PROFILE.description}（deepagents / viknow-v2 profile）",
                 created,
                 "langgraph",
-                shared_tools,
-            ),
-            AGENT_ADK: _profile(
-                AGENT_ADK,
-                f"{_V2_PROFILE.label} ADK",
-                f"{_V2_PROFILE.description}（ADK LlmAgent，viknow-v2 profile；进程内 google-adk）",
-                created,
-                "adk",
                 shared_tools,
             ),
         }

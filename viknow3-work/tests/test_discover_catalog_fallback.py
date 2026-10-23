@@ -6,7 +6,7 @@ import json
 import unittest
 from unittest.mock import MagicMock, patch
 
-from viknow3.application.agent.knowledge_assistant.tools import knowledge_discover
+from viknow3.application.agent.qa_box.tools import knowledge_discover
 from viknow3.application.agent.qa_expert.grant import bind_grant, reset_grant
 from viknow3.application.hyperrag.client import HyperragClient
 from viknow3.application.hyperrag.knowledge_provider import KnowledgeLibrary

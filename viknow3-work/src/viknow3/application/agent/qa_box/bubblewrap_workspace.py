@@ -10,12 +10,12 @@ from typing import Any
 
 from deepagents.backends.composite import CompositeBackend
 
-from viknow3.application.agent.knowledge_assistant.workspace_lifecycle import prepare_session_run
-from viknow3.application.agent.knowledge_assistant.workspace_config import (
+from viknow3.application.agent.qa_box.workspace_lifecycle import prepare_session_run
+from viknow3.application.agent.qa_box.workspace_config import (
     load_deepagents_workspace_config,
     session_workspace_dir,
 )
-from viknow3.application.agent.knowledge_assistant.workspace_staging import (
+from viknow3.application.agent.qa_box.workspace_staging import (
     _CAPTURE_WORKSPACE_PREFIXES,
     _RESTORE_WORKSPACE_PREFIXES,
     _RUNTIME_SKILLS_DIR,

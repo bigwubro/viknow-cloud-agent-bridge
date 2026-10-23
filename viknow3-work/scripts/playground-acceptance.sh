@@ -18,7 +18,7 @@ done
 
 agents="$(curl -sf "${BASE}/api/v1/agent/agents")"
 echo "$agents" | grep -q deepagents || fail "agent list missing deepagents"
-echo "$agents" | grep -q '"adk"' || fail "agent list missing adk"
+echo "$agents" | grep -q '"deepagents"' || fail "agent list missing deepagents"
 
 user="$(curl -sf -X POST "${BASE}/api/v1/users" -H 'Content-Type: application/json' -d '{"display_name":"acceptance"}')"
 uid="$(echo "$user" | python3 -c 'import json,sys; print(json.load(sys.stdin)["id"])')"

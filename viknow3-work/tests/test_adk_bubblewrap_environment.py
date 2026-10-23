@@ -31,7 +31,7 @@ class AdkBubblewrapEnvironmentTests(unittest.IsolatedAsyncioTestCase):
         env = BubblewrapScriptEnvironment(working_dir=self._root, sandbox_cfg=cfg)
         await env.initialize()
         try:
-            result = await env.execute("echo sandbox-ok > scratch/marker.txt && cat scratch/marker.txt")
+            result = await env.execute("mkdir -p scratch && echo sandbox-ok > scratch/marker.txt && cat scratch/marker.txt")
             self.assertEqual(result.exit_code, 0)
             self.assertIn("sandbox-ok", result.stdout)
             self.assertTrue((self._root / "scratch" / "marker.txt").is_file())

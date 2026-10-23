@@ -32,6 +32,11 @@ class BubblewrapScriptEnvironment(LocalEnvironment):
         self._sandbox_cfg = sandbox_cfg
         self._sandbox: Any = None
 
+    async def initialize(self) -> None:
+        await super().initialize()
+        for name in ("uploads", "scratch", "outputs"):
+            (self.working_dir / name).mkdir(parents=True, exist_ok=True)
+
     def _ensure_sandbox(self) -> Any:
         if self._sandbox is not None:
             return self._sandbox

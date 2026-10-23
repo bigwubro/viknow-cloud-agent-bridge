@@ -10,6 +10,11 @@ import httpx
 
 from viknow3.ops.config.model_resolve import resolve_openai_chat
 
+_EXPERT_PLANNING_PREFIX = (
+    "You are the ViKnow retrieval planning expert. "
+    "Stay within the granted library_id, prefer evidence-first QA, and output strict JSON only.\n"
+)
+
 
 def _chat_json(system: str, user: str) -> dict[str, Any]:
     resolved = resolve_openai_chat("server-default")
@@ -33,7 +38,8 @@ def _chat_json(system: str, user: str) -> dict[str, Any]:
 
 def refine_queries(query: str, library_id: str, *, max_queries: int = 3) -> dict[str, Any]:
     data = _chat_json(
-        "Return JSON only: {\"retrieval_queries\":[\"...\"],\"answer_slots\":[{\"slot_id\":\"main\",\"question\":\"...\"}]}. "
+        _EXPERT_PLANNING_PREFIX
+        + "Return JSON only: {\"retrieval_queries\":[\"...\"],\"answer_slots\":[{\"slot_id\":\"main\",\"question\":\"...\"}]}. "
         f"At most {max_queries} distinct search queries for one library.",
         f"library_id={library_id}\nuser_query={query}",
     )
@@ -53,7 +59,8 @@ def refine_queries(query: str, library_id: str, *, max_queries: int = 3) -> dict
 
 def answer_plan(query: str, library_id: str) -> dict[str, Any]:
     data = _chat_json(
-        "Return JSON only: {\"slots\":[{\"slot_id\":\"main\",\"question\":\"...\",\"status\":\"open\"}],"
+        _EXPERT_PLANNING_PREFIX
+        + "Return JSON only: {\"slots\":[{\"slot_id\":\"main\",\"question\":\"...\",\"status\":\"open\"}],"
         "\"subquestions\":[\"...\"]}.",
         f"library_id={library_id}\nuser_query={query}",
     )

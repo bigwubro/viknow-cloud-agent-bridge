@@ -49,6 +49,18 @@ class KnowledgeAssistantModel(BaseChatModel):
         question = _user_text(messages).strip()
         messages = _since_last_user(messages)
         done = _tool_names(messages)
+        skill_path = "/workspace/.skills/knowledge-qa-v2/SKILL.md"
+        if "read_file" not in done:
+            return AIMessage(
+                content="",
+                tool_calls=[
+                    {
+                        "id": "call-read-skill",
+                        "name": "read_file",
+                        "args": {"path": skill_path},
+                    }
+                ],
+            )
         if "knowledge_discover" not in done:
             return AIMessage(
                 content="",

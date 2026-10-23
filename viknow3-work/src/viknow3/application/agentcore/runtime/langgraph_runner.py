@@ -6,6 +6,7 @@ from typing import Any
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage
 
+from viknow3.application.agentcore.harness.context import current_harness
 from viknow3.application.agentcore.runtime.events import RunEvents
 
 RECURSION_LIMIT = 60
@@ -99,10 +100,15 @@ async def run_graph(graph: Any, events: RunEvents) -> None:
                     {"tool_call_id": event["run_id"], "name": event.get("name") or "", "arguments": data.get("input") or {}},
                 )
             elif kind == "on_tool_end":
-                events.emit(
-                    "tool_call_completed",
-                    {"tool_call_id": event["run_id"], "name": event.get("name") or "", "text": _tool_output(data.get("output"))},
-                )
+                output_text = _tool_output(data.get("output"))
+                payload = {
+                    "tool_call_id": event["run_id"],
+                    "name": event.get("name") or "",
+                    "text": output_text,
+                }
+                if '"tool_gate_blocked"' in output_text or '"code": "tool_gate_blocked"' in output_text:
+                    payload["tool_gate"] = True
+                events.emit("tool_call_completed", payload)
             elif kind == "on_tool_error":
                 events.emit(
                     "tool_call_completed",
@@ -116,4 +122,9 @@ async def run_graph(graph: Any, events: RunEvents) -> None:
     except BaseException:
         events.state.output = text or None
         raise
+    harness = current_harness()
+    if harness is not None:
+        events.state.citations = harness.citations.export()
+        for claim in harness.facts.verified_claims:
+            harness.citations.add_verified_claim(claim)
     events.completed(text, usage if saw_usage else None)

@@ -45,6 +45,13 @@ class DeepagentsSandboxConfig:
 
 
 @dataclass(frozen=True)
+class DeepagentsRuntimeTuning:
+    skill_reminder_enabled: bool = True
+    summarization_trigger_fraction: float | None = 0.6
+    summarization_keep_fraction: float = 0.05
+
+
+@dataclass(frozen=True)
 class DeepagentsWorkspaceConfig:
     backend: str = "bubblewrap"
     virtual_mode: bool = True
@@ -53,6 +60,7 @@ class DeepagentsWorkspaceConfig:
     staging_purge_outputs_after_sync: bool = True
     staging_purge_scratch_after_run: bool = True
     sandbox: DeepagentsSandboxConfig = DeepagentsSandboxConfig()
+    runtime: DeepagentsRuntimeTuning = DeepagentsRuntimeTuning()
 
 
 def agent_workspace_root() -> Path:
@@ -102,6 +110,14 @@ def load_deepagents_workspace_config() -> DeepagentsWorkspaceConfig:
         extra_bind_mounts=tuple(binds),
         extra_env=extra_env,
     )
+    skill_reminder = deep.get("skill_reminder") if isinstance(deep.get("skill_reminder"), dict) else {}
+    summarization = deep.get("summarization") if isinstance(deep.get("summarization"), dict) else {}
+    trigger_raw = summarization.get("trigger_fraction")
+    runtime = DeepagentsRuntimeTuning(
+        skill_reminder_enabled=bool(skill_reminder.get("enabled", True)),
+        summarization_trigger_fraction=float(trigger_raw) if trigger_raw is not None else None,
+        summarization_keep_fraction=float(summarization.get("keep_fraction") or 0.05),
+    )
     return DeepagentsWorkspaceConfig(
         backend=str(ws.get("backend") or "bubblewrap").strip().lower(),
         virtual_mode=bool(ws.get("virtual_mode", True)),
@@ -110,4 +126,5 @@ def load_deepagents_workspace_config() -> DeepagentsWorkspaceConfig:
         staging_purge_outputs_after_sync=bool(staging.get("purge_outputs_after_sync", True)),
         staging_purge_scratch_after_run=bool(staging.get("purge_scratch_after_run", True)),
         sandbox=sandbox,
+        runtime=runtime,
     )

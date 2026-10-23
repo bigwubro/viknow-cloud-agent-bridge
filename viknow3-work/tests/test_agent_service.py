@@ -138,7 +138,10 @@ class AgentServiceTests(unittest.TestCase):
         types = [item["type"] for item in events]
         self.assertEqual(events[0]["payload"]["library_ids"], ["library-1"])
         started = [item["payload"] for item in events if item["type"] == "tool_call_started"]
-        self.assertEqual([item["name"] for item in started], ["knowledge_discover", "query_refine", "knowledge_search"])
+        self.assertEqual(
+            [item["name"] for item in started],
+            ["read_file", "knowledge_discover", "query_refine", "knowledge_search"],
+        )
         completed = [item["payload"] for item in events if item["type"] == "tool_call_completed"]
         self.assertEqual([item["tool_call_id"] for item in completed], [item["tool_call_id"] for item in started])
         discover = json.loads(completed[0]["text"])

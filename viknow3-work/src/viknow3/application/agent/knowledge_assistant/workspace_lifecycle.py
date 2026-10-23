@@ -106,6 +106,7 @@ def workspace_runtime_instruction(
         f"\n会话工作区（虚拟路径前缀 `{_VIRTUAL_ROOT}/`）："
         f"uploads/ 用户上传，scratch/ 临时计算，outputs/ 可交付产物；"
         f"宿主机目录 `{ctx.root}`。\n"
+        "用户上传图片问答：先将 uploads 内图片转为 data URL，再调用 uploaded_image_search（A14）。\n"
     )
     return "".join(parts)
 

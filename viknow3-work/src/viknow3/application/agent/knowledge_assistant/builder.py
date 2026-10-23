@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from viknow3.application.agent.knowledge_assistant.backends import build_filesystem_workspace_backend
+from viknow3.application.agent.knowledge_assistant.middleware.qa_harness import QaHarnessMiddleware
 from viknow3.application.agent.knowledge_assistant.instructions import runtime_instruction
 from viknow3.application.agent.knowledge_assistant.skill_pin import pinned_skills_prompt
 from viknow3.application.agent.knowledge_assistant.llm import resolve_chat_model
@@ -45,12 +46,34 @@ def build_graph(
         + workspace_overlay
     )
     skill_root = workspace_skills_source(cfg.backend)
+    primary_skill = profile.enabled_skills[0] if profile.enabled_skills else "knowledge-qa-v2"
+    skill_path = f"/workspace/.skills/{primary_skill}/SKILL.md"
+    middleware: list[Any] = [
+        QaHarnessMiddleware(
+            primary_skill=primary_skill,
+            skill_path=skill_path,
+            skill_reminder_enabled=cfg.runtime.skill_reminder_enabled,
+        ),
+    ]
+    model = resolve_chat_model(model_selector)
+    if cfg.runtime.summarization_trigger_fraction is not None:
+        from deepagents.middleware.summarization import SummarizationMiddleware
+
+        middleware.append(
+            SummarizationMiddleware(
+                model=model,
+                backend=backend,
+                trigger=("fraction", cfg.runtime.summarization_trigger_fraction),
+                keep=("fraction", cfg.runtime.summarization_keep_fraction),
+            )
+        )
     return create_deep_agent(
-        model=resolve_chat_model(model_selector),
+        model=model,
         tools=build_tools(profile),
         system_prompt=system_prompt,
         skills=[skill_root],
         backend=backend,
+        middleware=middleware,
         checkpointer=checkpointer,
         name="deepagents",
     )

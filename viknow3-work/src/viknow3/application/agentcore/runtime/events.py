@@ -23,7 +23,8 @@ class RunEvents:
         self._lock = threading.Lock()
 
     def emit(self, event_type: str, payload: dict[str, Any] | None = None) -> None:
-        if self._closed and event_type not in TERMINAL_EVENTS and event_type != "message_completed":
+        post_terminal = frozenset({"answer_review_started", "answer_review_completed", "tool_gate_blocked"})
+        if self._closed and event_type not in TERMINAL_EVENTS and event_type not in post_terminal and event_type != "message_completed":
             return
         body = {"session_id": self.state.ctx.session_id, **(payload or {})}
         self._sink.append(self.state.ctx.run_id, event_type, body, now())
@@ -51,10 +52,11 @@ class RunEvents:
     def completed(self, text: str, token_usage: dict[str, int] | None) -> None:
         if not self._close():
             return
+        citations = dict(self.state.citations or {})
         if text:
-            self.emit("message_completed", {"text": text, "citations": {}, "token_usage": token_usage})
+            self.emit("message_completed", {"text": text, "citations": citations, "token_usage": token_usage})
         self.state.output = text
-        self.state.citations = {}
+        self.state.citations = citations
         self.state.token_usage = token_usage
         self._finish("completed")
         self._terminal("run_completed")

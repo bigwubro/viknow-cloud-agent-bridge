@@ -89,7 +89,7 @@ class QaHarnessMiddleware(AgentMiddleware[AgentState[ResponseT], ContextT, Respo
         self._skill_path = skill_path
         self._skill_reminder_enabled = skill_reminder_enabled
 
-    def wrap_model_call(self, request: Any, handler: Any) -> Any:
+    def _augment_model_request(self, request: Any) -> Any:
         harness = current_harness()
         if harness is not None and self._skill_reminder_enabled:
             reminder = render_skill_reminder(self._primary_skill, self._skill_path)
@@ -99,7 +99,6 @@ class QaHarnessMiddleware(AgentMiddleware[AgentState[ResponseT], ContextT, Respo
                 if isinstance(content, str) and reminder.strip() not in content:
                     request = request.override(system_message=type(system)(content=content + reminder))
         if harness is not None and harness.facts.library_ids and not harness.facts.search_called:
-            # A3 light: nudge before final answer when KB is granted but search not run yet.
             messages = list(getattr(request, "messages", []) or [])
             if messages and not getattr(messages[-1], "tool_calls", None):
                 system = getattr(request, "system_message", None)
@@ -108,10 +107,13 @@ class QaHarnessMiddleware(AgentMiddleware[AgentState[ResponseT], ContextT, Respo
                     content = getattr(system, "content", "") or ""
                     if isinstance(content, str):
                         request = request.override(system_message=type(system)(content=content + extra))
-        return handler(request)
+        return request
+
+    def wrap_model_call(self, request: Any, handler: Any) -> Any:
+        return handler(self._augment_model_request(request))
 
     async def awrap_model_call(self, request: Any, handler: Any) -> Any:
-        return self.wrap_model_call(request, handler)
+        return await handler(self._augment_model_request(request))
 
     def wrap_tool_call(self, request: Any, handler: Any) -> ToolMessage | Any:
         harness = current_harness()

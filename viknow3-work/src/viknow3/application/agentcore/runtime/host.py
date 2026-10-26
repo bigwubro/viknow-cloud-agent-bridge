@@ -1,7 +1,8 @@
-"""Agent host. Builds each profile's graph and runs a turn as a task on the agent loop.
+"""Agent host. One turn runs on the agent loop.
 
-Concrete agents live in application/agent. A graph is rebuilt per run so model
-config changes apply at once. Session memory lives in the Postgres checkpointer.
+The profile id selects a package under src/agents. Libraries this run may
+search are the ones the caller asked for and this user may access. Session
+memory lives in the Postgres checkpointer.
 """
 
 from __future__ import annotations
@@ -10,11 +11,11 @@ import asyncio
 import logging
 from typing import Any
 
-from viknow3.application.agent.qa_box.deepagents_runner import run_deepagents_turn
+from agents.layout import package_for_public_id
+from viknow3.application.agent.viknow2_adapter import AgentRuntimeDeps, AgentTurnInput, get_runtime
 from viknow3.application.agentcore.environment.context import RunState
 from viknow3.application.agentcore.events.sink import EventSink
 from viknow3.application.agentcore.outbound.gateway import OutboundGateway
-from agents.layout import package_for_public_id
 from viknow3.application.agentcore.registry.catalog import Profile
 from viknow3.application.agentcore.runtime.events import RunEvents
 
@@ -22,7 +23,7 @@ log = logging.getLogger(__name__)
 
 
 class _RunGrant:
-    """Libraries granted on this run, as seen by the agents' search tools."""
+    """Libraries granted on this run."""
 
     def __init__(self, state: RunState, outbound: OutboundGateway) -> None:
         self._state = state
@@ -32,23 +33,35 @@ class _RunGrant:
         ctx = self._state.ctx
         return [library_id for library_id in ctx.library_ids if self._outbound.permission(ctx.user_id, library_id, None)]
 
-    def allowed(self) -> bool:
-        return bool(self.libraries())
-
 
 async def run(state: RunState, profile: Profile, sink: EventSink, outbound: OutboundGateway) -> None:
-    """One turn. Runs on the agent loop; its context (and so the grant) is private to this task."""
-    from viknow3.application.agent.qa_expert import bind_grant
-
+    """One turn. Runs on the agent loop."""
     events = state.events or RunEvents(state, sink)
     state.aio_task = asyncio.current_task()
-    bind_grant(_RunGrant(state, outbound))
     try:
         events.started()
-        if package_for_public_id(profile.id) is not None:
-            await run_deepagents_turn(state, events)
-        else:
+        if package_for_public_id(profile.id) is None:
             events.failed("no runtime for this profile", code="unknown_profile")
+            return
+        libraries = tuple(_RunGrant(state, outbound).libraries())
+        turn = AgentTurnInput(
+            session_id=state.ctx.session_id,
+            run_id=state.ctx.run_id,
+            user_id=state.ctx.user_id,
+            user_message=state.ctx.message,
+            library_ids=libraries,
+            model_selector=state.ctx.model,
+        )
+        allowed = set(libraries)
+        deps = AgentRuntimeDeps(
+            library_allowed=lambda library_id: library_id in allowed,
+            emit_event=events.emit,
+        )
+        result = await get_runtime().run_turn(turn, state, events, deps)
+        state.output = result.output
+        state.citations = result.citations
+        if result.token_usage is not None:
+            state.token_usage = result.token_usage
     except asyncio.CancelledError:
         events.interrupted(state.output or "")
     except Exception as exc:

@@ -15,18 +15,14 @@ from time import perf_counter
 from typing import TYPE_CHECKING, Any
 from urllib.parse import quote
 
-from actio.video_frames import sample_video_frames_at_timestamps
 from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
+from agents.runtime.core.actio.client import ActioClient
 from agents.runtime.core.config import ModelProvider, ToolConfigs
 from agents.runtime.core.evidence import Evidence, EvidencePart, EvidencePartKind, EvidenceTimeRange
 from agents.runtime.core.model_gateway import model_connection_options
-from agents.runtime.core.multimodal.asr import (
-    EvidenceTranscriber,
-    OpenAICompatibleASRClient,
-    TimestampedASRClient,
-)
+from agents.runtime.core.multimodal.asr import EvidenceTranscriber
 from agents.runtime.core.multimodal.document_page_renderer import (
     MAX_DOCUMENT_INSPECT_PAGES,
     SpreadsheetRenderContext,
@@ -35,22 +31,13 @@ from agents.runtime.core.multimodal.document_page_renderer import (
 )
 from agents.runtime.core.multimodal.image_inspect_claim import ImageReviewResult, ImageVisualClaim
 from agents.runtime.core.multimodal.inspect_citation import InspectClaimRender, InspectClaimSource
-from agents.runtime.core.multimodal.locate_anything import (
-    ActioLocateAnythingClient,
-    LocateAnythingClient,
-)
-from agents.runtime.core.multimodal.ocr import (
-    EvidenceOCRReader,
-    OpenAICompatibleOCRClient,
-    PaddleOCRClient,
-)
+from agents.runtime.core.multimodal.locate_anything import LocateAnythingClient
+from agents.runtime.core.multimodal.ocr import EvidenceOCRReader
 from agents.runtime.core.multimodal.review import EvidenceReviewer
 from agents.runtime.core.multimodal.video_discovery import (
-    OpenAICompatibleVideoDiscoveryClient,
     VideoDiscoveryClient,
     VideoDiscoveryService,
 )
-from agents.runtime.core.multimodal.video_inspection import OpenAICompatibleVideoInspectionClient
 from agents.runtime.core.multimodal.video_review_claim import VideoReviewResult, VideoVisualClaim
 from agents.runtime.core.scheduler.domain import Priority, extra_body_with_priority
 from agents.runtime.core.tools.base import ToolErrorCode, ToolResult, map_error_code
@@ -804,8 +791,8 @@ class MultimodalToolHandlers:
     document_inspect_extractor_factory: Callable[[], ImageEvidenceExtractor] | None = None
     video_discovery_client_factory: Callable[[], VideoDiscoveryClient] | None = None
     video_url_builder: Callable[[EvidencePart], str] | None = None
-    filesystem_manager: Any | None = None
     workspace_upload_path_resolver: Callable[[str], Path] | None = None
+    actio: ActioClient | None = None
     _video_inspector: EvidenceReviewer | None = field(default=None, init=False, repr=False)
     _video_review_extractor: VideoEvidenceExtractor | None = field(
         default=None,
@@ -842,23 +829,18 @@ class MultimodalToolHandlers:
         default=None, init=False, repr=False
     )
 
+    def _require_actio(self) -> ActioClient:
+        if self.actio is None:
+            raise RuntimeError("actio client is required")
+        return self.actio
+
     def resolved_repo_root(self) -> Path:
         return self.knowledge.resolved_repo_root()
 
     def resolve_workspace_upload_path(self, workspace_path: str) -> Path:
         if self.workspace_upload_path_resolver is not None:
             return self.workspace_upload_path_resolver(workspace_path)
-        if self.filesystem_manager is None:
-            return Path(workspace_path)
-        context = get_tool_run_context()
-        if context is None:
-            return Path(workspace_path)
-        return self.filesystem_manager.resolve_workspace_upload_path(
-            user_id=context.user_id,
-            workspace_id=context.workspace_id,
-            session_id=context.session_id,
-            workspace_path=workspace_path,
-        )
+        return Path(workspace_path)
 
     def get_video_inspector(self) -> EvidenceReviewer:
         if self.video_inspector_factory is not None:
@@ -872,7 +854,7 @@ class MultimodalToolHandlers:
             base_url = review_model.resolve_base_url()
             if not base_url:
                 raise RuntimeError("video inspect model base_url or base_url_env is required")
-            inspection_client = OpenAICompatibleVideoInspectionClient(
+            inspection_client = self._require_actio().video_inspection_client(
                 model=review_model.require_model(),
                 base_url=base_url,
                 api_key=review_model.require_api_key(),
@@ -1073,7 +1055,8 @@ class MultimodalToolHandlers:
             if not base_url:
                 raise RuntimeError("asr base_url or base_url_env is required")
             if asr_config.provider == ModelProvider.OPENAI_COMPATIBLE:
-                asr_client = OpenAICompatibleASRClient(
+                asr_client = self._require_actio().asr_client(
+                    provider=str(asr_config.provider),
                     model=asr_config.require_model(),
                     base_url=base_url,
                     api_key=asr_config.require_api_key(),
@@ -1086,11 +1069,11 @@ class MultimodalToolHandlers:
                     vad_energy_threshold=asr_config.vad_energy_threshold,
                 )
             elif asr_config.provider in {ModelProvider.GRANITE, ModelProvider.ARK}:
-                asr_client = TimestampedASRClient(
+                asr_client = self._require_actio().asr_client(
+                    provider=str(asr_config.provider),
                     model=asr_config.require_model(),
                     base_url=base_url,
                     api_key=asr_config.require_api_key(),
-                    provider=str(asr_config.provider),
                     timeout_seconds=asr_config.timeout_seconds,
                     region_mode=asr_config.region_mode,
                     transport=asr_config.transport,
@@ -1122,22 +1105,18 @@ class MultimodalToolHandlers:
             base_url = ocr_config.resolve_base_url()
             if not base_url:
                 raise RuntimeError("ocr base_url or base_url_env is required")
-            client_class = (
-                OpenAICompatibleOCRClient
-                if ocr_config.provider == ModelProvider.OPENAI_COMPATIBLE
-                else PaddleOCRClient
-            )
             ocr_kwargs: dict[str, Any] = {
+                "provider": str(ocr_config.provider),
                 "model": ocr_config.require_model(),
                 "base_url": base_url,
                 "api_key": ocr_config.require_api_key(),
                 "timeout_seconds": ocr_config.timeout_seconds,
             }
-            if client_class is OpenAICompatibleOCRClient:
+            if ocr_config.provider == ModelProvider.OPENAI_COMPATIBLE:
                 ocr_kwargs["priority"] = Priority.INTERACTIVE.vllm_priority
             self._evidence_ocr_reader = EvidenceOCRReader(
                 repo_root=self.resolved_repo_root(),
-                ocr_client=client_class(**ocr_kwargs),
+                ocr_client=self._require_actio().ocr_client(**ocr_kwargs),
             )
         return self._evidence_ocr_reader
 
@@ -1155,7 +1134,7 @@ class MultimodalToolHandlers:
             base_url = locate_config.resolve_base_url()
             if not base_url:
                 raise RuntimeError("locate_anything base_url or base_url_env is required")
-            self._locate_anything_client = ActioLocateAnythingClient(
+            self._locate_anything_client = self._require_actio().locate_anything_client(
                 base_url=base_url,
                 api_key=locate_config.require_api_key(),
                 timeout_seconds=locate_config.timeout_seconds,
@@ -1184,7 +1163,7 @@ class MultimodalToolHandlers:
                 base_url = discovery_config.resolve_base_url()
                 if not base_url:
                     raise RuntimeError("video discovery base_url or base_url_env is required")
-                discovery_client = OpenAICompatibleVideoDiscoveryClient(
+                discovery_client = self._require_actio().video_discovery_client(
                     model=discovery_config.require_model(),
                     base_url=base_url,
                     api_key=discovery_config.require_api_key(),
@@ -1194,6 +1173,7 @@ class MultimodalToolHandlers:
             self._video_discovery_service = VideoDiscoveryService(
                 repo_root=self.resolved_repo_root(),
                 discovery_client=discovery_client,
+                frames=self.actio,
             )
         return self._video_discovery_service
 
@@ -1695,7 +1675,7 @@ class MultimodalToolHandlers:
             import uuid as _uuid
 
             frame_dir = Path("/tmp/viknow-locate-frames") / _uuid.uuid4().hex
-            frame_paths = sample_video_frames_at_timestamps(
+            frame_paths = self._require_actio().sample_video_frames_at_timestamps(
                 video_path=video_path,
                 output_dir=frame_dir,
                 timestamps=[frame_time],
@@ -2989,10 +2969,7 @@ def _document_source_path(self: MultimodalToolHandlers, evidence: Evidence) -> P
     adapter = self.knowledge.knowledge_adapter
     if adapter is None or not library_id or not asset_id:
         raise ValueError("document evidence does not identify a resolvable knowledge asset")
-    resolver = getattr(adapter, "resolve_document_render_path", None)
-    if not callable(resolver):
-        raise RuntimeError("knowledge adapter does not support document page rendering")
-    source_path = resolver(library_id=library_id, asset_id=asset_id)
+    source_path = adapter.resolve_document_render_path(library_id=library_id, asset_id=asset_id)
     if source_path is None:
         raise FileNotFoundError(f"no renderable source found for document asset {asset_id}")
     return Path(source_path)

@@ -707,7 +707,7 @@ class HyperRAGAdapter:
         ]
 
     async def get_video_summary_async(self, *, library_id: str, asset_id: str) -> dict[str, Any]:
-        from actio.global_context import normalize_global_context
+        from viknow3.application.actio.client import normalize_global_context
 
         payload = await self._run_in_runtime_loop_async(
             lambda: self._ensure_app().aget_video_semantic(
@@ -1226,7 +1226,7 @@ class HyperRAGAdapter:
         top_k: int | None = None,
         library_ids: Collection[str] | None = None,
     ) -> list[KnowledgeLibrarySearchResult]:
-        """Synchronous bounded catalog discovery for the Hermes compatibility adapter."""
+        """Synchronous bounded catalog discovery."""
         asset_limit = self._discover_asset_matches_per_library() if query.strip() else None
         normalized_ids = list(dict.fromkeys(library_ids)) if library_ids is not None else None
         with start_span_sync("hyperrag.discover", **_hyperrag_span_attrs("hyperrag.discover")):
@@ -1756,7 +1756,7 @@ class HyperRAGAdapter:
         # authoritative, while ViKnow top_k limits the returned evidence window.
         evidence: list[Evidence] = []
         for chunk in chunks:
-            built = self._build_evidence(library_id=library_id, chunk=chunk)
+            built = self.evidence_for_chunk(library_id=library_id, chunk=chunk)
             if built is None:
                 continue
             evidence.append(built)
@@ -1776,7 +1776,7 @@ class HyperRAGAdapter:
     def _result_chunks(result: dict[str, Any]) -> list[dict[str, Any]]:
         return list(result.get("data", {}).get("chunks", []) or [])
 
-    def _build_evidence(
+    def evidence_for_chunk(
         self,
         *,
         library_id: str,

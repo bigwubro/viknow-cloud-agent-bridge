@@ -2987,29 +2987,6 @@
         ]
       }
     },
-    "/api/v1/learning": {
-      "get": {
-        "summary": "Learning Status",
-        "operationId": "learning_status_api_v1_learning_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Learning Status Api V1 Learning Get"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "Knowledge"
-        ]
-      }
-    },
     "/api/v1/om/config": {
       "get": {
         "summary": "Get Config",

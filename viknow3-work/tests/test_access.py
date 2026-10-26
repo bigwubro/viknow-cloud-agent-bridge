@@ -30,7 +30,8 @@ def setUpModule() -> None:
     scratch.mkdir(parents=True, exist_ok=True)
     os.environ.setdefault("VIKNOW_SCRATCH_DIR", str(scratch))
 
-    from viknow3.application.agentcore.runtime.checkpoint import reset_agent_tables
+    from agents.runtime.agent_adapters.checkpointer import reset_checkpoint_tables
+    from viknow3.pg import AGENT, dsn, require_test_database
     from viknow3.application.hyperrag import client as hyper_client
     from viknow3.store import STORE
 
@@ -45,7 +46,8 @@ def setUpModule() -> None:
     rag_service.HYPERAG = stub
     STORE.reset()
     stub.reset()
-    reset_agent_tables()
+    require_test_database(AGENT)
+    reset_checkpoint_tables(dsn(AGENT))
 
 
 def tearDownModule() -> None:
@@ -215,15 +217,15 @@ class AccessTests(unittest.TestCase):
         finally:
             reset_object_store()
 
-        status, learning_body = self.request("GET", "/api/v1/learning")
-        self.assertEqual(learning_body["module"], "self-learning")
-
         status, _om = self.request("GET", "/api/v1/om/config")
         self.assertEqual(status, 401)
         status, config = self.request("GET", "/api/v1/om/config", key="dev-admin-key")
-        self.assertIn("VIKNOW_LANGFUSE_ENABLED", config["switches"])
-        status, backup = self.request("POST", "/api/v1/om/backups", {}, key="dev-admin-key")
-        self.assertIn("backup_id", backup)
+        self.assertEqual(status, 200)
+        self.assertIn("observe_setting", config)
+        self.assertIn("model", config)
+        status, changes = self.request("GET", "/api/v1/om/config/changes", key="dev-admin-key")
+        self.assertEqual(status, 200)
+        self.assertIn("changes", changes)
 
 
 if __name__ == "__main__":

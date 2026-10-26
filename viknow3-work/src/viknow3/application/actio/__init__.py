@@ -1,5 +1,5 @@
-"""Actio inspect and visual grounding for knowledge-assistant tools."""
+"""Shell-owned Actio client. This package is the only place that imports actio."""
 
-from viknow3.application.actio.client import ActioClient, ActioClientError, get_actio_client
+from viknow3.application.actio.client import get_actio_client, normalize_global_context
 
-__all__ = ["ActioClient", "ActioClientError", "get_actio_client"]
+__all__ = ["get_actio_client", "normalize_global_context"]

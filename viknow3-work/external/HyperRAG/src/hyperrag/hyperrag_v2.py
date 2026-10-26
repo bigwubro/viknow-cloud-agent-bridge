@@ -5258,7 +5258,7 @@ class HyperRAGV2:
         request_id: str | None = None,
         global_context: dict[str, Any] | None = None,
     ) -> str:
-        from actio.global_context import normalize_global_context
+        from hyperrag.actio_port import normalize_global_context
 
         normalized_summary = str(global_summary or "").strip()
         if not normalized_summary:

@@ -64,8 +64,7 @@ finalize_session_run(session_id)
 
 ## 会话消息（`session_messages`）
 
-- `session_messages("deepagents", session_id)`：LangGraph Postgres checkpointer 中的 `messages`。
-- `session_messages("adk", session_id)`：ADK `adk` schema 中该 session 的 events，转换为 LangChain `HumanMessage` / `AIMessage` / `ToolMessage`（需 access 库中存在该 `session_id` 以解析 `user_id`）。
+`session_messages(profile_id, session_id)` 只读 `run_events` 里的 `user_message` 和 `message_completed`。外壳不读 LangGraph checkpoint。runtime 自己用 user、workspace、session 作为对话上下文的键。
 
 ## 与 Access API 的关系
 

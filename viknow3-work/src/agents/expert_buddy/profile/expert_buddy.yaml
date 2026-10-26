@@ -42,6 +42,6 @@ answer_review:
   enabled: true
   gate_enabled: true
   pass_threshold: 75
-  max_retries: 1
+  max_retries: 0
   allow_low_confidence_output: true
 user_prompt_template: "{input}"

@@ -20,10 +20,15 @@ AGENT = "/api/v1/agent/agents/deepagents"
 
 
 def setUpModule() -> None:
-    from viknow3.application.agentcore.runtime.checkpoint import reset_agent_tables
+    from agents.runtime.agent_adapters.checkpointer import reset_checkpoint_tables
+    from viknow3.pg import AGENT, dsn, require_test_database
 
     STORE.reset()
-    reset_agent_tables()
+    require_test_database(AGENT)
+    reset_checkpoint_tables(dsn(AGENT))
+    from hyperrag_stub import install_script_engine
+
+    install_script_engine()
 
 
 def _parse_sse(raw: str) -> list[dict]:
@@ -143,7 +148,10 @@ class SessionLifecycleTests(unittest.TestCase):
         other = self.client.post("/api/v1/users", json={"display_name": "别人"}, headers=AUTH).json()
         self.assertEqual(self.client.delete(f"{AGENT}/sessions/{session_id}?user_id={other['id']}", headers=AUTH).status_code, 404)
         self.assertEqual(
-            self.client.delete(f"/api/v1/agent/agents/deepagents/sessions/{session_id}?user_id={self.user['id']}", headers=AUTH).status_code,
+            self.client.delete(
+                f"/api/v1/agent/agents/not-registered/sessions/{session_id}?user_id={self.user['id']}",
+                headers=AUTH,
+            ).status_code,
             404,
         )
 

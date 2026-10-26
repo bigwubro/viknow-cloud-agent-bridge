@@ -114,6 +114,7 @@ def _run_turn(
     retrieval = any("knowledge" in n.lower() for n in tool_names) or bool(
         re.search(r'"evidence"|"snippet"|hyperrag|knowledge_search', blob, re.I)
     )
+    last = events[-1] if events else {}
     return TurnResult(
         agent=agent,
         question_id=question_id,
@@ -125,7 +126,6 @@ def _run_turn(
         answer_markers=markers,
         citations=citations,
         output=output,
-        last = events[-1] if events else {}
         error=run.get("error") or run.get("error_code") or (last.get("payload") or {}).get("code"),
         session_id=sid,
         run_id=rid,

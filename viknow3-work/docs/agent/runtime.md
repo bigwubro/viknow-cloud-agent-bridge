@@ -134,3 +134,4 @@ ADK 的对外 id 是 `adk`，目录是 `adk_buddy`。它的技能允许直接引
 - [会话](sessions.md)
 - [事件](events.md)
 - [工具和模型](tools.md)
+- [评测](adk-eval.md)：同一知识库、同一组问题上 DeepAgents 和 ADK 的对照。

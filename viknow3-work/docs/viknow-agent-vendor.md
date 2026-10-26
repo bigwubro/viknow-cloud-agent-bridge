@@ -22,7 +22,7 @@
 | `src/agents/evidence_oracle/` | Evidence Oracle profile 和 `evidence-oracle-*` skills |
 | `src/agents/doc_eval/` | MMLongBench 的 eval / extract 两个 profile |
 | `src/agents/ops/` | 运维 profile 和监控工具配置 |
-| `src/viknow3/application/agent/viknow2_adapter/` | 外壳契约 `AgentTurnInput` / `run_turn`。`host` 直接调用它 |
+| `src/viknow3/application/agent/deepagents_adapter/` | 外壳把一次 run 交给 DeepAgents。checkpoint 不在这里建 |
 
 `src/agents/layout.py` 扫描带 `profile/*.yaml` 的目录，注册到 Agent Registry。带 `knowledge_search` 或 `knowledge_discover` 的 profile，首轮必须选一个知识库。
 

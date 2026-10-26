@@ -4,14 +4,14 @@ from __future__ import annotations
 
 import unittest
 
-from viknow3.application.agent.viknow2_adapter import AgentTurnInput, get_runtime
-from viknow3.application.agent.viknow2_adapter.vendor_runtime import ViknowVendorRuntime
+from viknow3.application.agent.deepagents_adapter import AgentTurnInput, get_runtime
+from viknow3.application.agent.deepagents_adapter.vendor_runtime import DeepAgentsTurnRuntime
 
 
-class Viknow2AdapterTests(unittest.TestCase):
+class DeepAgentsAdapterTests(unittest.TestCase):
     def test_get_runtime_vendor(self) -> None:
         runtime = get_runtime()
-        self.assertIsInstance(runtime, ViknowVendorRuntime)
+        self.assertIsInstance(runtime, DeepAgentsTurnRuntime)
 
     def test_turn_input_frozen(self) -> None:
         turn = AgentTurnInput(

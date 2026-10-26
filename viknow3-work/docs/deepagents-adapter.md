@@ -7,7 +7,8 @@ viknow3 外层负责会话、库授权、事件、Postgres checkpointer（`threa
 | 层 | 路径 |
 |----|------|
 | 外壳入口 | `agentcore/runtime/host.py` |
-| 契约与 `run_turn` | `application/agent/viknow2_adapter/` |
+| 契约与 `run_turn` | `application/agent/deepagents_adapter/` |
+| 会话记忆 | `agentcore/runtime/checkpoint.py`，agent 库里的 LangGraph checkpoint。`thread_id` 是 `session_id` |
 | 回合循环 | `src/agents/runtime/` |
 | HyperRAG / Actio | `application/hyperrag/client.py`、`application/actio` |
 

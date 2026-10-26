@@ -23,7 +23,7 @@ def _host_config():
         return None
     path = (
         Path(__file__).resolve().parents[1]
-        / "src/viknow3/application/agent/viknow2_adapter/vendor/host_config.py"
+        / "src/viknow3/application/agent/deepagents_adapter/vendor/host_config.py"
     )
     spec = importlib.util.spec_from_file_location("agent_host_config_under_test", path)
     if spec is None or spec.loader is None:

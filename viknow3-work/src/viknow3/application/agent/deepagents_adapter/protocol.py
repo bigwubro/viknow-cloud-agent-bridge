@@ -1,16 +1,16 @@
-"""Protocol for a swappable viknow2 agent runtime."""
+"""One DeepAgents turn, as the shell sees it."""
 
 from __future__ import annotations
 
 from typing import Protocol
 
-from viknow3.application.agent.viknow2_adapter.types import AgentTurnInput, AgentTurnResult, AgentRuntimeDeps
+from viknow3.application.agent.deepagents_adapter.types import AgentTurnInput, AgentTurnResult, AgentRuntimeDeps
 from viknow3.application.agentcore.environment.context import RunState
 from viknow3.application.agentcore.runtime.events import RunEvents
 
 
-class Viknow2AgentRuntime(Protocol):
-    """Black-box agent: graph, harness, tools, skills live behind this."""
+class TurnRuntime(Protocol):
+    """DeepAgents graph, tools, and skills stay behind this."""
 
     async def run_turn(
         self,

@@ -7,17 +7,17 @@ import logging
 
 from agents.runtime.core.runtime.domain import AgentOp, AgentOpType
 
-from viknow3.application.agent.viknow2_adapter.protocol import Viknow2AgentRuntime
-from viknow3.application.agent.viknow2_adapter.types import AgentRuntimeDeps, AgentTurnInput, AgentTurnResult
-from viknow3.application.agent.viknow2_adapter.vendor.events import apply_vendor_event
-from viknow3.application.agent.viknow2_adapter.vendor.factory import get_deepagents_runtime
+from viknow3.application.agent.deepagents_adapter.protocol import TurnRuntime
+from viknow3.application.agent.deepagents_adapter.types import AgentRuntimeDeps, AgentTurnInput, AgentTurnResult
+from viknow3.application.agent.deepagents_adapter.vendor.events import apply_vendor_event
+from viknow3.application.agent.deepagents_adapter.vendor.factory import get_deepagents_runtime
 from viknow3.application.agentcore.environment.context import RunState
 from viknow3.application.agentcore.runtime.events import RunEvents
 
 log = logging.getLogger(__name__)
 
 
-class ViknowVendorRuntime:
+class DeepAgentsTurnRuntime:
     async def run_turn(
         self,
         turn: AgentTurnInput,
@@ -76,8 +76,8 @@ class ViknowVendorRuntime:
         )
 
 
-_RUNTIME = ViknowVendorRuntime()
+_RUNTIME = DeepAgentsTurnRuntime()
 
 
-def get_vendor_runtime() -> Viknow2AgentRuntime:
+def get_adapter_runtime() -> TurnRuntime:
     return _RUNTIME

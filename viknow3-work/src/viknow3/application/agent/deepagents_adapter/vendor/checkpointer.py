@@ -1,4 +1,4 @@
-"""Share viknow3 Postgres checkpointer with vendored DeepAgentsRuntime."""
+"""Hand the shell's Postgres checkpointer to DeepAgentsRuntime."""
 
 from __future__ import annotations
 

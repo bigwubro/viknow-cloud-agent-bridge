@@ -18,7 +18,7 @@ _SKIP_TYPES = frozenset(
 
 
 def apply_vendor_event(event: AgentEvent, events: RunEvents, state: RunState) -> str | None:
-    """Forward one vendored event. Returns terminal status when the run ends."""
+    """Forward one DeepAgents event. Returns terminal status when the run ends."""
     if event.type in _SKIP_TYPES:
         return None
     payload = dict(event.payload or {})

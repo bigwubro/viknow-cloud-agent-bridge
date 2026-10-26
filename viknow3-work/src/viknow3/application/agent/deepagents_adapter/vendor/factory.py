@@ -16,12 +16,12 @@ from typing import Any
 import yaml
 
 from agents.layout import AgentPackage, package_for_public_id
-from viknow3.application.agent.viknow2_adapter.vendor.checkpointer import Viknow3CheckpointerProvider
-from viknow3.application.agent.viknow2_adapter.vendor.host_config import (
+from viknow3.application.agent.deepagents_adapter.vendor.checkpointer import Viknow3CheckpointerProvider
+from viknow3.application.agent.deepagents_adapter.vendor.host_config import (
     build_agent_app_config,
     review_tool_configs,
 )
-from viknow3.application.agent.viknow2_adapter.vendor.thread_id import apply_session_thread_id_patch
+from viknow3.application.agent.deepagents_adapter.vendor.thread_id import apply_session_thread_id_patch
 
 log = logging.getLogger(__name__)
 
@@ -33,7 +33,7 @@ def _repo_root() -> Path:
     root = os.environ.get("VIKNOW3_ROOT", "").strip()
     if root:
         return Path(root).resolve()
-    # viknow3-work/src/viknow3/application/agent/viknow2_adapter/vendor/factory.py -> repo root
+    # viknow3-work/src/viknow3/application/agent/deepagents_adapter/vendor/factory.py -> repo root
     return Path(__file__).resolve().parents[6]
 
 
@@ -118,5 +118,5 @@ async def get_deepagents_runtime(public_id: str = "deepagents") -> Any:
         )
         runtime._checkpoints = Viknow3CheckpointerProvider()  # noqa: SLF001
         _RUNTIMES[key] = runtime
-        log.info("vendored DeepAgentsRuntime ready (profile=%s)", profile.id)
+        log.info("DeepAgentsRuntime ready (profile=%s)", profile.id)
         return runtime

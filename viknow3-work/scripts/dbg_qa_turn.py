@@ -8,8 +8,8 @@ from viknow3.ops.config.runtime_env import load_agent_runtime_env
 
 load_agent_runtime_env()
 
-from viknow3.application.agent.viknow2_adapter.types import AgentRuntimeDeps, AgentTurnInput
-from viknow3.application.agent.viknow2_adapter.vendor_runtime import ViknowVendorRuntime
+from viknow3.application.agent.deepagents_adapter.types import AgentRuntimeDeps, AgentTurnInput
+from viknow3.application.agent.deepagents_adapter.vendor_runtime import DeepAgentsTurnRuntime
 from viknow3.application.agentcore.environment.context import RunContext, RunState
 from viknow3.application.agentcore.events.sink import EventSink
 from viknow3.application.agentcore.runtime.events import RunEvents
@@ -41,7 +41,7 @@ async def _turn() -> None:
     )
     deps = AgentRuntimeDeps(library_allowed=lambda _: True, emit_event=events.emit)
     try:
-        await ViknowVendorRuntime().run_turn(turn, state, events, deps)
+        await DeepAgentsTurnRuntime().run_turn(turn, state, events, deps)
     except Exception:
         traceback.print_exc()
         raise

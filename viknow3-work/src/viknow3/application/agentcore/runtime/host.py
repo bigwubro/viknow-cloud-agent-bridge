@@ -12,7 +12,7 @@ import logging
 from typing import Any
 
 from agents.layout import package_for_public_id
-from viknow3.application.agent.viknow2_adapter import AgentRuntimeDeps, AgentTurnInput, get_runtime
+from viknow3.application.agent.deepagents_adapter import AgentRuntimeDeps, AgentTurnInput, get_runtime
 from viknow3.application.agentcore.environment.context import RunState
 from viknow3.application.agentcore.events.sink import EventSink
 from viknow3.application.agentcore.outbound.gateway import OutboundGateway

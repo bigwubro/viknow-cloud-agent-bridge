@@ -31,7 +31,6 @@ from agents.runtime.core.tools.registry import (
     build_viknow_tool_specs,
     viknow_test_answer,
 )
-from agents.runtime.core.tools.requirements import TOOL_CONFIG_REQUIREMENTS, ToolConfigRequirement
 from agents.runtime.core.tools.video_inspect import VideoInspectTool
 
 __all__ = [
@@ -46,7 +45,6 @@ __all__ = [
     "OCR_SCHEMA",
     "SEARCH_SCHEMA",
     "TOOL_SCHEMA",
-    "TOOL_CONFIG_REQUIREMENTS",
     "BaseTool",
     "ToolError",
     "ToolErrorCode",
@@ -59,7 +57,6 @@ __all__ = [
     "coerce_tool_result",
     "parse_tool_payload",
     "summarize_tool_result",
-    "ToolConfigRequirement",
     "UPLOADED_IMAGE_SEARCH_SCHEMA",
     "VIDEO_INSPECT_SCHEMA",
     "ViKnowToolHandlers",

@@ -1,7 +1,7 @@
 """Shell adapter for the shared DeepAgents runtime."""
 
 from viknow3.application.agent.deepagents_adapter.protocol import TurnRuntime
-from viknow3.application.agent.deepagents_adapter.types import AgentRuntimeDeps, AgentTurnInput, AgentTurnResult
+from viknow3.application.agent.deepagents_adapter.types import AgentTurnInput, AgentTurnResult
 
 
 def get_runtime() -> TurnRuntime:
@@ -11,7 +11,6 @@ def get_runtime() -> TurnRuntime:
 
 
 __all__ = [
-    "AgentRuntimeDeps",
     "AgentTurnInput",
     "AgentTurnResult",
     "TurnRuntime",

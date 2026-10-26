@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from agents.runtime.agent_adapters.deepagents_config import resolve_deepagents_config
+from agents.runtime.agent_adapters.tool_call_markup import bind_tool_call_recovery_state_dir
 from agents.runtime.core.config import (
     AgentKernelType,
     AppConfig,
@@ -36,7 +37,6 @@ def build_agent_runtime(
     knowledge_adapter: KnowledgeClient | None = None,
     user_memory_service: UserMemoryService | None = None,
     extra_tool_specs: tuple[ToolSpec, ...] = (),
-    filesystem_manager: object | None = None,
     scheduler_pool_overrides: dict[str, int] | None = None,
     multi_agent_enabled: bool | None = None,
     langfuse_project_identity: LangfuseProjectIdentity | None = None,
@@ -45,6 +45,7 @@ def build_agent_runtime(
     """Build a runtime for the explicitly selected profile and prepared tools."""
 
     root = (workspace_root or Path.cwd()).resolve()
+    bind_tool_call_recovery_state_dir(config.app.state_dir)
     if config.agent.kernel == AgentKernelType.DEEPAGENTS:
         from agents.runtime.agent_adapters.deepagents import DeepAgentsRuntime
         from agents.runtime.agent_adapters.deepagents_tools import (
@@ -70,7 +71,6 @@ def build_agent_runtime(
             repo_root=root,
             knowledge_adapter=knowledge_adapter,
             tool_configs=tool_configs,
-            filesystem_manager=filesystem_manager,
         )
         monitoring_tool_specs = build_monitoring_tool_specs(
             tool_configs.monitoring,
@@ -183,7 +183,6 @@ def build_agent_runtime(
             model_providers=config.model_providers,
             user_memory_service=memory_service,
             scheduler=resource_scheduler,
-            filesystem_manager=filesystem_manager,
             precompiled_knowledge_loader=tool_handlers.load_precompiled_knowledge_context,
             usage_push_config=config.observability.langfuse.usage_push,
             model_factory=model_factory,

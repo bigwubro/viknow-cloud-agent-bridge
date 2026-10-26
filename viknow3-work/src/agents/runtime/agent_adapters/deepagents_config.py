@@ -10,8 +10,7 @@ def resolve_deepagents_config(config: AppConfig) -> DeepAgentsKernelConfig:
 
     When ``app.files_root`` is set it owns the session file tree, so
     ``workspace.root_dir`` always resolves to ``{files_root}/sessions``.
-    Checkpointer backend and paths come solely from ``AppConfig.persistence``
-    (resolved in ``load_app_config``).
+    Checkpointer backend and paths come from the AppConfig the shell assembled.
     """
 
     deepagents_config = config.agent.deepagents

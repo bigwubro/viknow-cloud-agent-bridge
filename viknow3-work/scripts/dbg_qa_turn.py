@@ -8,7 +8,7 @@ from viknow3.ops.config.runtime_env import load_agent_runtime_env
 
 load_agent_runtime_env()
 
-from viknow3.application.agent.deepagents_adapter.types import AgentRuntimeDeps, AgentTurnInput
+from viknow3.application.agent.deepagents_adapter.types import AgentTurnInput
 from viknow3.application.agent.deepagents_adapter.vendor_runtime import DeepAgentsTurnRuntime
 from viknow3.application.agentcore.environment.context import RunContext, RunState
 from viknow3.application.agentcore.events.sink import EventSink
@@ -39,9 +39,8 @@ async def _turn() -> None:
         user_message=ctx.message,
         library_ids=("doc",),
     )
-    deps = AgentRuntimeDeps(library_allowed=lambda _: True, emit_event=events.emit)
     try:
-        await DeepAgentsTurnRuntime().run_turn(turn, state, events, deps)
+        await DeepAgentsTurnRuntime().run_turn(turn, state, events)
     except Exception:
         traceback.print_exc()
         raise

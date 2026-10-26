@@ -2065,8 +2065,6 @@ class KnowledgeToolHandlers:
     def default_library_id(self) -> str:
         if self.knowledge_adapter is not None:
             return str(self.knowledge_adapter.default_library_id)
-        if self.tool_configs is not None and self.tool_configs.knowledge is not None:
-            return str(self.tool_configs.knowledge.default_library_id)
         return DEFAULT_LIBRARY_ID
 
 

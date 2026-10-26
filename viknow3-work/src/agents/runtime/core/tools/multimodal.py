@@ -804,7 +804,6 @@ class MultimodalToolHandlers:
     document_inspect_extractor_factory: Callable[[], ImageEvidenceExtractor] | None = None
     video_discovery_client_factory: Callable[[], VideoDiscoveryClient] | None = None
     video_url_builder: Callable[[EvidencePart], str] | None = None
-    filesystem_manager: Any | None = None
     workspace_upload_path_resolver: Callable[[str], Path] | None = None
     _video_inspector: EvidenceReviewer | None = field(default=None, init=False, repr=False)
     _video_review_extractor: VideoEvidenceExtractor | None = field(
@@ -848,17 +847,7 @@ class MultimodalToolHandlers:
     def resolve_workspace_upload_path(self, workspace_path: str) -> Path:
         if self.workspace_upload_path_resolver is not None:
             return self.workspace_upload_path_resolver(workspace_path)
-        if self.filesystem_manager is None:
-            return Path(workspace_path)
-        context = get_tool_run_context()
-        if context is None:
-            return Path(workspace_path)
-        return self.filesystem_manager.resolve_workspace_upload_path(
-            user_id=context.user_id,
-            workspace_id=context.workspace_id,
-            session_id=context.session_id,
-            workspace_path=workspace_path,
-        )
+        return Path(workspace_path)
 
     def get_video_inspector(self) -> EvidenceReviewer:
         if self.video_inspector_factory is not None:

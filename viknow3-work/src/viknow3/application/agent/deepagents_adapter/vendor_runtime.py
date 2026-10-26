@@ -8,7 +8,7 @@ import logging
 from agents.runtime.core.runtime.domain import AgentOp, AgentOpType
 
 from viknow3.application.agent.deepagents_adapter.protocol import TurnRuntime
-from viknow3.application.agent.deepagents_adapter.types import AgentRuntimeDeps, AgentTurnInput, AgentTurnResult
+from viknow3.application.agent.deepagents_adapter.types import AgentTurnInput, AgentTurnResult
 from viknow3.application.agent.deepagents_adapter.vendor.events import apply_vendor_event
 from viknow3.application.agent.deepagents_adapter.vendor.factory import get_deepagents_runtime
 from viknow3.application.agentcore.environment.context import RunState
@@ -23,9 +23,7 @@ class DeepAgentsTurnRuntime:
         turn: AgentTurnInput,
         state: RunState,
         events: RunEvents,
-        deps: AgentRuntimeDeps,
     ) -> AgentTurnResult:
-        del deps
         public_id = state.ctx.profile_id or "deepagents"
         runtime = await get_deepagents_runtime(public_id)
         library_ids = list(turn.library_ids)

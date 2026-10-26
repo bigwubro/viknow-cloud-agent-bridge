@@ -80,7 +80,6 @@ class ViKnowToolHandlers:
     advanced_video_extractor_factory: Callable[[], AdvancedVideoEvidenceExtractor] | None = None
     video_discovery_client_factory: Callable[[], VideoDiscoveryClient] | None = None
     video_url_builder: Callable[[EvidencePart], str] | None = None
-    filesystem_manager: object | None = None
 
     def __post_init__(self) -> None:
         self.knowledge = KnowledgeToolHandlers(
@@ -97,7 +96,6 @@ class ViKnowToolHandlers:
             advanced_video_extractor_factory=self.advanced_video_extractor_factory,
             video_discovery_client_factory=self.video_discovery_client_factory,
             video_url_builder=self.video_url_builder,
-            filesystem_manager=self.filesystem_manager,
         )
 
     def set_tool_configs(self, tool_configs: ToolConfigs | None) -> None:

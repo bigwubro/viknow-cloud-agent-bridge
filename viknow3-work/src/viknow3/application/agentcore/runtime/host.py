@@ -11,7 +11,7 @@ import asyncio
 import logging
 
 from agents.layout import package_for_public_id
-from viknow3.application.agent.deepagents_adapter import AgentRuntimeDeps, AgentTurnInput, get_runtime
+from viknow3.application.agent.deepagents_adapter import AgentTurnInput, get_runtime
 from viknow3.application.agentcore.environment.context import RunState
 from viknow3.application.agentcore.events.sink import EventSink
 from viknow3.application.agentcore.outbound.gateway import OutboundGateway
@@ -55,12 +55,7 @@ async def run(state: RunState, profile: Profile, sink: EventSink, outbound: Outb
             model_selector=state.ctx.model,
             workspace_id=getattr(session, "workspace_id", None),
         )
-        allowed = set(libraries)
-        deps = AgentRuntimeDeps(
-            library_allowed=lambda library_id: library_id in allowed,
-            emit_event=events.emit,
-        )
-        result = await get_runtime().run_turn(turn, state, events, deps)
+        result = await get_runtime().run_turn(turn, state, events)
         state.output = result.output
         state.citations = result.citations
         if result.token_usage is not None:

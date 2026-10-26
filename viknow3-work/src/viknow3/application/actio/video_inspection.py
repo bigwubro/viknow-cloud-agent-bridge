@@ -1,10 +1,7 @@
-"""ViKnow wrapper for OpenAI-compatible video inspection."""
+"""Video inspection client backed by the actio package."""
 
 from __future__ import annotations
 
-import importlib
-import sys
-from pathlib import Path
 from time import perf_counter
 from typing import Any
 
@@ -12,28 +9,16 @@ import httpx
 
 from agents.runtime.core.config import AgentModelConfig
 from agents.runtime.core.model_gateway import ModelGatewayRoute, gateway_chat_json
+from viknow3.application.actio._load import load_actio
 
-
-def _load_actio_video_inspection():
-    try:
-        return importlib.import_module("actio.video_inspection")
-    except ModuleNotFoundError:
-        repo_root = Path(__file__).resolve().parents[4]
-        actio_src = repo_root / "external" / "actio" / "src"
-        if actio_src.exists() and str(actio_src) not in sys.path:
-            sys.path.insert(0, str(actio_src))
-        return importlib.import_module("actio.video_inspection")
-
-
-_actio_video_inspection = _load_actio_video_inspection()
+_actio_video_inspection = load_actio("actio.video_inspection")
 _ActioOpenAICompatibleVideoInspectionClient = (
     _actio_video_inspection.OpenAICompatibleVideoInspectionClient
 )
-video_data_url = _actio_video_inspection.video_data_url
 
 
 class OpenAICompatibleVideoInspectionClient(_ActioOpenAICompatibleVideoInspectionClient):
-    """ViKnow-compatible wrapper for actio video inspection client."""
+    """Routes video inspection through the model gateway when one is configured."""
 
     def __init__(self, *, gateway: ModelGatewayRoute | None = None, **kwargs: Any) -> None:
         super().__init__(**kwargs)

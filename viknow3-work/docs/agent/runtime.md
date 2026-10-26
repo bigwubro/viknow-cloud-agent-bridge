@@ -32,10 +32,10 @@ flowchart TB
   runtime --> ckpt
   ops --> adapter
   shell --> engine
-  engine -->|"装配时注入 KnowledgeClient"| adapter
+  shell -->|"装配时注入 KnowledgeClient 和 ActioClient"| adapter
 ```
 
-依赖只有一个方向。`src/agents` 里没有 `import viknow3`。知识库引擎由外壳创建，适配器在 `get_deepagents_runtime` 里调用 `get_engine_adapter()`，把得到的对象当作 `KnowledgeClient` 传给 `build_agent_runtime`。
+依赖只有一个方向。`src/agents` 里没有 `import viknow3`，也没有 `import hyperrag` 或 `import actio`。知识库引擎由外壳创建，适配器在 `get_deepagents_runtime` 里调用 `get_engine_adapter()`，把得到的对象当作 `KnowledgeClient` 传给 `build_agent_runtime`。同一个调用把 `get_actio_client()` 当作 `ActioClient` 传进去。
 
 ## 一轮调用
 
@@ -86,14 +86,14 @@ sequenceDiagram
 | `run_events`，以及 run 上的正文、引用、token | LangGraph checkpoint |
 | 三个库的连接串 | 用 `VIKNOW_AGENT_DSN` 自己建 checkpointer |
 | 平台模型端点 | `runtime.yaml` 里的温度、超时、沙箱、递归上限 |
-| HyperRAG 引擎 | `KnowledgeClient` 上的发现、检索、片段和证据 |
+| HyperRAG 引擎、Actio 包 | `KnowledgeClient` 和 `ActioClient` 上的方法 |
 | 这一轮允许的库 id | thread id：`{user_id}:{workspace_id 或 default}:{session_id}` |
 
 外壳不创建 `AsyncPostgresSaver`，也不读 checkpoint 的 `channel_values`。只按旧的 `session_id` 存下来的 checkpoint 对不上这个 thread id，下一轮不会续上。
 
 下一轮调用图之前，runtime 先读这条 thread。没有 tool 结果的调用会补一条 `tool call did not finish (run interrupted)`，再附上这一轮的用户消息。
 
-对话模型、监控、Mem0、视频发现的 client 留在 runtime。它们是一轮内部对外部服务的调用。知识库不同：引擎是进程级的，由外壳创建后注入。
+对话模型、监控和 Mem0 的调用留在 runtime。知识库和 Actio 不同：包由外壳持有，runtime 只使用注入的 client。
 
 `runtime.yaml` 里当前的沙箱是 bubblewrap，虚拟工作区，单文件 25MB，内存 512MB，无网络。模型块只保留温度 0.7、重复惩罚 1.0、最大输入 156000、超时 600 秒。地址和密钥不在这个文件里。
 
@@ -102,7 +102,7 @@ sequenceDiagram
 HTTP、会话、`run_events` 和库授权不用改。新增两块：
 
 1. 新 runtime 实现自己的循环和自己的 session。session 使用外壳传入的 `user_id`、`workspace_id`、`session_id`。外壳不解析这份 session。
-2. 外壳里的适配器实现同一个 `TurnRuntime.run_turn(turn, state, events)`，把输出写成同一组事件。需要检索时使用外壳已经建好的 `KnowledgeClient`。
+2. 外壳里的适配器实现同一个 `TurnRuntime.run_turn(turn, state, events)`，把输出写成同一组事件。需要检索或 Actio 能力时使用外壳已经注入的 client。
 
 `host.py` 里现在只有一处写死了 DeepAgents。选择适配器就加在这次调用上。DeepAgents 的 `runtime.yaml`、checkpoint、工具闸门和回答检查留在 `deepagents_adapter` 后面。
 

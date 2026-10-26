@@ -17,7 +17,8 @@ ViKnow 是一个进程里的接入层加应用层。调用方用 HTTP 建用户�
 | --- | --- | --- |
 | 接入 | `src/viknow3/access/` | HTTP、app key、把请求交给对应 client |
 | Agent | `src/viknow3/application/agentcore/` 和 `src/agents/` | 一轮调用、事件、DeepAgents 回合 |
-| 知识库 | `src/viknow3/application/hyperrag/` | 索引和检索。引擎由外壳持有 |
+| 知识库 | `src/viknow3/application/hyperrag/` | 索引和检索。引擎由外壳持有，调用方走 HyperRAG client |
+| Actio | `src/viknow3/application/actio/` | 视频解析和多模态工具。调用方走 Actio client |
 | 运维 | `src/viknow3/ops/` | `viknow_ops` 里的模型、provider 和配置变更 |
 
 ```mermaid
@@ -39,8 +40,7 @@ flowchart TB
   agent --> adapter --> runtime
   agent --> accessDb
   runtime --> agentDb
-  agent -->|"装配时注入 KnowledgeClient"| runtime
-  knowledge --- runtime
+  agent -->|"装配时注入 KnowledgeClient 和 ActioClient"| runtime
 ```
 
 三个数据库各管一件事：

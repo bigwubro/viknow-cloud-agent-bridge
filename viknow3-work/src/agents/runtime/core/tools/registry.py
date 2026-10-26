@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from agents.runtime.core.actio.client import ActioClient
 from agents.runtime.core.config import ToolConfigs
 from agents.runtime.core.evidence import EvidencePart
 from agents.runtime.core.knowledge.client import KnowledgeClient
@@ -75,6 +76,7 @@ class ViKnowToolHandlers:
     repo_root: Path | None = None
     tool_configs: ToolConfigs | None = None
     knowledge_adapter: KnowledgeClient | None = None
+    actio_client: ActioClient | None = None
     video_inspector_factory: Callable[[], EvidenceReviewer] | None = None
     video_review_extractor_factory: Callable[[], VideoEvidenceExtractor] | None = None
     advanced_video_extractor_factory: Callable[[], AdvancedVideoEvidenceExtractor] | None = None
@@ -96,6 +98,7 @@ class ViKnowToolHandlers:
             advanced_video_extractor_factory=self.advanced_video_extractor_factory,
             video_discovery_client_factory=self.video_discovery_client_factory,
             video_url_builder=self.video_url_builder,
+            actio=self.actio_client,
         )
 
     def set_tool_configs(self, tool_configs: ToolConfigs | None) -> None:

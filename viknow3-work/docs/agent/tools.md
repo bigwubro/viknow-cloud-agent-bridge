@@ -21,6 +21,8 @@
 | `evidence_for_chunk` | 把 chunk 收成证据 |
 | `resolve_document_render_path` | 文档渲染路径 |
 
+视频检查、语音转写、OCR、视觉定位、视频发现和抽帧走注入的 `ActioClient`。工具不自己构造这些客户端，也不加载 `actio` 包。没有注入 client 时，这些工具报 `actio client is required`。
+
 知识助手的技能要求：匹配技能时，第一个工具调用是 `read_file`，读该技能的 `SKILL.md`。最终给用户的正文放在没有工具调用的消息里。回答检查开着，`max_retries` 是 0，`allow_low_confidence_output` 是 true。
 
 运维助手的工具是 Prometheus、vLLM 和 NPM 的查询与健康检查，不是知识库工具。证据采集器在检索之外还有一组 `evidence_*` 工具。各包的完整名单以 profile YAML 为准。

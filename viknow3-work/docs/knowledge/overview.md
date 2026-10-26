@@ -18,6 +18,16 @@
 
 检索失败时，agent 工具看到的是 client 的返回。外壳不会把引擎内部对象写进 `run_events`。
 
+## Actio client
+
+Actio 和 HyperRAG 用同一种接法。索引和多模态工具调用外壳注入的 client，不加载 `actio` 包。
+
+`viknow3.application.actio` 是唯一加载 `actio` 包的位置。`agents.runtime.core.actio.client.ActioClient` 是 runtime 看到的协议。装配 DeepAgents 时，`get_actio_client()` 把实现传进 `build_agent_runtime`，和 `KnowledgeClient` 放在一起。
+
+视频解析在 HyperRAG 里。HyperRAG 不加载 `actio`，也不引用 `viknow3`。`init_hyperrag` 调用 `install_actio_port()`，把解析器、caption 观察和 `normalize_global_context` 装进 `hyperrag.actio_port`。任务处理器只调用这个端口。端口还没装上时，视频解析失败，错误是 `actio is required for video_parse`。
+
+`import hyperrag` 只出现在 `src/viknow3/application/hyperrag/`。
+
 ## HTTP
 
 库管理在 `/api/v1/knowledge`，要 app key。

@@ -113,12 +113,25 @@ async def get_deepagents_runtime(public_id: str = "deepagents") -> Any:
         log.info("runtime: loading tools for profile %s", profile.id)
         tool_configs = review_tool_configs(config)
         knowledge_adapter = None
+        actio_client = None
         try:
             from viknow3.application.hyperrag.runtime import get_engine_adapter
 
             knowledge_adapter = get_engine_adapter()
         except Exception:
             log.warning("HyperRAG adapter unavailable for vendor runtime; knowledge tools may fail", exc_info=True)
+        try:
+            from viknow3.application.actio.client import get_actio_client
+
+            actio_client = get_actio_client()
+        except Exception:
+            log.warning("Actio client unavailable for vendor runtime; multimodal tools may fail", exc_info=True)
+        try:
+            from viknow3.application.hyperrag.runtime import install_actio_port
+
+            install_actio_port()
+        except Exception:
+            log.warning("Actio indexing port was not installed; video indexing stays unavailable", exc_info=True)
         root = _repo_root()
         log.info("vendor runtime: building DeepAgentsRuntime for %s", profile.id)
         runtime = build_agent_runtime(
@@ -128,6 +141,7 @@ async def get_deepagents_runtime(public_id: str = "deepagents") -> Any:
             workspace_root=root,
             event_store=None,
             knowledge_adapter=knowledge_adapter,
+            actio_client=actio_client,
             model_factory=model_factory,
         )
         _RUNTIMES[key] = runtime

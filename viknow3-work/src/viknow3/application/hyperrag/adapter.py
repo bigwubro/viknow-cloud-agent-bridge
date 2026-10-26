@@ -707,7 +707,7 @@ class HyperRAGAdapter:
         ]
 
     async def get_video_summary_async(self, *, library_id: str, asset_id: str) -> dict[str, Any]:
-        from actio.global_context import normalize_global_context
+        from viknow3.application.actio.client import normalize_global_context
 
         payload = await self._run_in_runtime_loop_async(
             lambda: self._ensure_app().aget_video_semantic(

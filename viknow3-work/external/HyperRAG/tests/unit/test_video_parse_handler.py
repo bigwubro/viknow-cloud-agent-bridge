@@ -426,6 +426,16 @@ async def test_summary_storage_preserves_omitted_context_and_updates_explicit_co
     import hyperrag.hyperrag_v2 as module
     from hyperrag.hyperrag_v2 import HyperRAGV2
 
+    def _normalize(value):
+        if not isinstance(value, dict):
+            raise ValueError("global_context must be an object")
+        focus = value.get("observation_focus")
+        if focus is not None and not isinstance(focus, list):
+            raise ValueError("observation_focus must be a list")
+        return value
+
+    monkeypatch.setattr("hyperrag.actio_port.normalize_global_context", _normalize)
+
     path = tmp_path / "sop-full.json"
     original = {"keywords": ["电梯"], "attention_items": []}
     path.write_text(
@@ -452,7 +462,10 @@ async def test_summary_storage_preserves_omitted_context_and_updates_explicit_co
 
 @pytest.mark.asyncio
 async def test_video_split_timeout_diagnostics_survive_parser_failure(tmp_path, monkeypatch):
-    from actio.tasks.segment import VideoSplitTimeoutError
+    class VideoSplitTimeoutError(Exception):
+        def __init__(self, message, details):
+            super().__init__(message)
+            self.details = details
 
     path = tmp_path / "demo.mp4"
     path.write_bytes(b"video")

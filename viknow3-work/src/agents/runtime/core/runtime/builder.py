@@ -15,6 +15,7 @@ from agents.runtime.core.config import (
     ToolConfigs,
     resolve_model_config,
 )
+from agents.runtime.core.actio.client import ActioClient
 from agents.runtime.core.knowledge.client import KnowledgeClient
 from agents.runtime.core.memory import UserMemoryService, build_user_memory_service
 from agents.runtime.core.observability.langfuse_project_identity import LangfuseProjectIdentity
@@ -35,6 +36,7 @@ def build_agent_runtime(
     workspace_root: Path | None = None,
     event_store: AgentEventStore | None = None,
     knowledge_adapter: KnowledgeClient | None = None,
+    actio_client: ActioClient | None = None,
     user_memory_service: UserMemoryService | None = None,
     extra_tool_specs: tuple[ToolSpec, ...] = (),
     scheduler_pool_overrides: dict[str, int] | None = None,
@@ -70,6 +72,7 @@ def build_agent_runtime(
         tool_handlers = ViKnowToolHandlers(
             repo_root=root,
             knowledge_adapter=knowledge_adapter,
+            actio_client=actio_client,
             tool_configs=tool_configs,
         )
         monitoring_tool_specs = build_monitoring_tool_specs(

@@ -1,6 +1,6 @@
 # viknow3
 
-接入层使用应用层和运维层给出的 client，不在 `access/` 里实现这些 client。
+接入层使用应用层和运维层给出的 client，不在 `access/` 里实现这些 client。HyperRAG 和 Actio 也是 client：`import hyperrag` 只在 `application/hyperrag/`，`import actio` 只在 `application/actio/`。agent runtime 使用装配时注入的 `KnowledgeClient` 和 `ActioClient`。
 
 | 接入层 | 调用 |
 | --- | --- |

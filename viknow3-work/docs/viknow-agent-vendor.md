@@ -6,7 +6,7 @@
 
 - **`src/agents/runtime/`**：唯一的回合循环、tools、harness（tool gate、stop gate、答案复核、`qa_plan_middleware`）、bubblewrap 沙箱。
 - **`src/agents/<agent>/`**：这个 agent 自己的 profile 和 skills。目录里不放第二套运行时。
-- **`src/viknow3/`**：会话和 run、SSE、本轮可搜的库、HyperRAG client。平台配置（模型地址、密钥、Postgres / Redis / Neo4j / S3）在 `viknow_ops`，由 `src/viknow3/ops/config/` 读取。runtime 只接收这些，不读 `app.yaml`。对话上下文的 checkpoint 由 runtime 自己写。
+- **`src/viknow3/`**：会话和 run、SSE、本轮可搜的库、HyperRAG client、Actio client。平台配置（模型地址、密钥、Postgres / Redis / Neo4j / S3）在 `viknow_ops`，由 `src/viknow3/ops/config/` 读取。runtime 只接收这些，不读 `app.yaml`，也不加载 `hyperrag` 或 `actio` 包。对话上下文的 checkpoint 由 runtime 自己写。
 - Evidence Oracle 的收集流程由 profile 字段 `oracle_collection: true` 打开，不再按 profile id 写死。
 - 飞书、ViCoach、viknow2 HTTP API、JuiceFS、索引流水线、eval/learning，以及旧的 `qa_box` 黑盒，没有留在这棵树里。
 - Expert Buddy 的回合预算在 Playground 里关闭。长期记忆、Langfuse、Redis 调度仍被回合模块引用，Playground 不启用它们。

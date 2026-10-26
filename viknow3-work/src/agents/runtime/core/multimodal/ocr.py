@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import importlib
-import sys
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
@@ -15,22 +13,6 @@ from pydantic import BaseModel, Field
 from agents.runtime.core.evidence import Evidence, EvidencePart, EvidencePartKind
 from agents.runtime.core.multimodal.evidence_utils import first_visual_media_part, resolve_media_path
 from agents.runtime.core.multimodal.review import review_video_path
-
-
-def _load_actio_ocr():
-    try:
-        return importlib.import_module("actio.ocr")
-    except ModuleNotFoundError:
-        repo_root = Path(__file__).resolve().parents[4]
-        actio_src = repo_root / "external" / "actio" / "src"
-        if actio_src.exists() and str(actio_src) not in sys.path:
-            sys.path.insert(0, str(actio_src))
-        return importlib.import_module("actio.ocr")
-
-
-_actio_ocr = _load_actio_ocr()
-_ActioOpenAICompatibleOCRClient = _actio_ocr.OpenAICompatibleOCRClient
-_ActioPaddleOCRClient = _actio_ocr.PaddleOCRClient
 
 
 class OCRResult(BaseModel):
@@ -50,42 +32,6 @@ class OCRClient(Protocol):
         mime_type: str | None = None,
         instruction: str | None = None,
     ) -> OCRResult: ...
-
-
-class OpenAICompatibleOCRClient(_ActioOpenAICompatibleOCRClient):
-    """ViKnow-compatible wrapper for actio OpenAI-compatible OCR client."""
-
-    def recognize(
-        self,
-        media_path: Path,
-        *,
-        mime_type: str | None = None,
-        instruction: str | None = None,
-    ) -> OCRResult:
-        result = super().recognize(
-            media_path,
-            mime_type=mime_type,
-            instruction=instruction,
-        )
-        return OCRResult(text=result.text, metadata=result.metadata)
-
-
-class PaddleOCRClient(_ActioPaddleOCRClient):
-    """ViKnow-compatible wrapper for Actio's native PaddleOCR client."""
-
-    def recognize(
-        self,
-        media_path: Path,
-        *,
-        mime_type: str | None = None,
-        instruction: str | None = None,
-    ) -> OCRResult:
-        result = super().recognize(
-            media_path,
-            mime_type=mime_type,
-            instruction=instruction,
-        )
-        return OCRResult(text=result.text, metadata=result.metadata)
 
 
 class EvidenceOCRReader:

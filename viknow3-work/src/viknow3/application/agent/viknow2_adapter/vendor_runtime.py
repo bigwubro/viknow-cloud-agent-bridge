@@ -1,11 +1,11 @@
-"""run_turn via vendored viknow.agent_adapters.deepagents.DeepAgentsRuntime."""
+"""run_turn via agents.runtime DeepAgentsRuntime."""
 
 from __future__ import annotations
 
 import asyncio
 import logging
 
-from viknow.core.runtime.domain import AgentOp, AgentOpType
+from agents.runtime.core.runtime.domain import AgentOp, AgentOpType
 
 from viknow3.application.agent.viknow2_adapter.protocol import Viknow2AgentRuntime
 from viknow3.application.agent.viknow2_adapter.types import AgentRuntimeDeps, AgentTurnInput, AgentTurnResult
@@ -26,7 +26,8 @@ class ViknowVendorRuntime:
         deps: AgentRuntimeDeps,
     ) -> AgentTurnResult:
         del deps
-        runtime = await get_deepagents_runtime()
+        public_id = state.ctx.profile_id or "deepagents"
+        runtime = await get_deepagents_runtime(public_id)
         library_ids = list(turn.library_ids)
         op = AgentOp(
             type=AgentOpType.USER_INPUT,

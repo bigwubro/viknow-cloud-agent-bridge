@@ -1,4 +1,4 @@
-"""QA agent turn: delegates to vendored viknow DeepAgentsRuntime (see viknow2_adapter/vendor)."""
+"""QA agent turn: delegates to agents.runtime."""
 
 from __future__ import annotations
 

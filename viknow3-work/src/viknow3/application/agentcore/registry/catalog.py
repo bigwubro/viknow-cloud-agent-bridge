@@ -6,12 +6,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
-from viknow3.application.agent.qa_box.profile import load_viknow_v2_profile
-
-# Single QA profile exposed to access layer (black box is always deepagents / viknow-v2).
+from agents.layout import discover_agents
 from viknow3.clock import now, stamp
-
-_V2_PROFILE = load_viknow_v2_profile()
 
 ALLOWED_MODELS = ("siliconflow:Qwen/Qwen3.6-35B-A3B",)
 SERVER_DEFAULT_MODEL = "server-default"
@@ -64,17 +60,17 @@ def _server_default_label() -> str:
 class Registry:
     def __init__(self) -> None:
         created = now()
-        shared_tools = _V2_PROFILE.enabled_tools
-        self._profiles = {
-            AGENT_DEEPAGENTS: _profile(
-                AGENT_DEEPAGENTS,
-                _V2_PROFILE.label,
-                f"{_V2_PROFILE.description}（deepagents / viknow-v2 profile）",
-                created,
-                "langgraph",
-                shared_tools,
-            ),
-        }
+        self._profiles = {}
+        for package in discover_agents():
+            for public_id in package.public_ids():
+                self._profiles[public_id] = _profile(
+                    public_id,
+                    package.label,
+                    package.description,
+                    created,
+                    "langgraph",
+                    package.enabled_tools,
+                )
 
     def profiles(self) -> list[dict[str, Any]]:
         return [item.public() for item in self._profiles.values()]

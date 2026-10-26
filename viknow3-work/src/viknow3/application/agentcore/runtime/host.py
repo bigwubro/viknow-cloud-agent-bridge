@@ -14,7 +14,8 @@ from viknow3.application.agent.qa_box.deepagents_runner import run_deepagents_tu
 from viknow3.application.agentcore.environment.context import RunState
 from viknow3.application.agentcore.events.sink import EventSink
 from viknow3.application.agentcore.outbound.gateway import OutboundGateway
-from viknow3.application.agentcore.registry.catalog import AGENT_DEEPAGENTS, Profile
+from agents.layout import package_for_public_id
+from viknow3.application.agentcore.registry.catalog import Profile
 from viknow3.application.agentcore.runtime.events import RunEvents
 
 log = logging.getLogger(__name__)
@@ -44,7 +45,7 @@ async def run(state: RunState, profile: Profile, sink: EventSink, outbound: Outb
     bind_grant(_RunGrant(state, outbound))
     try:
         events.started()
-        if profile.id == AGENT_DEEPAGENTS:
+        if package_for_public_id(profile.id) is not None:
             await run_deepagents_turn(state, events)
         else:
             events.failed("no runtime for this profile", code="unknown_profile")

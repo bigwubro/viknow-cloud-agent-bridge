@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from viknow3.application.agentcore.registry.catalog import AGENT_DEEPAGENTS
+from agents.layout import package_for_public_id
 from viknow3.application.agentcore.runtime.langgraph_runner import thread_config
 from viknow3.application.agentcore.runtime.loop import LOOP
 
@@ -25,7 +25,7 @@ async def _deepagents_messages(session_id: str) -> list[Any]:
 
 
 async def session_messages_async(profile_id: str, session_id: str) -> list[Any]:
-    if profile_id == AGENT_DEEPAGENTS:
+    if package_for_public_id(profile_id) is not None:
         return await _deepagents_messages(session_id)
     return []
 

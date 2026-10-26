@@ -68,7 +68,7 @@ class Registry:
                     package.label,
                     package.description,
                     created,
-                    "langgraph",
+                    package.runtime,
                     package.enabled_tools,
                 )
 

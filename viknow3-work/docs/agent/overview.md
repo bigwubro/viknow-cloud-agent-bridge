@@ -1,6 +1,6 @@
 # Agent
 
-一个 agent 是 `src/agents/<目录>/profile/*.yaml` 里的一份 profile，加上同目录的 `skills/`。它不是单独的进程，也不是容器。多个 agent 共用 `src/agents/runtime` 里的回合实现，并由外壳按对外 id 选中。
+一个 agent 是 `src/agents/<目录>/profile/*.yaml` 里的一份 profile，加上同目录的 `skills/`。它不是单独的进程，也不是容器。多数 agent 共用 `src/agents/runtime` 里的 DeepAgents 回合。`adk_buddy` 自带 ADK 回合，不进入那套循环。外壳按 profile 的 `runtime` 字段选择适配器。
 
 你用 Agent 做这些事：
 
@@ -18,9 +18,9 @@
 
 **Session。** 外壳里的一行会话。它绑定 `user_id`、`agent_id`、`workspace_id` 和第一次写入的 `library_ids`。继续会话时不会改这组库。
 
-**Runtime。** 真正执行「模型、工具、模型」的循环。当前接通的实现是 DeepAgents，入口是 `deepagents_adapter`。
+**Runtime。** 真正执行「模型、工具、模型」的循环。`runtime: langgraph`（profile 没写这个字段时的缺省）走 `deepagents_adapter`。`runtime: adk` 走 `adk_adapter`。
 
-Registry 把每个包的 `runtime` 字段写成字面量 `langgraph`。`host` 不读这个字段，一律调用 `deepagents_adapter.get_runtime()`。
+Registry 把 profile 里的 `runtime` 原样记下来。`host.turn_runtime` 读这个字段。
 
 ## 已登记的 agent
 
@@ -28,6 +28,7 @@ Registry 把每个包的 `runtime` 字段写成字面量 `langgraph`。`host` �
 
 | 目录 | 对外 id | profile id | 名称 |
 | --- | --- | --- | --- |
+| `adk_buddy` | `adk` | `adk` | 知识助手（ADK） |
 | `expert_buddy` | `deepagents` | `expert_buddy` | 知识助手 |
 | `evidence_oracle` | `evidence-oracle` | `evidence-oracle` | 证据采集器 |
 | `doc_eval` | `mmlongbench-doc-eval` | `mmlongbench-doc-eval` | MMLongBench-Doc 评测助手 |
@@ -35,7 +36,9 @@ Registry 把每个包的 `runtime` 字段写成字面量 `langgraph`。`host` �
 | `ops` | `ops` | `ops` | 运维助手 |
 | `video_buddy` | `viknow-v2-advanced-video` | `viknow-v2-advanced-video` | 知识助手（高级视频实验） |
 
-工具和技能以各 profile 的 `enabled_tools`、`enabled_skills` 为准。知识助手启用 `knowledge_discover`、`knowledge_search`、`query_refine`、`answer_plan`、`uploaded_image_search`、`video_inspect_2_0`、`visual_ground`、`document_inspect`、`list_video_segments`、`list_doc_segments`，技能是 `knowledge-qa-v2` 和 `visual-ground`。它的 `answer_review.max_retries` 是 0：检查仍会跑，未通过时发布当前答案。
+工具和技能以各 profile 的 `enabled_tools`、`enabled_skills` 为准。知识助手（DeepAgents）启用 `knowledge_discover`、`knowledge_search`、`query_refine`、`answer_plan`、`uploaded_image_search`、`video_inspect_2_0`、`visual_ground`、`document_inspect`、`list_video_segments`、`list_doc_segments`，技能是 `knowledge-qa-v2` 和 `visual-ground`。它的 `answer_review.max_retries` 是 0：检查仍会跑，未通过时发布当前答案。
+
+知识助手（ADK）单独维护 profile 和技能 `knowledge-qa`。工具只有 `knowledge_discover`、`knowledge_search`、`list_doc_segments`、`list_video_segments`。检索片段可以直接引用，没有 inspect 和回答检查。
 
 ## 外壳里的对象
 
@@ -46,7 +49,7 @@ Registry 把每个包的 `runtime` 字段写成字面量 `langgraph`。`host` �
 | Host | `application/agentcore/runtime/host.py` | 滤库、写开头事件、调用适配器 |
 | 出站 | `application/agentcore/outbound/gateway.py` | 这个用户是否被授予某个库 |
 | 事件 | `application/agentcore/runtime/events.py` | 把过程写成 `run_events` |
-| 适配器 | `application/agent/deepagents_adapter/` | 外壳类型和 DeepAgents 之间的翻译 |
+| 适配器 | `application/agent/deepagents_adapter/`、`application/agent/adk_adapter/` | 外壳类型和对应 runtime 之间的翻译 |
 
 出站网关的授权是进程内集合：本轮提交时 `grant` 把这次的 `library_ids` 记到该用户名下。`host` 只把用户被授予、且本次请求里点名的库放进 `AgentTurnInput`。
 

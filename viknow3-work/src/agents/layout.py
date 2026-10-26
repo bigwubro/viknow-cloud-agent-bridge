@@ -1,7 +1,9 @@
-"""Discover agent packages that share ``agents.runtime``.
+"""Discover agent packages.
 
-Each agent is a directory under ``src/agents`` with ``profile/*.yaml`` and ``skills/``.
-``expert_buddy`` stays reachable as the playground id ``deepagents``.
+Each agent is a directory under ``src/agents`` with ``profile/*.yaml``.
+``runtime`` is the DeepAgents loop and is not an agent. ``expert_buddy`` stays
+reachable as the playground id ``deepagents``. A profile may name its own
+``runtime``; the default is ``langgraph``.
 """
 
 from __future__ import annotations
@@ -24,6 +26,7 @@ class AgentPackage:
     profile_id: str
     label: str
     description: str
+    runtime: str
     enabled_tools: tuple[str, ...]
 
     def public_ids(self) -> tuple[str, ...]:
@@ -60,6 +63,7 @@ def discover_agents() -> tuple[AgentPackage, ...]:
                     profile_id=str(data["id"]),
                     label=str(data.get("label") or data["id"]),
                     description=str(data.get("description") or ""),
+                    runtime=str(data.get("runtime") or "langgraph"),
                     enabled_tools=tools,
                 )
             )

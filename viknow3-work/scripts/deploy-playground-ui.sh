@@ -148,7 +148,7 @@ start_ui() {
   export TMPDIR="${TMPDIR:-${VIKNOW_SCRATCH_DIR}/tmp}"
   mkdir -p "$TMPDIR"
   stop_ui
-  "$PYTHON" -c "import deepagents, deepagents_sandbox, langchain_openai, langgraph.checkpoint.postgres, psycopg_pool" || {
+  "$PYTHON" -c "import deepagents, deepagents_sandbox, langchain_openai, langgraph.checkpoint.postgres, psycopg_pool, google.adk" || {
     echo "$PYTHON lacks the agent dependencies; install with: $PYTHON -m pip install -e $ROOT && $PYTHON -m pip install -e /home/cursor-agent/work/viknow2/external/deepagents-sandbox[langchain]"
     exit 1
   }

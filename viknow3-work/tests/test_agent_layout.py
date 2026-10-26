@@ -16,6 +16,7 @@ class AgentLayoutTests(unittest.TestCase):
         self.assertEqual(
             ids,
             [
+                "adk",
                 "mmlongbench-doc-eval",
                 "mmlongbench-doc-extract",
                 "evidence-oracle",
@@ -25,6 +26,9 @@ class AgentLayoutTests(unittest.TestCase):
             ],
         )
         self.assertEqual(package_for_public_id("deepagents").directory, "expert_buddy")
+        self.assertEqual(package_for_public_id("adk").directory, "adk_buddy")
+        self.assertEqual(package_for_public_id("adk").runtime, "adk")
+        self.assertEqual(package_for_public_id("deepagents").runtime, "langgraph")
         self.assertIsNone(package_for_public_id("missing"))
 
     def test_evidence_oracle_uses_a_profile_flag(self) -> None:

@@ -1,0 +1,17 @@
+id: adk
+label: 知识助手（ADK）
+description: 用 ADK 回合，根据检索到的知识库片段回答问题
+runtime: adk
+enabled_tools:
+  - knowledge_discover
+  - knowledge_search
+  - list_doc_segments
+  - list_video_segments
+enabled_skills:
+  - knowledge-qa
+system_prompt: |
+  你是知识助手，这一轮的运行时是 ADK。
+  只使用本指令末尾列出的工具。
+  技能正文已经附在本指令后面，按它检索，并用检索到的片段回答。
+  用用户的语言作答。中文问题用中文回答。
+  最终回答放在不再调用工具的消息里。

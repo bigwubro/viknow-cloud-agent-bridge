@@ -28,6 +28,8 @@ class TurnResult:
     citations: list[Any] = field(default_factory=list)
     output: str = ""
     error: str | None = None
+    session_id: str = ""
+    run_id: str = ""
 
 
 def _parse_sse(raw: bytes) -> list[dict[str, Any]]:
@@ -96,10 +98,18 @@ def _run_turn(
             if name:
                 tool_names.append(str(name))
     output = run.get("output") or ""
+    raw_citations = run.get("citations") or []
+    if isinstance(raw_citations, dict):
+        evidence = raw_citations.get("evidence")
+        citations = list(evidence) if isinstance(evidence, list) else []
+    else:
+        citations = list(raw_citations)
     markers = {
         "答案": "答案" in output,
-        "引用": "引用" in output or bool(run.get("citations")),
+        "引用": "引用" in output or bool(citations),
         "证据": "证据" in output or "evidence" in blob.lower(),
+        "ViKnow": "viknow" in output.lower(),
+        "20261022": "20261022" in output,
     }
     retrieval = any("knowledge" in n.lower() for n in tool_names) or bool(
         re.search(r'"evidence"|"snippet"|hyperrag|knowledge_search', blob, re.I)
@@ -113,9 +123,12 @@ def _run_turn(
         tool_names=tool_names,
         retrieval_hit=retrieval,
         answer_markers=markers,
-        citations=list(run.get("citations") or []),
+        citations=citations,
         output=output,
-        error=run.get("error") or run.get("error_code") or (events[-1].get("payload") or {}).get("code"),
+        last = events[-1] if events else {}
+        error=run.get("error") or run.get("error_code") or (last.get("payload") or {}).get("code"),
+        session_id=sid,
+        run_id=rid,
     )
 
 
@@ -183,17 +196,27 @@ def main() -> int:
         "",
         "## 结果表",
         "",
-        "| 智能体 | 问题 | 状态 | 耗时(s) | 工具调用 | 检索命中 | 答案/引用/证据标记 | 引用数 |",
-        "| --- | --- | --- | ---: | --- | --- | --- | ---: |",
+        "| 智能体 | 问题 | 状态 | 耗时(s) | 工具调用 | 检索命中 | ViKnow | 20261022 | 引用数 |",
+        "| --- | --- | --- | ---: | --- | --- | --- | --- | ---: |",
     ]
     for tr in results:
         tools = ", ".join(tr.tool_names) if tr.tool_names else "—"
-        marks = "/".join(k for k, v in tr.answer_markers.items() if v) or "—"
         md_lines.append(
             f"| {tr.agent} | {tr.question_id} | {tr.status} | {tr.latency_s} | {tools} | "
-            f"{'是' if tr.retrieval_hit else '否'} | {marks} | {len(tr.citations)} |"
+            f"{'是' if tr.retrieval_hit else '否'} | "
+            f"{'是' if tr.answer_markers.get('ViKnow') else '否'} | "
+            f"{'是' if tr.answer_markers.get('20261022') else '否'} | {len(tr.citations)} |"
         )
-    md_lines.extend(["", "## 叙述", ""])
+    md_lines.extend(
+        [
+            "",
+            "两份 profile 各自维护。DeepAgents 用 `expert_buddy` 的检查技能；ADK 用 `adk_buddy` 的检索作答技能。",
+            "对比的是同一知识库、同一组问题，不是同一份 YAML。",
+            "",
+            "## 叙述",
+            "",
+        ]
+    )
     for agent in ("deepagents", "adk"):
         subset = [r for r in results if r.agent == agent]
         ok = sum(1 for r in subset if r.status == "completed")

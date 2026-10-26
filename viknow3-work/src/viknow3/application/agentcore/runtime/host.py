@@ -11,7 +11,7 @@ import asyncio
 import logging
 
 from agents.layout import package_for_public_id
-from viknow3.application.agent.deepagents_adapter import AgentTurnInput, get_runtime
+from viknow3.application.agent.deepagents_adapter import AgentTurnInput
 from viknow3.application.agentcore.environment.context import RunState
 from viknow3.application.agentcore.events.sink import EventSink
 from viknow3.application.agentcore.outbound.gateway import OutboundGateway
@@ -55,7 +55,7 @@ async def run(state: RunState, profile: Profile, sink: EventSink, outbound: Outb
             model_selector=state.ctx.model,
             workspace_id=getattr(session, "workspace_id", None),
         )
-        result = await get_runtime().run_turn(turn, state, events)
+        result = await turn_runtime(profile).run_turn(turn, state, events)
         state.output = result.output
         state.citations = result.citations
         if result.token_usage is not None:
@@ -67,6 +67,17 @@ async def run(state: RunState, profile: Profile, sink: EventSink, outbound: Outb
         events.failed(f"{type(exc).__name__}: {exc}")
     finally:
         state.done.set()
+
+
+def turn_runtime(profile: Profile):
+    """ADK profiles keep their own loop. Every other profile stays on DeepAgents."""
+    if profile.runtime == "adk":
+        from viknow3.application.agent.adk_adapter import get_runtime
+
+        return get_runtime()
+    from viknow3.application.agent.deepagents_adapter import get_runtime
+
+    return get_runtime()
 
 
 def session_messages(profile_id: str, session_id: str) -> list[dict[str, str]]:

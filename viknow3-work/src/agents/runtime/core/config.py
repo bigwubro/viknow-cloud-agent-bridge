@@ -361,7 +361,7 @@ class DeepAgentsKernelConfig(_StrictModel):
     checkpointer: CheckpointerConfig = Field(default_factory=CheckpointerConfig)
     workspace: WorkspaceConfig = Field(default_factory=WorkspaceConfig)
     sandbox: SandboxConfig = Field(default_factory=SandboxConfig)
-    recursion_limit: int = Field(default=80, ge=1)
+    recursion_limit: int = Field(default=999, ge=1)
     stream_events_version: Literal["v2", "v3"] = "v2"
     skill_reminder: SkillReminderConfig = Field(default_factory=SkillReminderConfig)
     summarization: SummarizationConfig = Field(default_factory=SummarizationConfig)

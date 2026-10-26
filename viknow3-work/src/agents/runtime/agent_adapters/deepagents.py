@@ -302,8 +302,6 @@ class _RunState:
     stop_gate_pending_payloads: dict[str, dict[str, Any]] = field(default_factory=dict)
     tool_gate_recoveries: dict[str, dict[str, Any]] = field(default_factory=dict)
     pending_final_candidate_text: str = ""
-    last_answer_candidate: str = ""
-    answer_candidates: list[str] = field(default_factory=list)
     published_final_answer: bool = False
     langfuse_trace_name: str | None = None
     evidence_ledger: RunEvidenceLedger = field(default_factory=RunEvidenceLedger)
@@ -3866,21 +3864,11 @@ class DeepAgentsRuntime(AgentRuntime):
                             )
                     if result is not None:
                         return result
-                    drafted = _drafted_answer(state)
-                    if drafted:
-                        return drafted
+                    if state.pending_final_candidate_text:
+                        return state.pending_final_candidate_text
+                    if state.streamed_text:
+                        return state.streamed_text
                 return await agent.ainvoke(payload, config=runtime_config)
-            except Exception as exc:
-                if type(exc).__name__ != "GraphRecursionError":
-                    raise
-                drafted = _drafted_answer(state)
-                if not drafted:
-                    raise
-                logger.warning(
-                    "run {} hit the graph recursion limit; publishing the drafted answer",
-                    state.run_id,
-                )
-                return drafted
             finally:
                 loop_spans.close()
 
@@ -4047,9 +4035,6 @@ class DeepAgentsRuntime(AgentRuntime):
         if not text:
             return
         state.pending_final_candidate_text = ""
-        state.last_answer_candidate = text
-        state.answer_candidates.append(text)
-        del state.answer_candidates[:-8]
         if parse_choice_options(_run_original_question(state)):
             if has_final_choice(_run_original_question(state), text):
                 state.best_effort_answer = text
@@ -6242,48 +6227,6 @@ def _stop_gate_limited_response_instruction(reason_code: StopGateReasonCode) -> 
         f"{state_hint}这是最后一次生成机会。请先说明当前核验状态，再依据已验证信息回答用户问题；"
         "无法确认的部分必须明确说明限制，不要承诺继续查证或补造事实。"
     )
-
-
-_DRAFT_CONTINUATION_MARKERS = (
-    "让我",
-    "我将",
-    "我需要",
-    "let me",
-    "i'll",
-    "i will",
-    "let's",
-    "i need",
-)
-
-
-def _without_trailing_plan(text: str) -> str:
-    """Drop a trailing line that only says the agent will keep searching."""
-    lines = text.strip().splitlines()
-    while lines:
-        tail = lines[-1].strip()
-        lowered = tail.lower()
-        if (
-            not tail
-            or lowered in {"answer:", "answer："}
-            or any(marker in lowered for marker in _DRAFT_CONTINUATION_MARKERS)
-        ):
-            lines.pop()
-            continue
-        break
-    return "\n".join(lines).strip()
-
-
-def _drafted_answer(state: _RunState) -> str:
-    """Best user-facing draft when the graph stops before a terminal message."""
-    pending = state.pending_final_candidate_text.strip()
-    best = ""
-    for text in (*state.answer_candidates, pending):
-        cleaned = _without_trailing_plan(text)
-        if len(cleaned) > len(best):
-            best = cleaned
-    if best:
-        return best
-    return (pending or state.last_answer_candidate or state.streamed_text).strip()
 
 
 def _budget_trigger_dimensions(*, step_hit: bool, time_hit: bool) -> list[str]:

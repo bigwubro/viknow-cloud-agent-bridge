@@ -70,7 +70,9 @@ def _viknow_app_config(skills: Path, profile_dir: Path):
     config_path = _viknow_config_path(root)
     config = load_app_config(config_path, workspace_root=config_path.parent.parent)
     checkpointer = config.agent.deepagents.checkpointer.model_copy(update={"enabled": False})
-    deepagents = config.agent.deepagents.model_copy(update={"checkpointer": checkpointer})
+    deepagents = config.agent.deepagents.model_copy(
+        update={"checkpointer": checkpointer, "recursion_limit": 999}
+    )
     # Playground uses viknow3 Postgres checkpointer. Do not open viknow2's Redis scheduler.
     unified = config.share.scheduler.unified.model_copy(update={"enabled": False})
     scheduler = config.share.scheduler.model_copy(update={"unified": unified})

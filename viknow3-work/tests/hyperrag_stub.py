@@ -20,14 +20,22 @@ def _search_error(library_id: str, query: str, code: str, message: str) -> dict:
     }
 
 
+class _SearchResult:
+    def __init__(self, library_id: str, query: str) -> None:
+        self.library_id = library_id
+        self.query = query
+        self.evidence: list[Any] = []
+        self.metadata: dict[str, Any] = {}
+
+
 class ScriptKnowledgeAdapter:
-    """Enough of the engine adapter for a scripted turn to call search."""
+    """Enough of the injected knowledge client for a scripted turn to call search."""
+
+    default_library_id = ""
 
     def search(self, library_id: str, query: str, top_k: int | None = None, threshold: float | None = None, **kwargs: Any):
         del top_k, threshold, kwargs
-        from agents.runtime.core.knowledge.hyperrag_adapter import KnowledgeSearchResultPayload
-
-        return KnowledgeSearchResultPayload(library_id=library_id, query=query)
+        return _SearchResult(library_id, query)
 
 
 def install_script_engine() -> None:

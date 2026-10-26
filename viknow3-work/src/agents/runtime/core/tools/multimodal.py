@@ -2989,10 +2989,7 @@ def _document_source_path(self: MultimodalToolHandlers, evidence: Evidence) -> P
     adapter = self.knowledge.knowledge_adapter
     if adapter is None or not library_id or not asset_id:
         raise ValueError("document evidence does not identify a resolvable knowledge asset")
-    resolver = getattr(adapter, "resolve_document_render_path", None)
-    if not callable(resolver):
-        raise RuntimeError("knowledge adapter does not support document page rendering")
-    source_path = resolver(library_id=library_id, asset_id=asset_id)
+    source_path = adapter.resolve_document_render_path(library_id=library_id, asset_id=asset_id)
     if source_path is None:
         raise FileNotFoundError(f"no renderable source found for document asset {asset_id}")
     return Path(source_path)

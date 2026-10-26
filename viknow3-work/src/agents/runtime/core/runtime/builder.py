@@ -14,7 +14,7 @@ from agents.runtime.core.config import (
     ToolConfigs,
     resolve_model_config,
 )
-from agents.runtime.core.knowledge.hyperrag_adapter import HyperRAGAdapter
+from agents.runtime.core.knowledge.client import KnowledgeClient
 from agents.runtime.core.memory import UserMemoryService, build_user_memory_service
 from agents.runtime.core.observability.langfuse_project_identity import LangfuseProjectIdentity
 from agents.runtime.core.runtime.behavior_snapshot import build_run_behavior_snapshot
@@ -33,7 +33,7 @@ def build_agent_runtime(
     tool_configs: ToolConfigs,
     workspace_root: Path | None = None,
     event_store: AgentEventStore | None = None,
-    knowledge_adapter: HyperRAGAdapter | None = None,
+    knowledge_adapter: KnowledgeClient | None = None,
     user_memory_service: UserMemoryService | None = None,
     extra_tool_specs: tuple[ToolSpec, ...] = (),
     filesystem_manager: object | None = None,

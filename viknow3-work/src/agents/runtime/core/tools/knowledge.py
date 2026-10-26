@@ -37,10 +37,7 @@ from agents.runtime.core.evidence import (
     EvidencePart,
     EvidencePartKind,
 )
-from agents.runtime.core.knowledge.hyperrag_adapter import (
-    HyperRAGAdapter,
-    KnowledgeSearchResultPayload,
-)
+from agents.runtime.core.knowledge.client import KnowledgeClient, KnowledgeSearchResult
 from agents.runtime.core.model_gateway import model_connection_options
 from agents.runtime.core.multimodal.structured_llm import invoke_structured_llm, invoke_text_llm
 from agents.runtime.core.scheduler.domain import Priority, extra_body_with_priority
@@ -809,7 +806,7 @@ class KnowledgeToolHandlers:
 
     repo_root: Path | None = None
     tool_configs: ToolConfigs | None = None
-    knowledge_adapter: HyperRAGAdapter | None = None
+    knowledge_adapter: KnowledgeClient | None = None
     query_refine_model: Any | None = None
     image_understand_model: Any | None = None
     _local_segment_catalogs: dict[str, SegmentCatalog] = field(default_factory=dict, init=False)
@@ -853,30 +850,17 @@ class KnowledgeToolHandlers:
                 {"tool": "knowledge_discover", "libraries": libraries},
                 ensure_ascii=False,
             )
-        discover_libraries = getattr(self.knowledge_adapter, "discover_libraries", None)
         try:
             if _oracle_needs_asset_discovery():
-                list_kwargs = {"library_ids": allowed_library_ids}
-                libraries = self.knowledge_adapter.list_libraries(**list_kwargs)
+                libraries = self.knowledge_adapter.list_libraries(library_ids=allowed_library_ids)
                 if top_k is not None:
                     libraries = libraries[:top_k]
-            elif callable(discover_libraries):
-                discover_kwargs: dict[str, Any] = {"query": query, "top_k": top_k}
-                if allowed_library_ids is not None:
-                    discover_kwargs["library_ids"] = allowed_library_ids
-                libraries = discover_libraries(**discover_kwargs)
-            elif query:
-                search_kwargs: dict[str, Any] = {"query": query, "top_k": top_k}
-                if allowed_library_ids is not None:
-                    search_kwargs["library_ids"] = allowed_library_ids
-                libraries = self.knowledge_adapter.search_libraries(**search_kwargs)
             else:
-                list_kwargs: dict[str, Any] = {}
-                if allowed_library_ids is not None:
-                    list_kwargs["library_ids"] = allowed_library_ids
-                libraries = self.knowledge_adapter.list_libraries(**list_kwargs)
-                if top_k is not None:
-                    libraries = libraries[:top_k]
+                libraries = self.knowledge_adapter.discover_libraries(
+                    query,
+                    top_k=top_k,
+                    library_ids=allowed_library_ids,
+                )
         except TimeoutError as exc:
             return _fail(
                 "knowledge_discover",
@@ -914,25 +898,17 @@ class KnowledgeToolHandlers:
         ):
             return self.knowledge_discover(args)
         adapter = self.knowledge_adapter
-        scope = {"library_ids": allowed_library_ids} if allowed_library_ids is not None else {}
-        discover_libraries_async = getattr(adapter, "discover_libraries_async", None)
-        search_libraries_async = getattr(adapter, "search_libraries_async", None)
-        list_libraries_async = getattr(adapter, "list_libraries_async", None)
         try:
-            if _oracle_needs_asset_discovery() and callable(list_libraries_async):
-                libraries = await list_libraries_async(library_ids=allowed_library_ids)
-                if top_k is not None:
-                    libraries = libraries[:top_k]
-            elif callable(discover_libraries_async):
-                libraries = await discover_libraries_async(query=query, top_k=top_k, **scope)
-            elif query and callable(search_libraries_async):
-                libraries = await search_libraries_async(query=query, top_k=top_k, **scope)
-            elif callable(list_libraries_async):
-                libraries = await list_libraries_async(**scope)
+            if _oracle_needs_asset_discovery():
+                libraries = await adapter.list_libraries_async(library_ids=allowed_library_ids)
                 if top_k is not None:
                     libraries = libraries[:top_k]
             else:
-                return self.knowledge_discover(args)
+                libraries = await adapter.discover_libraries_async(
+                    query,
+                    top_k=top_k,
+                    library_ids=allowed_library_ids,
+                )
         except TimeoutError as exc:
             return _fail(
                 "knowledge_discover",
@@ -1986,7 +1962,7 @@ class KnowledgeToolHandlers:
         *,
         library_id: str,
         query: str,
-        result: KnowledgeSearchResultPayload,
+        result: KnowledgeSearchResult,
     ) -> str:
         return _ok(
             "knowledge_search",
@@ -2005,20 +1981,17 @@ class KnowledgeToolHandlers:
         return self._resolve_from_adapter(locator)
 
     def _resolve_from_adapter(self, locator: EvidenceLocator) -> Evidence:
-        """Resolve evidence using the HyperRAG adapter."""
-        # 1. Try chunk-level recovery when evidence_id is provided
+        """Resolve evidence through the injected knowledge client."""
+        adapter = self.knowledge_adapter
+        if adapter is None:
+            raise RuntimeError("knowledge adapter is not configured")
         if locator.evidence_id:
-            get_chunk_by_id = getattr(self.knowledge_adapter, "get_chunk_by_id", None)
-            chunk = (
-                get_chunk_by_id(
-                    library_id=locator.library_id,
-                    evidence_id=locator.evidence_id,
-                )
-                if callable(get_chunk_by_id)
-                else None
+            chunk = adapter.get_chunk_by_id(
+                library_id=locator.library_id,
+                evidence_id=locator.evidence_id,
             )
             if chunk is not None:
-                evidence = self.knowledge_adapter._build_evidence(  # type: ignore[union-attr]
+                evidence = adapter.evidence_for_chunk(
                     library_id=locator.library_id,
                     chunk=chunk,
                 )
@@ -2027,16 +2000,16 @@ class KnowledgeToolHandlers:
                         evidence = evidence.model_copy(update={"title": locator.title})
                     return evidence
             try:
-                chunks = self.knowledge_adapter.list_asset_segments(  # type: ignore[union-attr]
+                chunks = adapter.list_asset_segments(
                     library_id=locator.library_id,
                     asset_id=locator.asset_id,
                 )
             except Exception:
-                pass  # fallback to asset-level recovery
+                pass
             else:
                 for chunk in chunks:
                     if _chunk_matches_evidence_id(chunk, locator.evidence_id):
-                        evidence = self.knowledge_adapter._build_evidence(  # type: ignore[union-attr]
+                        evidence = adapter.evidence_for_chunk(
                             library_id=locator.library_id,
                             chunk=chunk,
                         )
@@ -2045,8 +2018,7 @@ class KnowledgeToolHandlers:
                                 evidence = evidence.model_copy(update={"title": locator.title})
                             return evidence
 
-        # 2. Asset-level recovery
-        status = self.knowledge_adapter.get_asset_status(  # type: ignore[union-attr]
+        status = adapter.get_asset_status(
             library_id=locator.library_id,
             asset_id=locator.asset_id,
         )

@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 
 from agents.runtime.core.config import ToolConfigs
 from agents.runtime.core.evidence import EvidencePart
-from agents.runtime.core.knowledge.hyperrag_adapter import HyperRAGAdapter
+from agents.runtime.core.knowledge.client import KnowledgeClient
 from agents.runtime.core.multimodal.asr import EvidenceTranscriber
 from agents.runtime.core.multimodal.document_page_renderer import MAX_DOCUMENT_INSPECT_PAGES
 from agents.runtime.core.multimodal.ocr import EvidenceOCRReader
@@ -74,7 +74,7 @@ class ViKnowToolHandlers:
 
     repo_root: Path | None = None
     tool_configs: ToolConfigs | None = None
-    knowledge_adapter: HyperRAGAdapter | None = None
+    knowledge_adapter: KnowledgeClient | None = None
     video_inspector_factory: Callable[[], EvidenceReviewer] | None = None
     video_review_extractor_factory: Callable[[], VideoEvidenceExtractor] | None = None
     advanced_video_extractor_factory: Callable[[], AdvancedVideoEvidenceExtractor] | None = None

@@ -1756,7 +1756,7 @@ class HyperRAGAdapter:
         # authoritative, while ViKnow top_k limits the returned evidence window.
         evidence: list[Evidence] = []
         for chunk in chunks:
-            built = self._build_evidence(library_id=library_id, chunk=chunk)
+            built = self.evidence_for_chunk(library_id=library_id, chunk=chunk)
             if built is None:
                 continue
             evidence.append(built)
@@ -1776,7 +1776,7 @@ class HyperRAGAdapter:
     def _result_chunks(result: dict[str, Any]) -> list[dict[str, Any]]:
         return list(result.get("data", {}).get("chunks", []) or [])
 
-    def _build_evidence(
+    def evidence_for_chunk(
         self,
         *,
         library_id: str,

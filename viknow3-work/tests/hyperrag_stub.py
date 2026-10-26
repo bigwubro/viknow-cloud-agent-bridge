@@ -20,6 +20,24 @@ def _search_error(library_id: str, query: str, code: str, message: str) -> dict:
     }
 
 
+class ScriptKnowledgeAdapter:
+    """Enough of the engine adapter for a scripted turn to call search."""
+
+    def search(self, library_id: str, query: str, top_k: int | None = None, threshold: float | None = None, **kwargs: Any):
+        del top_k, threshold, kwargs
+        from agents.runtime.core.knowledge.hyperrag_adapter import KnowledgeSearchResultPayload
+
+        return KnowledgeSearchResultPayload(library_id=library_id, query=query)
+
+
+def install_script_engine() -> None:
+    """Tests do not boot HyperRAG. The runtime still wants a non-empty adapter."""
+    from viknow3.application.hyperrag import runtime as hyper_runtime
+
+    adapter = ScriptKnowledgeAdapter()
+    hyper_runtime.get_engine_adapter = lambda: adapter
+
+
 class ScriptHyperrag:
     def __init__(self) -> None:
         self._jobs: dict[str, dict[str, Any]] = {}

@@ -1,15 +1,14 @@
 """Agent host. One turn runs on the agent loop.
 
 The profile id selects a package under src/agents. Libraries this run may
-search are the ones the caller asked for and this user may access. Session
-memory lives in the Postgres checkpointer.
+search are the ones the caller asked for and this user may access. The shell
+records events. The runtime keeps its own conversation context.
 """
 
 from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any
 
 from agents.layout import package_for_public_id
 from viknow3.application.agent.deepagents_adapter import AgentRuntimeDeps, AgentTurnInput, get_runtime
@@ -44,6 +43,9 @@ async def run(state: RunState, profile: Profile, sink: EventSink, outbound: Outb
             events.failed("no runtime for this profile", code="unknown_profile")
             return
         libraries = tuple(_RunGrant(state, outbound).libraries())
+        from viknow3.store import STORE
+
+        session = STORE.sessions.get(state.ctx.session_id)
         turn = AgentTurnInput(
             session_id=state.ctx.session_id,
             run_id=state.ctx.run_id,
@@ -51,6 +53,7 @@ async def run(state: RunState, profile: Profile, sink: EventSink, outbound: Outb
             user_message=state.ctx.message,
             library_ids=libraries,
             model_selector=state.ctx.model,
+            workspace_id=getattr(session, "workspace_id", None),
         )
         allowed = set(libraries)
         deps = AgentRuntimeDeps(
@@ -71,7 +74,7 @@ async def run(state: RunState, profile: Profile, sink: EventSink, outbound: Outb
         state.done.set()
 
 
-def session_messages(profile_id: str, session_id: str) -> list[Any]:
+def session_messages(profile_id: str, session_id: str) -> list[dict[str, str]]:
     from viknow3.application.agentcore.runtime.session_messages import session_messages as _session_messages
 
     return _session_messages(profile_id, session_id)

@@ -30,7 +30,8 @@ def setUpModule() -> None:
     scratch.mkdir(parents=True, exist_ok=True)
     os.environ.setdefault("VIKNOW_SCRATCH_DIR", str(scratch))
 
-    from viknow3.application.agentcore.runtime.checkpoint import reset_agent_tables
+    from agents.runtime.agent_adapters.checkpointer import reset_checkpoint_tables
+    from viknow3.pg import AGENT, dsn, require_test_database
     from viknow3.application.hyperrag import client as hyper_client
     from viknow3.store import STORE
 
@@ -45,7 +46,8 @@ def setUpModule() -> None:
     rag_service.HYPERAG = stub
     STORE.reset()
     stub.reset()
-    reset_agent_tables()
+    require_test_database(AGENT)
+    reset_checkpoint_tables(dsn(AGENT))
 
 
 def tearDownModule() -> None:

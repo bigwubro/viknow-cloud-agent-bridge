@@ -81,7 +81,8 @@ _REAL_HYPERAG = None
 
 
 def setUpModule() -> None:
-    from viknow3.application.agentcore.runtime.checkpoint import reset_agent_tables
+    from agents.runtime.agent_adapters.checkpointer import reset_checkpoint_tables
+    from viknow3.pg import AGENT, dsn, require_test_database
     from viknow3.application.hyperrag import client as hyper_client
     from viknow3.store import STORE
 
@@ -89,9 +90,13 @@ def setUpModule() -> None:
     _REAL_HYPERAG = hyper_client.HYPERAG
     stub = _ScriptHyperrag()
     hyper_client.HYPERAG = stub
+    from hyperrag_stub import install_script_engine
+
+    install_script_engine()
     STORE.reset()
     stub.reset()
-    reset_agent_tables()
+    require_test_database(AGENT)
+    reset_checkpoint_tables(dsn(AGENT))
 
 
 def tearDownModule() -> None:
@@ -119,6 +124,17 @@ def _finish(client: AgentClient, run_id: str) -> list[dict]:
     return list(client.stream_events(run_id, 0))
 
 
+def _discover_library_ids(events: list[dict]) -> list[str]:
+    completed = [item for item in events if item["type"] == "tool_call_completed"]
+    discover = next(item for item in completed if item["payload"].get("name") == "knowledge_discover")
+    payload = json.loads(discover["payload"]["text"])
+    libraries = payload.get("libraries")
+    if not isinstance(libraries, list):
+        data = payload.get("data") if isinstance(payload.get("data"), dict) else {}
+        libraries = data.get("libraries") or []
+    return [str(item.get("library_id") or item.get("id")) for item in libraries]
+
+
 class AgentServiceTests(unittest.TestCase):
     def test_stream_events_yields_until_completed(self) -> None:
         client = AgentClient()
@@ -142,8 +158,7 @@ class AgentServiceTests(unittest.TestCase):
         )
         completed = [item["payload"] for item in events if item["type"] == "tool_call_completed"]
         self.assertEqual([item["tool_call_id"] for item in completed], [item["tool_call_id"] for item in started])
-        discover = json.loads(completed[0]["text"])
-        self.assertEqual([item["library_id"] for item in discover["libraries"]], ["library-1"])
+        self.assertEqual(_discover_library_ids(events), ["library-1"])
         self.assertEqual(types[-1], "run_completed")
         output = client.get(run["id"])["output"]
         self.assertIn("答案", output)
@@ -167,9 +182,7 @@ class AgentServiceTests(unittest.TestCase):
             results = list(pool.map(lambda run: _finish(client, run["id"]), runs))
         for index, events in enumerate(results):
             self.assertEqual(events[-1]["type"], "run_completed")
-            discover = next(item for item in events if item["type"] == "tool_call_completed")
-            libraries = [item["library_id"] for item in json.loads(discover["payload"]["text"])["libraries"]]
-            self.assertEqual(libraries, [f"library-par-{index}"])
+            self.assertEqual(_discover_library_ids(events), [f"library-par-{index}"])
             self.assertIn(f"并发{index}", client.get(runs[index]["id"])["output"])
         self.assertFalse(client.permission("user-par-0", "library-par-1", None))
 
@@ -179,8 +192,10 @@ class AgentServiceTests(unittest.TestCase):
         _finish(client, first["id"])
         second = _submit(client, "session-history", "user-history", "deepagents", "下一句", ["library-1"])
         _finish(client, second["id"])
-        self.assertIn("下一句", client.get(second["id"])["output"])
-        humans = [m.content for m in session_messages("deepagents", "session-history") if isinstance(m, HumanMessage)]
+        output = client.get(second["id"])["output"]
+        self.assertIn("下一句", output)
+        self.assertIn("上文：你好", output)
+        humans = [item["text"] for item in session_messages("deepagents", "session-history") if item["role"] == "user"]
         self.assertEqual(humans, ["你好", "下一句"])
         self.assertEqual(session_messages("deepagents", "session-other"), [])
 

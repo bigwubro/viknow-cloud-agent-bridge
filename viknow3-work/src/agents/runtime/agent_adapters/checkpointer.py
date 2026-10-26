@@ -71,6 +71,25 @@ class PostgresCheckpointerProvider:
         self._checkpointer = None
 
 
+CHECKPOINT_TABLES = ("checkpoint_writes", "checkpoint_blobs", "checkpoints")
+
+
+def reset_checkpoint_tables(postgres_dsn: str) -> None:
+    """Clear this runtime's LangGraph checkpoint tables. The database name must end in ``_test``."""
+
+    name = postgres_dsn.rsplit("/", 1)[-1].split("?", 1)[0]
+    if not name.endswith("_test"):
+        raise RuntimeError(f"checkpoint database {name} is not a test database")
+    import psycopg
+
+    with psycopg.connect(postgres_dsn, autocommit=True) as conn:
+        for table in CHECKPOINT_TABLES:
+            try:
+                conn.execute(f"TRUNCATE {table}")
+            except psycopg.errors.UndefinedTable:
+                pass
+
+
 def build_checkpointer_provider(config: CheckpointerConfig) -> Any | None:
     """Build the checkpointer provider for the resolved kernel checkpointer config."""
 

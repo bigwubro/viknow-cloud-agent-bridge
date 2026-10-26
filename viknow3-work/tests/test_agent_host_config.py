@@ -56,6 +56,11 @@ def _catalog() -> PlatformCatalog:
 
 
 class AgentHostConfigTests(unittest.TestCase):
+    def test_reset_checkpoint_tables_refuses_a_non_test_database(self) -> None:
+        from agents.runtime.agent_adapters.checkpointer import reset_checkpoint_tables
+
+        with self.assertRaises(RuntimeError):
+            reset_checkpoint_tables("postgresql://example/agent")
     def test_runtime_yaml_holds_shared_loop_settings(self) -> None:
         raw = load_runtime_document()
         defaults = load_model_defaults()
@@ -84,7 +89,9 @@ class AgentHostConfigTests(unittest.TestCase):
             )
         self.assertEqual(config.agent.model.ref, "private:vllm/Qwen/Qwen3.6-35B-A3B-FP8")
         self.assertEqual(config.agent.deepagents.recursion_limit, 999)
-        self.assertFalse(config.agent.deepagents.checkpointer.enabled)
+        self.assertTrue(config.agent.deepagents.checkpointer.enabled)
+        self.assertEqual(config.agent.deepagents.checkpointer.backend.value, "postgres")
+        self.assertTrue(config.agent.deepagents.checkpointer.postgres_dsn)
         self.assertFalse(config.share.scheduler.unified.enabled)
         self.assertEqual(config.share.model_providers["private"].base_url_env, "VIKNOW_PRIVATE_BASE_URL")
         self.assertEqual(config.share.model_providers["private"].api_key_env, "VIKNOW_PRIVATE_API_KEY")

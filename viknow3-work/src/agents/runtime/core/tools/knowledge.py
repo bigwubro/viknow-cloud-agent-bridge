@@ -1472,6 +1472,10 @@ class KnowledgeToolHandlers:
     def get_query_refine_model(self):
         if self.query_refine_model is not None:
             return self.query_refine_model
+        # Tests set this so the scripted chat model is the only model. Query
+        # refine then uses its offline fallback instead of calling a provider.
+        if os.environ.get("VIKNOW_USE_SCRIPT_MODEL", "").strip().lower() in {"1", "true", "yes"}:
+            return None
         if self.tool_configs is None or self.tool_configs.multimodal is None:
             return None
         review_model = self.tool_configs.multimodal.review_model

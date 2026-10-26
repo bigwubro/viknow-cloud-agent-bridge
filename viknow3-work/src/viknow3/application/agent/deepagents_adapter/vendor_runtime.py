@@ -35,7 +35,7 @@ class DeepAgentsTurnRuntime:
             run_id=turn.run_id,
             session_id=turn.session_id,
             user_id=turn.user_id,
-            workspace_id=None,
+            workspace_id=turn.workspace_id,
             agent_model=turn.model_selector,
             library_ids=library_ids or None,
             use_precompiled_knowledge=False,

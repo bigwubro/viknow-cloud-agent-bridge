@@ -16,12 +16,10 @@ from typing import Any
 import yaml
 
 from agents.layout import AgentPackage, package_for_public_id
-from viknow3.application.agent.deepagents_adapter.vendor.checkpointer import Viknow3CheckpointerProvider
 from viknow3.application.agent.deepagents_adapter.vendor.host_config import (
     build_agent_app_config,
     review_tool_configs,
 )
-from viknow3.application.agent.deepagents_adapter.vendor.thread_id import apply_session_thread_id_patch
 
 log = logging.getLogger(__name__)
 
@@ -86,7 +84,6 @@ async def get_deepagents_runtime(public_id: str = "deepagents") -> Any:
         cached = _RUNTIMES.get(key)
         if cached is not None:
             return cached
-        apply_session_thread_id_patch()
         from agents.runtime.core.runtime.builder import build_agent_runtime
 
         log.info("runtime: loading config for %s", package.directory)
@@ -97,6 +94,22 @@ async def get_deepagents_runtime(public_id: str = "deepagents") -> Any:
             package.profile_id,
         )
         profile = _load_profile(package)
+        model_factory = None
+        from viknow3.application.agent.deepagents_adapter.script_model import (
+            script_chat_model,
+            script_model_enabled,
+        )
+
+        if script_model_enabled():
+            profile = profile.model_copy(
+                update={
+                    "answer_review": profile.answer_review.model_copy(
+                        update={"llm_reviewers_enabled": False, "gate_enabled": False}
+                    )
+                }
+            )
+            model_factory = script_chat_model
+            log.info("runtime: script model for profile %s", profile.id)
         log.info("runtime: loading tools for profile %s", profile.id)
         tool_configs = review_tool_configs(config)
         knowledge_adapter = None
@@ -115,8 +128,8 @@ async def get_deepagents_runtime(public_id: str = "deepagents") -> Any:
             workspace_root=root,
             event_store=None,
             knowledge_adapter=knowledge_adapter,
+            model_factory=model_factory,
         )
-        runtime._checkpoints = Viknow3CheckpointerProvider()  # noqa: SLF001
         _RUNTIMES[key] = runtime
         log.info("DeepAgentsRuntime ready (profile=%s)", profile.id)
         return runtime

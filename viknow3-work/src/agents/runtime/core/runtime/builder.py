@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -39,6 +40,7 @@ def build_agent_runtime(
     scheduler_pool_overrides: dict[str, int] | None = None,
     multi_agent_enabled: bool | None = None,
     langfuse_project_identity: LangfuseProjectIdentity | None = None,
+    model_factory: Callable[[Any], Any] | None = None,
 ) -> AgentRuntime:
     """Build a runtime for the explicitly selected profile and prepared tools."""
 
@@ -184,6 +186,7 @@ def build_agent_runtime(
             filesystem_manager=filesystem_manager,
             precompiled_knowledge_loader=tool_handlers.load_precompiled_knowledge_context,
             usage_push_config=config.observability.langfuse.usage_push,
+            model_factory=model_factory,
             behavior_snapshot_factory=lambda op: build_run_behavior_snapshot(
                 profile=profile,
                 agent_model=behavior_snapshot_model,

@@ -16,6 +16,7 @@ class AgentTurnInput:
     user_message: str
     library_ids: tuple[str, ...] = ()
     model_selector: str | None = None
+    workspace_id: str | None = None
     attachments: tuple[dict[str, Any], ...] = ()
 
 

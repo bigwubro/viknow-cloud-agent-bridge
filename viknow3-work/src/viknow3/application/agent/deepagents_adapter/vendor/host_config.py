@@ -20,6 +20,7 @@ from agents.runtime.core.config import (
     ModelProviderConfig,
     MultimodalReviewModelConfig,
     MultimodalToolConfig,
+    PersistenceBackend,
     ShareAgentConfig,
     ShareConfig,
     ToolConfigs,
@@ -27,6 +28,7 @@ from agents.runtime.core.config import (
 )
 from agents.runtime.core.scheduler.unified_config import SchedulerSectionConfig, UnifiedSchedulerAppConfig
 from agents.runtime.runtime_config import RUNTIME_CONFIG_PATH, load_kernel_config, load_model_defaults
+from viknow3.pg import AGENT, dsn
 from viknow3.ops.config.model_resolve import (
     PlatformCatalog,
     agent_model_ref,
@@ -56,7 +58,15 @@ def build_agent_app_config(
 
     kernel = load_kernel_config()
     kernel = kernel.model_copy(
-        update={"checkpointer": kernel.checkpointer.model_copy(update={"enabled": False})}
+        update={
+            "checkpointer": kernel.checkpointer.model_copy(
+                update={
+                    "enabled": True,
+                    "backend": PersistenceBackend.POSTGRES,
+                    "postgres_dsn": dsn(AGENT),
+                }
+            )
+        }
     )
     providers = {
         provider_id: ModelProviderConfig(

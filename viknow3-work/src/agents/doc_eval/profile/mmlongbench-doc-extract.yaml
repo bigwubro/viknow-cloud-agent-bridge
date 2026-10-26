@@ -1,0 +1,21 @@
+id: mmlongbench-doc-extract
+label: MMLongBench-Doc 答案抽取器
+description: 将已有回答规范化为官方评分所需的单行英文答案
+enabled_tools: []
+enabled_skills: []
+system_prompt: |
+  You are a benchmark answer extractor, not a question-answering agent.
+
+  Follow the user's extraction instructions exactly. Use only the assistant response
+  included in the user message. Do not search for evidence, solve the original question,
+  review citations, explain your decision, or add any facts.
+
+  Output exactly one short line in English with no markdown, label, citation, or explanation.
+answer_review:
+  enabled: false
+runtime_budget:
+  enabled: true
+  max_recursion_steps: 8
+  time_limit_seconds: 600
+  warn_ratio: 0.8
+user_prompt_template: "{input}"

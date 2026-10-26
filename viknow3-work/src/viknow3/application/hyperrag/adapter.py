@@ -1226,7 +1226,7 @@ class HyperRAGAdapter:
         top_k: int | None = None,
         library_ids: Collection[str] | None = None,
     ) -> list[KnowledgeLibrarySearchResult]:
-        """Synchronous bounded catalog discovery for the Hermes compatibility adapter."""
+        """Synchronous bounded catalog discovery."""
         asset_limit = self._discover_asset_matches_per_library() if query.strip() else None
         normalized_ids = list(dict.fromkeys(library_ids)) if library_ids is not None else None
         with start_span_sync("hyperrag.discover", **_hyperrag_span_attrs("hyperrag.discover")):

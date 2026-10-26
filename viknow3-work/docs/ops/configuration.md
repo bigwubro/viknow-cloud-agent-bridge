@@ -33,15 +33,7 @@ ops 库使用 `VIKNOW_OPS_DSN`。未设置时相关调用返回 503，`code` 为
 
 非法列、非法值、缺少 id 返回 400，对应 `column_not_configurable`、`invalid_value`、`row_id_required` 等 `code`。
 
-## 自学习
-
-`GET /api/v1/learning` 要 app key。当前实现返回：
-
-```json
-{"module": "self-learning", "status": "pending_design"}
-```
-
-没有训练任务，也没有写回 profile 的路径。
+`GET /api/v1/om/config` 的正文是 ops 库的表，键包括 `model_provider`、`model`、`agent_model`，以及 `observe_setting` 这类单行配置。没有 `switches`，也没有备份接口。
 
 ## 下一步
 

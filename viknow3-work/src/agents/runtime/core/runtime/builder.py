@@ -195,17 +195,6 @@ def build_agent_runtime(
                 repo_root=root,
             ),
         )
-    if config.agent.kernel == AgentKernelType.HERMES:
-        from agents.runtime.agent_adapters.hermes import HermesAgentRuntime
-
-        return HermesAgentRuntime(
-            workspace_root=root,
-            hermes_home=config.agent.hermes.home,
-            profile=profile,
-            model_config=config.agent.model,
-            model_providers=config.model_providers,
-            event_store=event_store,
-        )
     raise ValueError(f"unsupported agent kernel: {config.agent.kernel}")
 
 

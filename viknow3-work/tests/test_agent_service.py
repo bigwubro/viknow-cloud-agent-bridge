@@ -18,7 +18,6 @@ from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
 from viknow3.application.agentcore.client import AgentClient
 from viknow3.application.agentcore.runtime.host import session_messages
-from viknow3.application.agentcore.runtime.langgraph_runner import unanswered_tool_calls
 from viknow3.application.agentcore.runtime.loop import LOOP
 
 try:
@@ -228,14 +227,21 @@ class AgentServiceTests(unittest.TestCase):
         self.assertEqual([item["type"] for item in sink.read("run-once", 0)], ["run_started", "user_message", "run_interrupted"])
         self.assertEqual((state.status, state.output), ("interrupted", "partial"))
 
-    def test_unanswered_tool_calls_are_closed(self) -> None:
+    def test_closing_tool_messages_fill_open_calls(self) -> None:
+        from agents.runtime.agent_adapters.deepagents import closing_tool_messages
+
         history = [
             HumanMessage(content="q"),
             AIMessage(content="", tool_calls=[{"id": "a", "name": "t", "args": {}}, {"id": "b", "name": "t", "args": {}}]),
             ToolMessage(content="ok", tool_call_id="a"),
         ]
-        closing = unanswered_tool_calls(history)
+        closing = closing_tool_messages(history)
         self.assertEqual([item.tool_call_id for item in closing], ["b"])
+        self.assertEqual(closing[0].content, "tool call did not finish (run interrupted)")
+        self.assertEqual(
+            closing_tool_messages([*history, ToolMessage(content="done", tool_call_id="b")]),
+            [],
+        )
 
     def test_unknown_runtime_fails_the_run(self) -> None:
         from viknow3.application.agentcore.registry.catalog import _profile

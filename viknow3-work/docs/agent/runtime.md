@@ -91,6 +91,8 @@ sequenceDiagram
 
 外壳不创建 `AsyncPostgresSaver`，也不读 checkpoint 的 `channel_values`。只按旧的 `session_id` 存下来的 checkpoint 对不上这个 thread id，下一轮不会续上。
 
+下一轮调用图之前，runtime 先读这条 thread。没有 tool 结果的调用会补一条 `tool call did not finish (run interrupted)`，再附上这一轮的用户消息。
+
 对话模型、监控、Mem0、视频发现的 client 留在 runtime。它们是一轮内部对外部服务的调用。知识库不同：引擎是进程级的，由外壳创建后注入。
 
 `runtime.yaml` 里当前的沙箱是 bubblewrap，虚拟工作区，单文件 25MB，内存 512MB，无网络。模型块只保留温度 0.7、重复惩罚 1.0、最大输入 156000、超时 600 秒。地址和密钥不在这个文件里。

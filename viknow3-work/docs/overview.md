@@ -11,8 +11,6 @@ ViKnow 是一个进程里的接入层加应用层。调用方用 HTTP 建用户�
 - 用 `/api/v1/knowledge` 和 `/api/v1/knowledge/search` 管理库、上传并检索。
 - 用管理员凭证读写 `viknow_ops` 里的平台配置。
 
-自学习模块目前只返回 `pending_design`。它没有学习循环。
-
 ## 平台由哪几块组成
 
 | 区域 | 代码 | 作用 |

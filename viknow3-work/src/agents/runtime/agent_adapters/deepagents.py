@@ -3774,7 +3774,6 @@ class DeepAgentsRuntime(AgentRuntime):
                 runtime_context="",
                 skill_source=workspace.skill_source,
             )
-            payload = {"messages": [{"role": "user", "content": prompt}]}
             recursion_limit = self.config.recursion_limit
             if self.profile.runtime_budget.enabled:
                 recursion_limit = _runtime_graph_recursion_limit(self.profile.runtime_budget)
@@ -3782,6 +3781,13 @@ class DeepAgentsRuntime(AgentRuntime):
                 "configurable": {"thread_id": state.thread_id},
                 "recursion_limit": recursion_limit,
                 "metadata": self._trace_metadata(op, state),
+            }
+            prior_messages = await _prior_checkpoint_messages(agent, runtime_config)
+            payload = {
+                "messages": [
+                    *closing_tool_messages(prior_messages),
+                    {"role": "user", "content": prompt},
+                ]
             }
             if self.langchain_callbacks:
                 runtime_config["callbacks"] = list(self.langchain_callbacks)
@@ -5254,6 +5260,55 @@ def _canonicalize_historical_tool_claim_citations(
         )
         changed = True
     return canonicalized if changed else messages
+
+
+def closing_tool_messages(messages: list[Any]) -> list[ToolMessage]:
+    """Close tool calls an interrupted turn left without a tool result.
+
+    The next model request rejects an assistant message in that state. The graph
+    input is only the new user message, so the missing results have to be
+    appended on this thread before that message.
+    """
+
+    answered = {
+        str(message.tool_call_id)
+        for message in messages
+        if isinstance(message, ToolMessage) and message.tool_call_id
+    }
+    closing: list[ToolMessage] = []
+    for message in messages:
+        if not isinstance(message, AIMessage):
+            continue
+        for call in message.tool_calls or []:
+            if not isinstance(call, dict):
+                continue
+            call_id = str(call.get("id") or "")
+            if not call_id or call_id in answered:
+                continue
+            answered.add(call_id)
+            closing.append(
+                ToolMessage(
+                    content="tool call did not finish (run interrupted)",
+                    tool_call_id=call_id,
+                    name=str(call.get("name") or ""),
+                )
+            )
+    return closing
+
+
+async def _prior_checkpoint_messages(agent: Any, config: dict[str, Any]) -> list[Any]:
+    getter = getattr(agent, "aget_state", None)
+    if not callable(getter):
+        return []
+    try:
+        snapshot = await getter(config)
+    except ValueError:
+        return []
+    values = getattr(snapshot, "values", None)
+    if not isinstance(values, dict):
+        return []
+    messages = values.get("messages")
+    return list(messages) if isinstance(messages, list) else []
 
 
 def _merge_checkpoint_historical_claims(state: _RunState, messages: list[Any]) -> None:

@@ -28,7 +28,6 @@ def tag_for_path(path: str) -> str:
         return "Users"
     if (
         path.startswith("/api/v1/knowledge")
-        or path.startswith("/api/v1/learning")
         or path.startswith("/api/v1/om")
         or path.startswith("/media/libraries")
         or "/online/libraries" in path

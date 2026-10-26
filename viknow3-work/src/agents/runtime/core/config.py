@@ -32,7 +32,6 @@ class AgentKernelType(StrEnum):
     """Supported agent runtime backends."""
 
     DEEPAGENTS = "deepagents"
-    HERMES = "hermes"
 
 
 class _StrictModel(BaseModel):
@@ -151,28 +150,21 @@ class AgentModelConfig(BaseModel):
 
 
 class PersistenceBackend(StrEnum):
-    """Shared storage backend for session, checkpointer, and mem0 vectors."""
+    """Storage backend for the checkpointer and mem0."""
 
     SQLITE = "sqlite"
     POSTGRES = "postgres"
 
 
-DEFAULT_SESSION_DSN_ENV = "VIKNOW_SESSION_DSN"
-DEFAULT_CHECKPOINT_DSN_ENV = "VIKNOW_CHECKPOINT_DSN"
 DEFAULT_MEMORY_DSN_ENV = "VIKNOW_MEMORY_DSN"
-DEFAULT_PERSISTENCE_BACKEND_ENV = "VIKNOW_PERSISTENCE_BACKEND"
 
 
 class PostgresPersistenceConfig(_StrictModel):
-    """Postgres settings for session / checkpointer / mem0 / scheduler schemas.
+    """Postgres connection used when mem0 resolves its own DSN.
 
     Connection fields (``host`` / ``port`` / ``user`` / ``password`` / ``database``)
-    default from ``hyperrag.yml`` ``env.POSTGRES_*`` when omitted. Schema names are
-    ViKnow-owned and stay in ``app.yaml``.
-
-    ``juicefs_schema`` holds JuiceFS metadata only (created by JuiceFS
-    entrypoint / optional postgres schema bootstrap). The application never
-    reads or writes tables inside it.
+    are copied from the platform database settings when omitted. Checkpoint uses
+    ``VIKNOW_AGENT_DSN`` and does not read this schema.
     """
 
     host: str | None = None
@@ -181,21 +173,16 @@ class PostgresPersistenceConfig(_StrictModel):
     password: str | None = None
     database: str | None = None
     upload_statement_timeout_seconds: float = Field(default=60, gt=0)
-    session_schema: str = "viknow_session"
-    checkpoint_schema: str = "viknow_checkpoint"
     memory_schema: str = "viknow_memory"
-    scheduler_schema: str = "viknow_scheduler"
-    learning_schema: str = "viknow_learning"
-    juicefs_schema: str = "viknow_juicefs"
 
 
 
 class PersistenceConfig(_StrictModel):
     """App persistence settings.
 
-    Yaml typically sets ``backend: ${VIKNOW_PERSISTENCE_BACKEND}``. Postgres
-    connection / schema fields live under ``postgres``; connection fields may be
-    inherited from HyperRAG ``env.POSTGRES_*`` when omitted.
+    Postgres connection fields live under ``postgres``. They are copied from the
+    platform database settings when omitted. ``memory_schema`` is the search path
+    mem0 uses when it builds a DSN from those fields.
     """
 
     backend: PersistenceBackend | None = None
@@ -342,12 +329,6 @@ class DeepAgentsKernelConfig(_StrictModel):
     @classmethod
     def expand_state_root(cls, value: Path | None) -> Path | None:
         return value.expanduser() if value is not None else None
-
-
-class HermesKernelConfig(_StrictModel):
-    """Hermes kernel settings."""
-
-    home: Path | None = None
 
 
 class ToolModelConfig(_StrictModel):
@@ -935,7 +916,6 @@ class AgentRuntimeConfig(_StrictModel):
     model_options: list[AgentModelOption] = Field(default_factory=list)
     skill_dirs: list[Path] = Field(default_factory=list)
     deepagents: DeepAgentsKernelConfig = Field(default_factory=DeepAgentsKernelConfig)
-    hermes: HermesKernelConfig = Field(default_factory=HermesKernelConfig)
 
     def default_model_id(self) -> str | None:
         return self.model.selection_id()
@@ -1275,7 +1255,7 @@ def _require_postgres_connection_fields(postgres: PostgresPersistenceConfig) -> 
         raise RuntimeError(
             "persistence.postgres missing "
             + ", ".join(missing)
-            + "; set them in app.yaml or hyperrag.yml env.POSTGRES_*"
+            + "; set persistence.postgres or the component DSN"
         )
 
 

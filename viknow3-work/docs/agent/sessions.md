@@ -46,6 +46,8 @@
 
 `POST .../runs/{run_id}/interrupt` 取消 agent loop 上的任务。run 已经不在 `running` 时 409，`code` 为 `run_not_running`。编排器最多等 2 秒。任务没有自己结束时，由编排器把 run 收成中断。
 
+下一轮开始时，runtime 读取这条 thread 的 checkpoint。里面若还有没有 tool 结果的调用，会先补上内容为 `tool call did not finish (run interrupted)` 的 tool 消息，再送出新的用户消息。thread id 仍是 `{user_id}:{workspace_id 或 default}:{session_id}`。
+
 进程再次启动时，`close_lost_runs` 把库里仍是 `running`、而本进程没有任务的 run 写成失败，事件 `code` 为 `run_lost`。
 
 ## 下一步

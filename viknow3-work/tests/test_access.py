@@ -217,15 +217,15 @@ class AccessTests(unittest.TestCase):
         finally:
             reset_object_store()
 
-        status, learning_body = self.request("GET", "/api/v1/learning")
-        self.assertEqual(learning_body["module"], "self-learning")
-
         status, _om = self.request("GET", "/api/v1/om/config")
         self.assertEqual(status, 401)
         status, config = self.request("GET", "/api/v1/om/config", key="dev-admin-key")
-        self.assertIn("VIKNOW_LANGFUSE_ENABLED", config["switches"])
-        status, backup = self.request("POST", "/api/v1/om/backups", {}, key="dev-admin-key")
-        self.assertIn("backup_id", backup)
+        self.assertEqual(status, 200)
+        self.assertIn("observe_setting", config)
+        self.assertIn("model", config)
+        status, changes = self.request("GET", "/api/v1/om/config/changes", key="dev-admin-key")
+        self.assertEqual(status, 200)
+        self.assertIn("changes", changes)
 
 
 if __name__ == "__main__":

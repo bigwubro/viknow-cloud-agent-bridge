@@ -67,8 +67,33 @@ def provider_env_names(provider_id: str) -> tuple[str, str, str | None]:
     )
 
 
+def complete_provider_from_env(provider_id: str, provider: ChatProvider) -> ChatProvider:
+    """Fill a platform row from the host env when ops has not stored the secret.
+
+    A row with an api_key is complete and wins. An empty api_key keeps the
+    endpoint the platform process was already given, instead of a loopback
+    placeholder in the table.
+    """
+    base_env, key_env, _model_env = provider_env_names(provider_id)
+    env_base = os.environ.get(base_env, "").strip()
+    env_key = os.environ.get(key_env, "").strip()
+    if provider.api_key:
+        return provider
+    base_url = provider.base_url
+    api_key = provider.api_key
+    if env_key:
+        api_key = env_key
+        if env_base:
+            base_url = env_base
+    elif not base_url and env_base:
+        base_url = env_base
+    if base_url == provider.base_url and api_key == provider.api_key:
+        return provider
+    return ChatProvider(base_url=base_url, api_key=api_key, model_name=provider.model_name)
+
+
 def publish_catalog_env(catalog: PlatformCatalog) -> None:
-    """Put ops endpoints into the env names the agent runtime already reads."""
+    """Put resolved endpoints into the env names the agent runtime already reads."""
     for provider_id, provider in catalog.providers.items():
         base_env, key_env, model_env = provider_env_names(provider_id)
         if provider.base_url:
@@ -94,10 +119,13 @@ def load_platform_catalog(*agent_ids: str) -> PlatformCatalog:
         raise RuntimeError("VIKNOW_OPS_DSN is required. Chat models are read from viknow_ops, not app.yaml.")
     raw_providers = plain_providers()
     providers = {
-        provider_id: ChatProvider(
-            base_url=str(row.get("base_url") or "").strip(),
-            api_key=str(row.get("api_key") or "").strip(),
-            model_name=(str(row.get("model_name")).strip() if row.get("model_name") else None),
+        provider_id: complete_provider_from_env(
+            provider_id,
+            ChatProvider(
+                base_url=str(row.get("base_url") or "").strip(),
+                api_key=str(row.get("api_key") or "").strip(),
+                model_name=(str(row.get("model_name")).strip() if row.get("model_name") else None),
+            ),
         )
         for provider_id, row in raw_providers.items()
     }

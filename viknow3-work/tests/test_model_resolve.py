@@ -9,6 +9,7 @@ from viknow3.ops.config.model_resolve import (
     ChatModelRow,
     ChatProvider,
     PlatformCatalog,
+    complete_provider_from_env,
     resolve_chat,
     resolve_openai_chat,
 )
@@ -60,6 +61,23 @@ class ModelResolveTests(unittest.TestCase):
         self.assertEqual(resolved.model, "Qwen/Qwen3.6-35B-A3B")
         self.assertEqual(resolved.base_url, "https://api.example/v1")
         self.assertEqual(resolved.api_key, "sf-secret")
+
+    def test_empty_ops_key_keeps_host_endpoint(self) -> None:
+        os.environ["VIKNOW_PRIVATE_BASE_URL"] = "https://ai.example:8443/v1"
+        os.environ["VIKNOW_PRIVATE_API_KEY"] = "from-env"
+        filled = complete_provider_from_env(
+            "private",
+            ChatProvider(base_url="http://127.0.0.1:8443/v1", api_key="", model_name="qwen"),
+        )
+        self.assertEqual(filled.base_url, "https://ai.example:8443/v1")
+        self.assertEqual(filled.api_key, "from-env")
+        self.assertEqual(filled.model_name, "qwen")
+        kept = complete_provider_from_env(
+            "private",
+            ChatProvider(base_url="http://127.0.0.1:8443/v1", api_key="from-ops", model_name="qwen"),
+        )
+        self.assertEqual(kept.base_url, "http://127.0.0.1:8443/v1")
+        self.assertEqual(kept.api_key, "from-ops")
 
     def test_openai_chat_publishes_ops_endpoint(self) -> None:
         os.environ.pop("VIKNOW_PRIVATE_API_KEY", None)

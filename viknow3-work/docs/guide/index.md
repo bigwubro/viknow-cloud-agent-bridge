@@ -9,6 +9,7 @@ title: 概述
 
 ## 快速链接
 
+- [Agent 逻辑视图](../agent-logical-view.md)
 - [HyperRAG Runbook](./hyperrag-runbook.md)
 - [HyperRAG Submodule](./hyperrag-submodule.md)
 - [知识库索引任务状态](./knowledge-index-job-status.md)

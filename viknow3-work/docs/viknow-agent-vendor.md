@@ -6,7 +6,7 @@
 
 - **`src/agents/runtime/`**：唯一的回合循环、tools、harness（tool gate、stop gate、答案复核、`qa_plan_middleware`）、bubblewrap 沙箱。
 - **`src/agents/<agent>/`**：这个 agent 自己的 profile 和 skills。目录里不放第二套运行时。
-- **`src/viknow3/`**：会话和 run、SSE、`bind_grant` / `library_ids`、Postgres checkpointer（`thread_id = session_id`）、HyperRAG client、Actio、ops 模型配置。runtime 只接收这些。
+- **`src/viknow3/`**：会话和 run、SSE、`bind_grant` / `library_ids`、Postgres checkpointer（`thread_id = session_id`）、HyperRAG client、Actio。平台配置（模型地址、密钥、Postgres / Redis / Neo4j / S3）在 `viknow_ops`，由 `src/viknow3/ops/config/` 读取。runtime 只接收这些，不读 `app.yaml`。
 - Evidence Oracle 的收集流程由 profile 字段 `oracle_collection: true` 打开，不再按 profile id 写死。
 - 飞书、ViCoach、viknow2 HTTP API、JuiceFS、索引流水线、eval/learning，以及 `qa_box` 的 builder/tools/harness，没有留在这棵树里。
 - Expert Buddy 的回合预算在 Playground 里关闭。长期记忆、Langfuse、Hermes、Redis 调度、License 配置仍被回合模块引用，Playground 不启用它们。
@@ -15,6 +15,7 @@
 
 | 路径 | 放什么 |
 |------|------|
+| `src/agents/runtime/runtime.yaml` | 共用回合参数：图步数、沙箱、workspace、采样默认值。不含模型地址和密钥 |
 | `src/agents/runtime/` | 共享回合、harness、tools、沙箱 |
 | `src/agents/expert_buddy/profile/`、`skills/` | 知识助手。Playground 对外 id 仍是 `deepagents` |
 | `src/agents/video_buddy/` | 进阶视频 profile 和 `advanced-video-qa` |

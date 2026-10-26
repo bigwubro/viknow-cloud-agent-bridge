@@ -1,4 +1,8 @@
-"""Build one shared DeepAgentsRuntime per agent profile."""
+"""Build one shared DeepAgentsRuntime per agent profile.
+
+Platform model endpoints come from viknow_ops. Shared loop settings come from
+``src/agents/runtime/runtime.yaml``. The profile comes from the agent directory.
+"""
 
 from __future__ import annotations
 
@@ -13,6 +17,10 @@ import yaml
 
 from agents.layout import AgentPackage, package_for_public_id
 from viknow3.application.agent.viknow2_adapter.vendor.checkpointer import Viknow3CheckpointerProvider
+from viknow3.application.agent.viknow2_adapter.vendor.host_config import (
+    build_agent_app_config,
+    review_tool_configs,
+)
 from viknow3.application.agent.viknow2_adapter.vendor.thread_id import apply_session_thread_id_patch
 
 log = logging.getLogger(__name__)
@@ -49,43 +57,17 @@ def _load_profile(package: AgentPackage):
     return profile
 
 
-def _viknow_config_path(root: Path) -> Path:
-    override = os.environ.get("VIKNOW_VENDOR_APP_CONFIG", "").strip()
-    if override:
-        return Path(override).expanduser().resolve()
-    v2_root = Path(os.environ.get("VIKNOW2_ROOT", "/home/cursor-agent/work/viknow2")).expanduser()
-    for base in (v2_root, root):
-        for rel in ("config/local/app.yaml", "config/app.yaml"):
-            candidate = (base / rel).resolve()
-            if candidate.is_file():
-                return candidate
-    return (root / "config" / "app.yaml").resolve()
-
-
 @lru_cache(maxsize=8)
-def _viknow_app_config(skills: Path, profile_dir: Path):
-    from agents.runtime.core.config import load_app_config
-
+def _viknow_app_config(skills: str, profile_dir: str, public_id: str, profile_id: str):
     root = _repo_root()
-    config_path = _viknow_config_path(root)
-    config = load_app_config(config_path, workspace_root=config_path.parent.parent)
-    checkpointer = config.agent.deepagents.checkpointer.model_copy(update={"enabled": False})
-    deepagents = config.agent.deepagents.model_copy(
-        update={"checkpointer": checkpointer, "recursion_limit": 999}
-    )
-    # Playground uses viknow3 Postgres checkpointer. Do not open viknow2's Redis scheduler.
-    unified = config.share.scheduler.unified.model_copy(update={"enabled": False})
-    scheduler = config.share.scheduler.model_copy(update={"unified": unified})
-    # viknow2 files_root (/data/viknow) is not writable by the playground user.
     files_root = Path(os.environ.get("VIKNOW_VENDOR_FILES_ROOT", str(root / ".state" / "vendor-files"))).resolve()
-    files_root.mkdir(parents=True, exist_ok=True)
-    (files_root / "state").mkdir(parents=True, exist_ok=True)
-    share = config.share.model_copy(update={"scheduler": scheduler, "files_root": files_root})
-    app = config.app.model_copy(update={"files_root": files_root, "state_dir": files_root / "state"})
-    agent = config.agent.model_copy(
-        update={"skill_dirs": (skills,), "profile_dir": profile_dir, "deepagents": deepagents}
+    return build_agent_app_config(
+        skills_dir=Path(skills),
+        profile_dir=Path(profile_dir),
+        agent_ids=(public_id, profile_id),
+        files_root=files_root,
+        static_dir=root / "ui",
     )
-    return config.model_copy(update={"agent": agent, "share": share, "app": app})
 
 
 async def get_deepagents_runtime(public_id: str = "deepagents") -> Any:
@@ -105,14 +87,18 @@ async def get_deepagents_runtime(public_id: str = "deepagents") -> Any:
         if cached is not None:
             return cached
         apply_session_thread_id_patch()
-        from agents.runtime.core.config import load_tool_configs
         from agents.runtime.core.runtime.builder import build_agent_runtime
 
         log.info("runtime: loading config for %s", package.directory)
-        config = _viknow_app_config(package.skills_dir, package.profile_path.parent)
+        config = _viknow_app_config(
+            str(package.skills_dir),
+            str(package.profile_path.parent),
+            public_id,
+            package.profile_id,
+        )
         profile = _load_profile(package)
         log.info("runtime: loading tools for profile %s", profile.id)
-        tool_configs = load_tool_configs(config)
+        tool_configs = review_tool_configs(config)
         knowledge_adapter = None
         try:
             from viknow3.application.hyperrag.runtime import get_engine_adapter

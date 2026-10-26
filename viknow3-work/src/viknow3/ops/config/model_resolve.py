@@ -1,19 +1,25 @@
-"""Resolve chat LLM endpoint from config/app.yaml + env (same as 5175 private Qwen)."""
+"""Resolve a chat model from viknow_ops.
+
+Platform rows hold the endpoint and key. Sampling defaults live in
+``src/agents/runtime/runtime.yaml``. This module does not read ``app.yaml``.
+"""
 
 from __future__ import annotations
 
 import os
 import re
 from dataclasses import dataclass
-from pathlib import Path
-from typing import Any
-
-import yaml
 
 from viknow3.ops.config.runtime_env import load_agent_runtime_env
 
-_ENV_PATTERN = re.compile(r"\$\{([^}]+)\}")
 _SERVER_DEFAULT = "server-default"
+_PROVIDER_ENV = {
+    "private": ("VIKNOW_PRIVATE_BASE_URL", "VIKNOW_PRIVATE_API_KEY", "VIKNOW_PRIVATE_MODEL"),
+    "siliconflow": ("VIKNOW_SILICONFLOW_BASE_URL", "VIKNOW_SILICONFLOW_API_KEY", None),
+    "embedding": ("VIKNOW_EMBEDDING_BASE_URL", "VIKNOW_EMBEDDING_API_KEY", "VIKNOW_EMBEDDING_MODEL"),
+    "rerank": ("HYPERRAG_RERANK_BASE_URL", "HYPERRAG_RERANK_API_KEY", None),
+    "actio": ("ACTIO_SERVER_URL", "ACTIO_API_KEY", None),
+}
 
 
 @dataclass(frozen=True)
@@ -24,155 +30,208 @@ class ResolvedChatModel:
     temperature: float = 0.0
 
 
-def _repo_root() -> Path:
-    return Path(__file__).resolve().parents[4]
+@dataclass(frozen=True)
+class ChatProvider:
+    base_url: str
+    api_key: str
+    model_name: str | None = None
 
 
-def _expand_env(value: str) -> str:
-    def repl(match: re.Match[str]) -> str:
-        return os.environ.get(match.group(1), match.group(0))
+@dataclass(frozen=True)
+class ChatModelRow:
+    id: str
+    provider_id: str
+    name: str
+    label: str
 
-    return _ENV_PATTERN.sub(repl, value)
+
+@dataclass(frozen=True)
+class PlatformCatalog:
+    """Models and providers copied out of viknow_ops."""
+
+    providers: dict[str, ChatProvider]
+    models: tuple[ChatModelRow, ...]
+    default_model_id: str | None = None
+    agent_model_id: str | None = None
 
 
-def _load_app_config() -> dict[str, Any]:
-    candidates: list[Path] = []
-    configured = os.environ.get("VIKNOW_APP_CONFIG", "").strip()
-    if configured:
-        candidates.append(Path(configured))
-    root = _repo_root()
-    candidates.extend(
-        (
-            root / "config" / "app.yaml",
-            root / "config" / "local" / "app.yaml",
-        )
+def provider_env_names(provider_id: str) -> tuple[str, str, str | None]:
+    known = _PROVIDER_ENV.get(provider_id)
+    if known is not None:
+        return known
+    token = re.sub(r"[^A-Za-z0-9]", "_", provider_id).upper()
+    return (
+        f"VIKNOW_PROVIDER_{token}_BASE_URL",
+        f"VIKNOW_PROVIDER_{token}_API_KEY",
+        f"VIKNOW_PROVIDER_{token}_MODEL",
     )
-    for path in candidates:
-        if path.is_file():
-            payload = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-            return payload if isinstance(payload, dict) else {}
-    return {}
 
 
-def _model_providers(app_cfg: dict[str, Any]) -> dict[str, Any]:
-    share = app_cfg.get("share") if isinstance(app_cfg.get("share"), dict) else {}
-    providers = share.get("model_providers")
-    if isinstance(providers, dict):
-        return providers
-    legacy = app_cfg.get("model_providers")
-    return legacy if isinstance(legacy, dict) else {}
+def publish_catalog_env(catalog: PlatformCatalog) -> None:
+    """Put ops endpoints into the env names the agent runtime already reads."""
+    for provider_id, provider in catalog.providers.items():
+        base_env, key_env, model_env = provider_env_names(provider_id)
+        if provider.base_url:
+            os.environ[base_env] = provider.base_url
+        if provider.api_key:
+            os.environ[key_env] = provider.api_key
+        if model_env and provider.model_name:
+            os.environ[model_env] = provider.model_name
 
 
-def _default_model_ref(app_cfg: dict[str, Any]) -> str:
-    share = app_cfg.get("share") if isinstance(app_cfg.get("share"), dict) else {}
-    share_agent = share.get("agent") if isinstance(share.get("agent"), dict) else {}
-    ref = str(share_agent.get("model_ref") or "").strip()
-    if ref:
-        return ref
-    agent_cfg = app_cfg.get("agent") if isinstance(app_cfg.get("agent"), dict) else {}
-    model_cfg = agent_cfg.get("model") if isinstance(agent_cfg.get("model"), dict) else {}
-    ref = str(model_cfg.get("ref") or "").strip()
-    if ref:
-        return ref
-    env_model = os.environ.get("VIKNOW_PRIVATE_MODEL", "").strip()
-    if env_model:
-        return f"private:{env_model}"
-    return ""
+def load_platform_catalog(*agent_ids: str) -> PlatformCatalog:
+    """Read model providers and the optional per-agent model from viknow_ops."""
+    load_agent_runtime_env()
+    from viknow3.ops.config.store import (
+        agent_model_map,
+        configured,
+        plain_models,
+        plain_providers,
+        server_default_model,
+    )
+
+    if not configured():
+        raise RuntimeError("VIKNOW_OPS_DSN is required. Chat models are read from viknow_ops, not app.yaml.")
+    raw_providers = plain_providers()
+    providers = {
+        provider_id: ChatProvider(
+            base_url=str(row.get("base_url") or "").strip(),
+            api_key=str(row.get("api_key") or "").strip(),
+            model_name=(str(row.get("model_name")).strip() if row.get("model_name") else None),
+        )
+        for provider_id, row in raw_providers.items()
+    }
+    models = tuple(
+        ChatModelRow(
+            id=row["id"],
+            provider_id=row["provider_id"],
+            name=row["name"],
+            label=row["label"],
+        )
+        for row in plain_models()
+    )
+    binding = agent_model_map()
+    agent_model_id = next((binding[agent_id] for agent_id in agent_ids if binding.get(agent_id)), None)
+    catalog = PlatformCatalog(
+        providers=providers,
+        models=models,
+        default_model_id=server_default_model(),
+        agent_model_id=agent_model_id,
+    )
+    publish_catalog_env(catalog)
+    return catalog
 
 
-def _agent_temperature(app_cfg: dict[str, Any]) -> float:
-    agent_cfg = app_cfg.get("agent") if isinstance(app_cfg.get("agent"), dict) else {}
-    model_cfg = agent_cfg.get("model") if isinstance(agent_cfg.get("model"), dict) else {}
-    raw = model_cfg.get("temperature")
-    if raw is None:
-        return 0.0
-    try:
-        return float(raw)
-    except (TypeError, ValueError):
-        return 0.0
+def resolve_openai_chat(
+    model_selector: str | None = None,
+    *,
+    catalog: PlatformCatalog | None = None,
+) -> ResolvedChatModel:
+    """Resolve an OpenAI-compatible chat endpoint."""
+    from agents.runtime.runtime_config import load_model_defaults
+
+    if catalog is None:
+        catalog = load_platform_catalog()
+    else:
+        publish_catalog_env(catalog)
+    return resolve_chat(model_selector, catalog, temperature=load_model_defaults().temperature)
 
 
-def _provider_credentials(provider_name: str, providers: dict[str, Any]) -> tuple[str, str] | None:
-    block = providers.get(provider_name)
-    if not isinstance(block, dict):
-        return None
-    base_env = str(block.get("base_url_env") or "").strip()
-    key_env = str(block.get("api_key_env") or "").strip()
-    if not base_env or not key_env:
-        return None
-    base_url = os.environ.get(base_env, "").strip()
-    api_key = os.environ.get(key_env, "").strip()
-    if not base_url or not api_key:
-        return None
-    return base_url, api_key
+def resolve_chat(
+    model_selector: str | None,
+    catalog: PlatformCatalog,
+    *,
+    temperature: float,
+) -> ResolvedChatModel:
+    selector = (model_selector or "").strip()
+    if not selector or selector == _SERVER_DEFAULT:
+        row = _preferred_row(catalog)
+        if row is None:
+            raise RuntimeError(
+                "No default chat model in viknow_ops. Set model_provider.private.model_name or agent_model."
+            )
+        return _from_row(row, catalog, temperature)
+
+    matched = _match_row(catalog, selector)
+    if matched is not None:
+        return _from_row(matched, catalog, temperature)
+
+    if ":" in selector:
+        provider_id, model_name = selector.split(":", 1)
+        provider = catalog.providers.get(provider_id.strip())
+        if provider is not None and provider.base_url and provider.api_key and model_name.strip():
+            return ResolvedChatModel(
+                model=model_name.strip(),
+                base_url=provider.base_url,
+                api_key=provider.api_key,
+                temperature=temperature,
+            )
+
+    private = catalog.providers.get("private")
+    if private is not None and private.base_url and private.api_key:
+        return ResolvedChatModel(
+            model=selector,
+            base_url=private.base_url,
+            api_key=private.api_key,
+            temperature=temperature,
+        )
+    raise RuntimeError(f"Chat model {selector!r} is not configured in viknow_ops")
 
 
-def _match_model_option(app_cfg: dict[str, Any], selector: str) -> str | None:
-    agent_cfg = app_cfg.get("agent") if isinstance(app_cfg.get("agent"), dict) else {}
-    options = agent_cfg.get("model_options") or []
-    if not isinstance(options, list):
-        return None
-    normalized = selector.strip().lower()
-    for option in options:
-        if not isinstance(option, dict):
+def agent_model_ref(catalog: PlatformCatalog) -> str:
+    row = _preferred_row(catalog)
+    if row is None:
+        raise RuntimeError(
+            "No chat model for this agent. Set agent_model or model_provider.private.model_name in viknow_ops."
+        )
+    if row.provider_id not in catalog.providers:
+        raise RuntimeError(f"model {row.id} references unknown provider {row.provider_id}")
+    return f"{row.provider_id}:{row.name}"
+
+
+def _preferred_row(catalog: PlatformCatalog) -> ChatModelRow | None:
+    for model_id in (catalog.agent_model_id, catalog.default_model_id):
+        if not model_id:
             continue
-        ref = str(option.get("ref") or "")
-        if not ref:
-            continue
-        label = str(option.get("label") or "")
-        model_name = ref.split(":", 1)[1] if ":" in ref else ref
-        candidates = {ref.lower(), label.lower(), model_name.lower()}
-        if normalized in candidates:
-            return ref
+        found = _row_by_id(catalog, model_id)
+        if found is not None:
+            return found
+    private = catalog.providers.get("private")
+    if private is not None and private.model_name:
+        return ChatModelRow(
+            id=f"private:{private.model_name}",
+            provider_id="private",
+            name=private.model_name,
+            label=private.model_name,
+        )
     return None
 
 
-def _parse_ref(ref: str) -> tuple[str, str]:
-    expanded = _expand_env(ref.strip())
-    if ":" in expanded:
-        provider, model = expanded.split(":", 1)
-        return provider.strip(), model.strip()
-    return "private", expanded
+def _row_by_id(catalog: PlatformCatalog, model_id: str) -> ChatModelRow | None:
+    for row in catalog.models:
+        if row.id == model_id:
+            return row
+    return None
 
 
-def resolve_openai_chat(model_selector: str | None = None) -> ResolvedChatModel:
-    """Resolve OpenAI-compatible chat endpoint for LangChain ChatOpenAI."""
-    load_agent_runtime_env()
-    app_cfg = _load_app_config()
-    providers = _model_providers(app_cfg)
-    temperature = _agent_temperature(app_cfg)
+def _match_row(catalog: PlatformCatalog, selector: str) -> ChatModelRow | None:
+    normalized = selector.strip().lower()
+    for row in catalog.models:
+        ref = f"{row.provider_id}:{row.name}".lower()
+        if normalized in {row.id.lower(), row.label.lower(), row.name.lower(), ref}:
+            return row
+    return None
 
-    selector = (model_selector or "").strip()
-    if not selector or selector == _SERVER_DEFAULT:
-        ref = _default_model_ref(app_cfg)
-        if not ref:
-            raise RuntimeError(
-                "No default chat model: set share.agent.model_ref in config/app.yaml "
-                "or VIKNOW_PRIVATE_MODEL in ops env"
-            )
-        provider_name, model_name = _parse_ref(ref)
-    elif selector.startswith("private:") or selector.startswith("siliconflow:"):
-        provider_name, model_name = _parse_ref(selector)
-    else:
-        matched = _match_model_option(app_cfg, selector)
-        if matched:
-            provider_name, model_name = _parse_ref(matched)
-        elif selector.startswith("siliconflow:") or selector.startswith("private:"):
-            provider_name, model_name = _parse_ref(selector)
-        else:
-            creds = _provider_credentials("private", providers)
-            if creds and os.environ.get("VIKNOW_PRIVATE_MODEL"):
-                provider_name, model_name = "private", selector
-            else:
-                provider_name, model_name = _parse_ref(f"siliconflow:{selector}")
 
-    creds = _provider_credentials(provider_name, providers)
-    if creds is None:
-        raise RuntimeError(
-            f"Chat provider {provider_name!r} is not configured: "
-            f"check config/app.yaml model_providers and env vars"
-        )
-    base_url, api_key = creds
-    if not model_name:
-        raise RuntimeError(f"Empty model name for provider {provider_name!r}")
-    return ResolvedChatModel(model=model_name, base_url=base_url, api_key=api_key, temperature=temperature)
+def _from_row(row: ChatModelRow, catalog: PlatformCatalog, temperature: float) -> ResolvedChatModel:
+    provider = catalog.providers.get(row.provider_id)
+    if provider is None or not provider.base_url or not provider.api_key:
+        raise RuntimeError(f"provider {row.provider_id!r} has no base_url or api_key in viknow_ops")
+    if not row.name:
+        raise RuntimeError(f"model {row.id!r} has an empty name")
+    return ResolvedChatModel(
+        model=row.name,
+        base_url=provider.base_url,
+        api_key=provider.api_key,
+        temperature=temperature,
+    )

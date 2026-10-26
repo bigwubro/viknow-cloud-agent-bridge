@@ -194,8 +194,14 @@ def _submit_rows(
 
 
 def _first_run_libraries(profile_id: str, value: Any) -> list[str]:
+    from agents.layout import package_for_public_id
+
     library_ids = _library_ids(value)
-    if profile_id == "deepagents" and not library_ids:
+    package = package_for_public_id(profile_id)
+    needs_library = package is not None and bool(
+        {"knowledge_search", "knowledge_discover"} & set(package.enabled_tools)
+    )
+    if needs_library and not library_ids:
         raise AgentError(
             422,
             {"detail": [{"loc": ["body", "library_ids"], "msg": "select one knowledge library", "type": "missing"}]},

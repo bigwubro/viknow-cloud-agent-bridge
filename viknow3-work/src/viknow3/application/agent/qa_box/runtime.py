@@ -1,4 +1,4 @@
-"""QA agent turn: delegates to agents.expert_buddy."""
+"""QA agent turn: delegates to agents.runtime."""
 
 from __future__ import annotations
 

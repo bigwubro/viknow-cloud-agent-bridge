@@ -6,23 +6,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
-from pathlib import Path
-
-import yaml
-
-# Single QA profile exposed to access layer. The agent itself is expert_buddy.
+from agents.layout import discover_agents
 from viknow3.clock import now, stamp
-
-_PROFILE_PATH = (
-    Path(__file__).resolve().parents[4] / "agents" / "expert_buddy" / "profile" / "expert_buddy.yaml"
-)
-
-
-def _load_profile() -> dict:
-    return yaml.safe_load(_PROFILE_PATH.read_text(encoding="utf-8"))
-
-
-_V2_PROFILE = _load_profile()
 
 ALLOWED_MODELS = ("siliconflow:Qwen/Qwen3.6-35B-A3B",)
 SERVER_DEFAULT_MODEL = "server-default"
@@ -75,17 +60,17 @@ def _server_default_label() -> str:
 class Registry:
     def __init__(self) -> None:
         created = now()
-        shared_tools = tuple(str(item) for item in _V2_PROFILE.get("enabled_tools") or ())
-        self._profiles = {
-            AGENT_DEEPAGENTS: _profile(
-                AGENT_DEEPAGENTS,
-                str(_V2_PROFILE["label"]),
-                f"{_V2_PROFILE['description']}（expert_buddy）",
-                created,
-                "langgraph",
-                shared_tools,
-            ),
-        }
+        self._profiles = {}
+        for package in discover_agents():
+            for public_id in package.public_ids():
+                self._profiles[public_id] = _profile(
+                    public_id,
+                    package.label,
+                    package.description,
+                    created,
+                    "langgraph",
+                    package.enabled_tools,
+                )
 
     def profiles(self) -> list[dict[str, Any]]:
         return [item.public() for item in self._profiles.values()]

@@ -1,0 +1,28 @@
+subagents:
+  - name: evidence-scout
+    description: Map approved evidence scope and classify one bounded catalog page.
+    enabled_tools:
+      - knowledge_discover
+      - list_video_segments
+      - list_doc_segments
+      - evidence_scout_report
+    enabled_skills:
+      - evidence-oracle-scout
+    system_prompt: |
+      你是受限 Evidence Scout。开始任务前先读取并遵守 evidence-oracle-scout Skill。
+      只能处理 task 给出的 Gate-A scope 和当前目录页；不得 inspect、回答原问题或扩大范围。
+  - name: evidence-inspector
+    description: Verify bounded claims against approved evidence locators.
+    enabled_tools:
+      - video_inspect
+      - video_inspect_2_0
+      - text_inspect
+      - image_inspect
+      - visual_ground
+      - evidence_inspection_report
+    enabled_skills:
+      - evidence-oracle-inspector
+      - visual-ground
+    system_prompt: |
+      你是受限 Evidence Inspector。开始任务前先读取并遵守 evidence-oracle-inspector Skill。
+      只核验 task 给出的 locator 和 verification targets；不得 discover、list、扩大范围或写最终答案。

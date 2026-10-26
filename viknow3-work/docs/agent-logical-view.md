@@ -20,22 +20,30 @@ Playground 上的 `deepagents` 就是目录 `expert_buddy`。profile 文件里�
 
 ## 分层
 
-```text
-接入层  access/agent
-    │
-    ▼
-外壳    agentcore：Gateway → Orchestrator → host
-    │
-    ▼
-适配器  deepagents_adapter.TurnRuntime
-    │
-    ▼
-runtime src/agents/runtime
-    │
-    ├── agent 包：profile + skills
-    ├── 平台模型：viknow_ops
-    └── 知识库：外壳注入的 KnowledgeClient
+```mermaid
+flowchart TB
+  caller["调用方 / Playground"]
+  access["接入层 access/agent"]
+  shell["外壳 agentcore"]
+  events["run_events"]
+  adapter["deepagents_adapter"]
+  runtime["src/agents/runtime"]
+  pkg["agent 包 profile + skills"]
+  ckpt["LangGraph checkpoint"]
+  ops["viknow_ops 模型"]
+  engine["HyperRAG 引擎"]
+
+  caller --> access --> shell
+  shell --> events
+  shell --> adapter --> runtime
+  runtime --> pkg
+  runtime --> ckpt
+  ops --> adapter
+  shell --> engine
+  engine -->|"装配时注入 KnowledgeClient"| adapter
 ```
+
+接入层往下只到外壳。知识库引擎由外壳持有，适配器在装配 runtime 时把 `KnowledgeClient` 注进去。checkpoint 只出现在 runtime 这一侧。
 
 | 层 | 职责 | 详细位置 |
 | --- | --- | --- |
@@ -50,6 +58,39 @@ runtime src/agents/runtime
 ## 一轮调用
 
 `Orchestrator.start` 生成 `run_id`，把 `host.run` 提交到进程里唯一的 agent loop。
+
+```mermaid
+sequenceDiagram
+  participant Caller as 调用方
+  participant Access as 接入层
+  participant Host as host
+  participant Events as run_events
+  participant Adapter as deepagents_adapter
+  participant Runtime as DeepAgents runtime
+  participant Ckpt as Checkpoint
+  participant Model as 平台模型
+  participant RAG as HyperRAG
+
+  Caller->>Access: 本轮消息、user、session、library_ids
+  Access->>Host: agent loop 上执行 host.run
+  Host->>Host: 滤掉这个用户不能搜的库
+  Host->>Events: run_started、user_message
+  Host->>Adapter: run_turn(AgentTurnInput)
+  Adapter->>Runtime: submit(AgentOp)
+  Runtime->>Ckpt: 按 user、workspace、session 读取
+  loop 直到本轮结束
+    Runtime->>Model: 生成下一步
+    Model-->>Runtime: 正文或工具调用
+    opt 调用知识库工具
+      Runtime->>RAG: KnowledgeClient 检索
+      RAG-->>Runtime: 证据
+    end
+    Runtime-->>Adapter: runtime 事件
+    Adapter->>Events: message_delta、tool_call_*、answer_review_*
+  end
+  Adapter->>Events: message_completed、run_completed
+  Events-->>Caller: SSE 读同一张 run_events
+```
 
 1. 接入层收下 `message`、`user_id`、`session_id`、`library_ids` 和可选的模型名。
 2. `host` 用出站网关滤掉这个用户不能搜的库。
@@ -111,5 +152,26 @@ Registry 里这些 profile 的 `runtime` 字段目前都写成 `langgraph`。`ho
 2. 外壳里的 `adk_adapter`，实现同一个 `TurnRuntime.run_turn(turn, state, events)`。它把 ADK 的输出写成上面那组事件，需要检索时使用外壳已经建好的 `KnowledgeClient`。
 
 `host.py` 里现在只有一处写死了 DeepAgents。这里按 agent 选择适配器。DeepAgents 的 `runtime.yaml`、LangGraph checkpoint、工具闸门和回答检查留在 `deepagents_adapter` 后面，ADK 不复用它们。
+
+```mermaid
+sequenceDiagram
+  participant Host as host
+  participant DA as deepagents_adapter
+  participant ADK as adk_adapter
+  participant Events as run_events
+  participant Ckpt as LangGraph checkpoint
+  participant Sess as ADK session
+
+  Host->>Host: 按 agent 选择适配器
+  alt 当前代码：一律 DeepAgents
+    Host->>DA: run_turn
+    DA->>Ckpt: 自己的 thread id
+    DA->>Events: 同一组事件
+  else 接上 ADK 之后
+    Host->>ADK: run_turn
+    ADK->>Sess: 自己的 session
+    ADK->>Events: 同一组事件
+  end
+```
 
 ADK runtime 同样不能引用 `viknow3`。适配器放在外壳，因为它翻译的是外壳的 `AgentTurnInput` 和 `RunEvents`。

@@ -5,11 +5,20 @@ title: 概述
 
 # ViKnow 3.0 开发者文档
 
-面向接入层与运维的说明文档。HTTP 接口以 **[API 参考](/api/viknow-3-0-api)** 为准（由 OpenAPI 自动生成）。
+说明以仓库里的代码为准，从 [概述](../overview.md) 读起。
 
 ## 快速链接
 
-- [Agent 逻辑视图](../agent-logical-view.md)
+- [概述](../overview.md)
+- [Agent](../agent/overview.md)
+- [Runtime](../agent/runtime.md)
+- [会话](../agent/sessions.md)
+- [事件](../agent/events.md)
+- [工具和模型](../agent/tools.md)
+- [Agent HTTP](../agent/http.md)
+- [知识库](../knowledge/overview.md)
+- [接入层数据](../data/access.md)
+- [配置](../ops/configuration.md)
 - [HyperRAG Runbook](./hyperrag-runbook.md)
 - [HyperRAG Submodule](./hyperrag-submodule.md)
 - [知识库索引任务状态](./knowledge-index-job-status.md)

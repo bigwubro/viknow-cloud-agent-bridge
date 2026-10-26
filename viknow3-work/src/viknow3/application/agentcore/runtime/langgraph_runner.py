@@ -6,7 +6,6 @@ from typing import Any
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage
 
-from viknow3.application.agent.qa_box.harness.context import current_harness
 from viknow3.application.agentcore.runtime.events import RunEvents
 
 RECURSION_LIMIT = 60
@@ -122,9 +121,4 @@ async def run_graph(graph: Any, events: RunEvents) -> None:
     except BaseException:
         events.state.output = text or None
         raise
-    harness = current_harness()
-    if harness is not None:
-        events.state.citations = harness.citations.export()
-        for claim in harness.facts.verified_claims:
-            harness.citations.add_verified_claim(claim)
     events.completed(text, usage if saw_usage else None)

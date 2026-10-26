@@ -1,27 +1,27 @@
-# viknow2 问答 Agent 原样迁入（vendor）
+# Expert Buddy
+
+问答 agent 放在 `src/agents/expert_buddy`。外壳留在 `src/viknow3`。
 
 ## 原则
 
-- **`src/viknow/`**：从 viknow2 `main` **整包同步**的 agent 实现（`import viknow.*` 路径不变），供对方团队在此仓继续开发。
-- **`src/viknow3/`**：仅接入层（session/run、grant、SSE、checkpoint、HyperRAG/Actio **client**）。
-- **禁止**在 viknow3 里再维护一套「读懂逻辑后的简化版」（如合并版 `QaHarnessMiddleware`）；过渡代码在接线完成后删除。
+- **`src/agents/expert_buddy/`**：知识问答本身。profile、`knowledge-qa-v2` 与 `visual-ground`、tool gate、stop gate、证据账本、答案复核、`qa_plan_middleware`、勾选的 tools、bubblewrap 沙箱、单回合执行器。
+- **`src/viknow3/`**：会话和 run、SSE、`bind_grant` / `library_ids`、Postgres checkpointer（`thread_id = session_id`）、HyperRAG client、Actio、ops 模型配置。expert_buddy 只接收这些。
+- 飞书、ViCoach、viknow2 HTTP API、JuiceFS、索引流水线、eval/learning，以及 `qa_box` 的 builder/tools/harness，没有留在这棵树里。
+- 回合预算在 profile 里关闭。长期记忆、Langfuse、Hermes、Redis 调度、License 配置仍被回合模块引用，Playground 不启用它们。回合循环还是 `DeepAgentsRuntime` 这一个模块，沙箱和 `qa_plan_middleware` 从这里调用。
 
 ## 目录
 
-| 路径 | 来源 |
+| 路径 | 放什么 |
 |------|------|
-| `src/viknow/` | viknow2 `src/viknow`（含 `agent_adapters/deepagents.py`、`core/tools/*`、runtime 等） |
-| `config/profiles/` | viknow2 `config/profiles`（如 `viknow-v2.yaml`） |
+| `src/agents/expert_buddy/profile/expert_buddy.yaml` | 知识助手 profile。回合预算关闭 |
+| `src/agents/expert_buddy/skills/` | `knowledge-qa-v2`、`visual-ground`（不含 maintenance） |
+| `src/agents/expert_buddy/agent_adapters/`、`core/` | 问答回合、harness、tools、沙箱 |
 | `src/viknow3/application/agent/viknow2_adapter/` | 外壳契约 `AgentTurnInput` / `run_turn` |
-| `src/viknow3/application/agent/qa_box/` | **过渡**；接线完成后仅保留 `deepagents_runner.py` 或删尽 |
+| `src/viknow3/application/agent/qa_box/` | 只留 `deepagents_runner.py` 和 runtime 委托 |
 
 ## 同步
 
-```bash
-# 236 上
-VIKNOW2_SRC=/home/cursor-agent/work/viknow2 VIKNOW2_REV=main \
-  bash scripts/sync-viknow2-agent-vendor.sh
-```
+不要再把 viknow2 整包同步成 `src/viknow`。问答改动直接落在 `src/agents/expert_buddy`。
 
 ## 边界改造（只动接线，不改编排）
 
@@ -33,6 +33,6 @@ VIKNOW2_SRC=/home/cursor-agent/work/viknow2 VIKNOW2_REV=main \
 
 ## 接线目标
 
-外壳 `QaBoxRuntime.run_turn` → 委托 **`viknow.agent_adapters.deepagents.DeepAgentsRuntime`**（或 viknow2 对外统一的 `AgentRuntime` 入口），事件映射到 `RunEvents`。
+外壳 `run_turn` 委托 `agents.expert_buddy.agent_adapters.deepagents.DeepAgentsRuntime`，事件映射到 `RunEvents`。
 
-当前状态：Playground `run_turn` 已委托 `DeepAgentsRuntime`（`viknow2_adapter/vendor*`）；共用 `agentcore/runtime/checkpoint`；`thread_id=session_id`。`qa_box` 中 builder/tools/harness 仍待删除。
+当前状态：Playground 走 expert_buddy。共用 `agentcore/runtime/checkpoint`，`thread_id=session_id`。profile 不启用回合预算。`src/viknow` 整包和 `qa_box` 的第二套实现已从这棵树拿掉。

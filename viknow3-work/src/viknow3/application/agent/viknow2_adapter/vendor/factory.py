@@ -9,6 +9,8 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
+import yaml
+
 from viknow3.application.agent.viknow2_adapter.vendor.checkpointer import Viknow3CheckpointerProvider
 from viknow3.application.agent.viknow2_adapter.vendor.thread_id import apply_session_thread_id_patch
 
@@ -26,8 +28,23 @@ def _repo_root() -> Path:
     return Path(__file__).resolve().parents[6]
 
 
+def _expert_buddy_profile():
+    """Profile selected for Expert Buddy. Runtime budget stays off."""
+    from agents.expert_buddy.core.runtime.domain import AgentProfile
+
+    path = _repo_root() / "src" / "agents" / "expert_buddy" / "profile" / "expert_buddy.yaml"
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    data.pop("runtime_budget", None)
+    profile = AgentProfile.model_validate(data)
+    if profile.runtime_budget.enabled:
+        profile = profile.model_copy(
+            update={"runtime_budget": profile.runtime_budget.model_copy(update={"enabled": False})}
+        )
+    return profile
+
+
 def _skills_dir() -> Path:
-    packaged = Path(__file__).resolve().parents[2] / "qa_box" / "skills"
+    packaged = _repo_root() / "src" / "agents" / "expert_buddy" / "skills"
     if packaged.is_dir():
         return packaged
     return _repo_root() / "skills"
@@ -48,7 +65,7 @@ def _viknow_config_path(root: Path) -> Path:
 
 @lru_cache(maxsize=1)
 def _viknow_app_config():
-    from viknow.core.config import load_app_config
+    from agents.expert_buddy.core.config import load_app_config
 
     root = _repo_root()
     config_path = _viknow_config_path(root)
@@ -80,23 +97,13 @@ async def get_deepagents_runtime() -> Any:
         if _RUNTIME is not None:
             return _RUNTIME
         apply_session_thread_id_patch()
-        from viknow.core.config import load_tool_configs
-        from viknow.core.runtime.builder import build_agent_runtime
+        from agents.expert_buddy.core.config import load_tool_configs
+        from agents.expert_buddy.core.runtime.builder import build_agent_runtime
 
-        log.info("vendor runtime: loading viknow config")
+        log.info("expert_buddy runtime: loading config")
         config = _viknow_app_config()
-        profile = config.profile_catalog.require(config.agent.default_profile)
-        # Vendor middleware counts graph steps. The profile cap of 60 ends vague
-        # questions before a final answer on this playground.
-        if profile.runtime_budget.enabled and profile.runtime_budget.max_recursion_steps < 180:
-            profile = profile.model_copy(
-                update={
-                    "runtime_budget": profile.runtime_budget.model_copy(
-                        update={"max_recursion_steps": 180}
-                    )
-                }
-            )
-        log.info("vendor runtime: loading tools for profile %s", profile.id)
+        profile = _expert_buddy_profile()
+        log.info("expert_buddy runtime: loading tools for profile %s", profile.id)
         tool_configs = load_tool_configs(config)
         knowledge_adapter = None
         try:

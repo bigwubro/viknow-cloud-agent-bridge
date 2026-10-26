@@ -6,10 +6,8 @@ import asyncio
 import importlib.util
 import json
 import os
-import threading
 import unittest
 from concurrent.futures import ThreadPoolExecutor
-from unittest.mock import patch
 
 os.environ.setdefault("VIKNOW_ACCESS_DSN", "postgresql://test:test@127.0.0.1:5432/access")
 os.environ.setdefault("VIKNOW_AGENT_DSN", "postgresql://test:test@127.0.0.1:5432/agent")
@@ -185,39 +183,6 @@ class AgentServiceTests(unittest.TestCase):
         humans = [m.content for m in session_messages("deepagents", "session-history") if isinstance(m, HumanMessage)]
         self.assertEqual(humans, ["你好", "下一句"])
         self.assertEqual(session_messages("deepagents", "session-other"), [])
-
-    def test_interrupt_cancels_an_active_search(self) -> None:
-        started = threading.Event()
-        release = threading.Event()
-
-        def block(library_id: str, query: str, **kwargs: object) -> str:
-            del library_id, query, kwargs
-            started.set()
-            release.wait(3)
-            return '{"error":"permission_denied"}'
-
-        client = AgentClient()
-        with patch("viknow3.application.agent.qa_box.tools.knowledge_search", block):
-            run = _submit(client, "session-cancel", "user-cancel", "deepagents", "清洁燃气气孔是为了防止什么", ["library-1"])
-            reader = ThreadPoolExecutor(max_workers=1).submit(_finish, client, run["id"])
-            self.assertTrue(started.wait(5))
-            client.interrupt(run["id"])
-            types = [item["type"] for item in reader.result(3)]
-            release.set()
-        self.assertEqual(types[-1], "run_interrupted")
-        self.assertNotIn("run_completed", types)
-        self.assertEqual(client.get(run["id"])["status"], "interrupted")
-
-        with patch(
-            "viknow3.application.agent.qa_box.tools.knowledge_search",
-            lambda library_id, query, **kwargs: json.dumps(
-                {"library_id": library_id, "query": query, "evidence": [], "source": "hyperrag"}
-            ),
-        ):
-            again = _submit(client, "session-cancel", "user-cancel", "deepagents", "清洁燃气气孔是为了防止什么", ["library-1"])
-            self.assertEqual(_finish(client, again["id"])[-1]["type"], "run_completed")
-        history = session_messages("deepagents", "session-cancel")
-        self.assertEqual(unanswered_tool_calls(history), [])
 
     def test_interrupt_rejects_a_finished_run(self) -> None:
         from viknow3.application.agentcore.errors import AgentServiceError

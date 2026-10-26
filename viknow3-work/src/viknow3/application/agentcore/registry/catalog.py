@@ -6,12 +6,23 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
-from viknow3.application.agent.qa_box.profile import load_viknow_v2_profile
+from pathlib import Path
 
-# Single QA profile exposed to access layer (black box is always deepagents / viknow-v2).
+import yaml
+
+# Single QA profile exposed to access layer. The agent itself is expert_buddy.
 from viknow3.clock import now, stamp
 
-_V2_PROFILE = load_viknow_v2_profile()
+_PROFILE_PATH = (
+    Path(__file__).resolve().parents[4] / "agents" / "expert_buddy" / "profile" / "expert_buddy.yaml"
+)
+
+
+def _load_profile() -> dict:
+    return yaml.safe_load(_PROFILE_PATH.read_text(encoding="utf-8"))
+
+
+_V2_PROFILE = _load_profile()
 
 ALLOWED_MODELS = ("siliconflow:Qwen/Qwen3.6-35B-A3B",)
 SERVER_DEFAULT_MODEL = "server-default"
@@ -64,12 +75,12 @@ def _server_default_label() -> str:
 class Registry:
     def __init__(self) -> None:
         created = now()
-        shared_tools = _V2_PROFILE.enabled_tools
+        shared_tools = tuple(str(item) for item in _V2_PROFILE.get("enabled_tools") or ())
         self._profiles = {
             AGENT_DEEPAGENTS: _profile(
                 AGENT_DEEPAGENTS,
-                _V2_PROFILE.label,
-                f"{_V2_PROFILE.description}（deepagents / viknow-v2 profile）",
+                str(_V2_PROFILE["label"]),
+                f"{_V2_PROFILE['description']}（expert_buddy）",
                 created,
                 "langgraph",
                 shared_tools,

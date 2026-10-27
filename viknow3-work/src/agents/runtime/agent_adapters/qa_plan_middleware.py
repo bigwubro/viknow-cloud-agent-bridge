@@ -177,17 +177,12 @@ class QaPlanMiddleware(AgentMiddleware):
         guidance = ""
         if not summary["review_is_current"]:
             guidance = (
-                "Use the latest results to compare what the original "
-                "question asks with what the evidence establishes. Checking one finding "
-                "does not settle other relevant findings: retain their unresolved status, "
-                "rather than silently narrowing the answer to what is already verified. "
-                "If the original wording and evidence support multiple materially different "
-                "answers, record each reading and possible answer in review.uncertainties. "
-                "Decide whether to investigate, revise your interpretation, or answer "
-                "within the supported scope; record material changes in the existing plan. "
-                "The task plan persists across runs. Continue it, "
-                "revise goals with update, or use start for a genuinely new task. "
-                "A previous execution's review does not assess this answer.\n"
+                "Record the knowledge-qa-v2 plan with answer_plan. "
+                "Use action=start, update, or review with a content string and a findings "
+                "array. Do not pass update objects, slot_updates, slot_definitions, or "
+                "status enums. Keep citation aliases out of content and findings text. "
+                "When the plan is ready, call final_check() with no arguments. "
+                "Do not write the final answer as a separate message.\n"
             )
         return request.override(
             messages=[
@@ -246,7 +241,12 @@ class QaPlanMiddleware(AgentMiddleware):
                     name="answer_plan",
                     status="error",
                 )
-            if command.action == "start":
+            text_mode = (
+                command.content is not None
+                or command.findings is not None
+                or command.template_id is not None
+            )
+            if command.action == "start" and not text_mode:
                 snapshot.plan = RunAnswerPlan.initial(original_question=self._original_question)
                 snapshot.review = None
                 content = ToolResult.ok("answer_plan", self._view(snapshot)).to_json()

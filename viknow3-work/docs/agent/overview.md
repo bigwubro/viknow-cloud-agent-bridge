@@ -31,7 +31,7 @@ Registry 把 profile 里的 `runtime` 原样记下来。`host.turn_runtime` 读�
 | `expert_buddy` | `expertbuddy-deepagents` | `expertbuddy-deepagents` | expertbuddy-deepagents |
 | `adk_buddy` | `expertbuddy-adk` | `expertbuddy-adk` | expertbuddy-adk |
 
-两个 agent 使用同一份 `knowledge-qa` 技能正文，工具都是 `knowledge_discover`、`knowledge_search`、`list_doc_segments`、`list_video_segments`。回答只引用工具返回的 `chunk_text`。
+两个 agent 使用同一份 viknow2 线上技能 `knowledge-qa-v2`（`0.31.0-final-check-tool`）和 `visual-ground`。工具与线上 profile 一致：`knowledge_discover`、`uploaded_image_search`、`answer_plan`、`knowledge_search`、`video_inspect`、`visual_ground`、`document_inspect`、`list_video_segments`、`list_doc_segments`。最终答案由无参数 `final_check()` 提交。
 
 `expertbuddy-deepagents` 仍先 `read_file` 读技能，并跑回答检查。`max_retries` 是 0，未通过时发布当前答案。`expertbuddy-adk` 把同一份技能写进指令，不读文件，也不跑回答检查。
 

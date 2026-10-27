@@ -20,14 +20,25 @@ class AdkProfileTests(unittest.TestCase):
         self.assertEqual(data["runtime"], "adk")
         self.assertEqual(
             data["enabled_tools"],
-            ["knowledge_discover", "knowledge_search", "list_doc_segments", "list_video_segments"],
+            [
+                "knowledge_discover",
+                "uploaded_image_search",
+                "answer_plan",
+                "knowledge_search",
+                "video_inspect",
+                "visual_ground",
+                "document_inspect",
+                "list_video_segments",
+                "list_doc_segments",
+            ],
         )
+        self.assertEqual(data["enabled_skills"], ["knowledge-qa-v2", "visual-ground"])
         instruction = build_instruction(("e2e-artifacts-20261022",))
-        self.assertIn("chunk_text", instruction)
-        self.assertNotIn("index_note", instruction)
+        self.assertIn("ViKnow Knowledge QA v2", instruction)
+        self.assertIn("final_check()", instruction)
+        self.assertNotIn("只引用 chunk_text", instruction)
+        self.assertNotIn("{{qa_final_answer_format_examples}}", instruction)
         self.assertIn("e2e-artifacts-20261022", instruction)
-        self.assertNotIn("read_file", instruction)
-        self.assertNotIn("visual_ground", instruction)
 
     def test_postgres_url_uses_the_async_driver(self) -> None:
         self.assertEqual(

@@ -1,23 +1,22 @@
 # Inspect Results Reference
 
-Inspect-style tools return `{success, error, claims: [...]}`.
+Read when an inspect result's claim eligibility is unclear. The root Skill owns
+the answer decision; this file describes how to interpret tool output, not an
+additional reason to keep searching.
 
-## Claim Fields by Tool
+| Tool | Verifies | Boundary |
+|---|---|---|
+| `document_inspect` | Claims from the selected source document page, including text, tables, figures and charts | Use only returned claims; a page does not prove uninspected pages or the entire asset. |
+| `video_inspect` | Claims about the selected video time range and reliable frame times | Does not verify exact speech. Assess each claim against the requested fact, unit and scope. |
+| `visual_ground` | Count or location of visible targets in one image or a supported video frame | Does not establish an unobserved time range or source-wide total. |
 
-| Field | video_inspect_2_0 | video_counter | image_inspect | text_inspect |
-|---|---|---|---|---|
-| `claim` | What was observed in video | Visual grounding/location from sampled frames | What was observed in image | Fact stated in source text |
-| `confidence` | Observation confidence (0-1) | Nonzero-count agreement score (0-1) | Stage-2 self-check score (0-1) | Extraction confidence (0-1) |
-| `verify_reason` | Observation/refinement basis | Frame-count aggregation reason | Why VLM gave that score | Why quote matched or failed |
-| Source field | `timestamp_start/end` | `timestamp_start/end` | `source_image_id` | `source_segments` |
-| Verification | — | Nonzero mode over sampled frame detections | — | `supporting_quote`, `quote_verified`, `match_ratio` |
+For every inspect result, discard a failed result, an empty `claims` list, and
+individual claims with `confidence <= 0`. Match each remaining claim's subject,
+predicate, period, unit and scope to the original question. A successful tool
+call is not proof that the requested fact was verified. A claim about an
+adjacent page, model or attribute remains a different fact.
 
-## Usage Rules
-
-- `text_inspect` and `image_inspect` must be called with the selected
-  search evidence item's `id` as `evidence_id`, together with
-  `library_id` and `asset_id`.
-- Discard claims where `quote_verified == false` (text_inspect only).
-- Discard claims where `result.success == false` (all tools).
-- Higher confidence is better. Cross-check against `verify_reason`.
-- Empty `claims` list → evidence does not support the question.
+Copy only the returned `agent_citation` token for an eligible claim. Raw
+detections, extracted frames, locator summaries and tool metadata are not
+citable claims. If no eligible claim covers a required binding element, keep
+that slot open and follow the root Skill's pre-answer verify gate.

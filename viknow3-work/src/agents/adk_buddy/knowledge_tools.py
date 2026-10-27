@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any
+
+from agents.qa_text_plan import apply_text_plan, empty_plan, final_check as submit_final_check, present_skill
 
 _SNIPPET_LIMIT = 1200
 _HIT_LIMIT = 8
@@ -15,6 +18,8 @@ _CONTEXT_MARK = "### context"
 class CitationLog:
     def __init__(self) -> None:
         self.rows: list[dict[str, Any]] = []
+        self.plan: dict[str, Any] = empty_plan()
+        self.submitted_answer: str = ""
 
     def add(self, row: dict[str, Any]) -> None:
         self.rows.append(row)
@@ -24,6 +29,7 @@ def build_knowledge_tools(
     client: Any,
     library_ids: tuple[str, ...],
     citations: CitationLog,
+    question: str = "",
 ) -> list[Callable[..., Any]]:
     allowed = tuple(dict.fromkeys(library_id for library_id in library_ids if library_id))
     enabled = set(load_enabled_tools())
@@ -67,20 +73,123 @@ def build_knowledge_tools(
         """List video segments for one asset. Copy both ids from discovery or search."""
         return await _segments(client, library_id, asset_id, allowed, citations, video=True)
 
+    async def answer_plan(
+        action: str,
+        content: str = "",
+        findings: list[dict[str, Any]] | None = None,
+        template_id: str = "",
+    ) -> str:
+        """Record the knowledge-qa-v2 plan. Use content and findings, not update objects."""
+        args: dict[str, Any] = {"action": action}
+        if content:
+            args["content"] = content
+        if findings is not None:
+            args["findings"] = findings
+        if template_id:
+            args["template_id"] = template_id
+        updated, error = apply_text_plan(citations.plan, args)
+        if error:
+            return json.dumps({"tool": "answer_plan", "error": error}, ensure_ascii=False)
+        citations.plan = updated
+        return json.dumps({"tool": "answer_plan", "text_plan": updated}, ensure_ascii=False)
+
+    async def final_check() -> str:
+        """Submit the final answer. No arguments. The runtime renders it from the plan."""
+        payload, rendered = submit_final_check(question, citations.plan)
+        if rendered:
+            citations.submitted_answer = rendered
+        return json.dumps(payload, ensure_ascii=False)
+
+    async def read_file(file_path: str) -> str:
+        """Read one skill or reference file. Pass the path under the skill directory."""
+        try:
+            return _read_skill_file(file_path)
+        except FileNotFoundError:
+            return json.dumps({"error": f"file not found: {file_path}"}, ensure_ascii=False)
+
+    async def uploaded_image_search(query: str = "", workspace_path: str = "") -> str:
+        """Analyze one user-uploaded image. This ADK runtime does not execute it."""
+        return _unavailable("uploaded_image_search")
+
+    async def video_inspect(
+        library_id: str,
+        asset_id: str,
+        time_range: dict[str, Any],
+        question: str,
+        evidence_id: str = "",
+        title: str = "",
+    ) -> str:
+        """Inspect one video range. This ADK runtime does not execute it."""
+        del library_id, asset_id, time_range, question, evidence_id, title
+        return _unavailable("video_inspect")
+
+    async def visual_ground(query: str, file_path: str = "", frame_time: float = 0) -> str:
+        """Locate or count visible objects. This ADK runtime does not execute it."""
+        del query, file_path, frame_time
+        return _unavailable("visual_ground")
+
+    async def document_inspect(library_id: str, asset_id: str, page: int = 1, question: str = "") -> str:
+        """Inspect one document page. This ADK runtime does not execute it."""
+        del library_id, asset_id, page, question
+        return _unavailable("document_inspect")
+
     tools = {
         "knowledge_discover": knowledge_discover,
         "knowledge_search": knowledge_search,
         "list_doc_segments": list_doc_segments,
         "list_video_segments": list_video_segments,
+        "answer_plan": answer_plan,
+        "uploaded_image_search": uploaded_image_search,
+        "video_inspect": video_inspect,
+        "visual_ground": visual_ground,
+        "document_inspect": document_inspect,
+        "read_file": read_file,
     }
-    order = ("knowledge_discover", "knowledge_search", "list_doc_segments", "list_video_segments")
-    return [tools[name] for name in order if name in enabled]
+    selected = [tools[name] for name in load_enabled_tools() if name in tools]
+    if "knowledge-qa-v2" in _enabled_skills():
+        selected.append(final_check)
+        if read_file not in selected:
+            selected.append(read_file)
+    return selected
 
 
 def load_enabled_tools() -> tuple[str, ...]:
     from agents.adk_buddy.instruction import load_profile
 
     return tuple(str(item) for item in load_profile().get("enabled_tools") or ())
+
+
+def _enabled_skills() -> tuple[str, ...]:
+    from agents.adk_buddy.instruction import load_profile
+
+    return tuple(str(item) for item in load_profile().get("enabled_skills") or ())
+
+
+def _unavailable(name: str) -> str:
+    return json.dumps(
+        {
+            "tool": name,
+            "error": (
+                f"{name} is named by the shared skill, but this ADK runtime does not "
+                "execute it. Record the gap and do not invent the missing fact."
+            ),
+        },
+        ensure_ascii=False,
+    )
+
+
+def _read_skill_file(file_path: str) -> str:
+    root = Path(__file__).resolve().parent / "skills"
+    raw = file_path.strip().replace("\\", "/").lstrip("/")
+    matches = [
+        path
+        for path in root.rglob("*")
+        if path.is_file() and (raw == path.relative_to(root).as_posix() or raw.endswith(path.relative_to(root).as_posix()))
+    ]
+    if not matches:
+        raise FileNotFoundError(file_path)
+    chosen = max(matches, key=lambda path: len(path.relative_to(root).as_posix()))
+    return present_skill(chosen.read_text(encoding="utf-8"))
 
 
 def _targets(library_id: str, allowed: tuple[str, ...]) -> tuple[tuple[str, ...], str]:

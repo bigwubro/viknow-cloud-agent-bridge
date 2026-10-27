@@ -50,6 +50,7 @@ async def run_turn(
             knowledge=knowledge,
             citations=citations,
             session_dsn=session_dsn,
+            question=message,
         )
         await _ensure_session(runner, adk_user, adk_session)
         yield AdkNotice(kind="model_started")
@@ -80,7 +81,8 @@ async def run_turn(
         return
     yield AdkNotice(
         kind="completed",
-        text="\n".join(part for part in (answer or streamed) if part).strip(),
+        text=citations.submitted_answer
+        or "\n".join(part for part in (answer or streamed) if part).strip(),
         token_usage=usage,
         citations={"evidence": list(citations.rows)},
     )
@@ -100,6 +102,7 @@ def _prepare(
     knowledge: Any,
     citations: CitationLog,
     session_dsn: str,
+    question: str,
 ) -> tuple[Any, Any, str, str]:
     from google.adk.agents.llm_agent import Agent
     from google.adk.models.lite_llm import LiteLlm
@@ -117,7 +120,7 @@ def _prepare(
         name="adk_buddy",
         model=endpoint,
         instruction=build_instruction(library_ids),
-        tools=build_knowledge_tools(knowledge, library_ids, citations),
+        tools=build_knowledge_tools(knowledge, library_ids, citations, question),
     )
     service = _session_service(session_dsn)
     try:

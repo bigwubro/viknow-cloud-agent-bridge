@@ -8,9 +8,9 @@ from typing import Any
 
 import httpx
 
-from agents.runtime.core.evidence import Evidence, EvidenceTimeRange
-from agents.runtime.core.model_gateway import ModelGatewayRoute, gateway_chat_json
-from agents.runtime.core.multimodal.video_discovery import (
+from agents.runtimes.deepagents.core.evidence import Evidence, EvidenceTimeRange
+from agents.runtimes.deepagents.core.model_gateway import ModelGatewayRoute, gateway_chat_json
+from agents.runtimes.deepagents.core.multimodal.video_discovery import (
     FrameInspectResult,
     GlobalBrowseResult,
     _clip_context,

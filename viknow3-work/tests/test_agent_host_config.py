@@ -7,7 +7,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from agents.runtime.runtime_config import (
+from agents.runtimes.deepagents.runtime_config import (
     RUNTIME_CONFIG_PATH,
     load_model_defaults,
     load_runtime_document,
@@ -57,7 +57,7 @@ def _catalog() -> PlatformCatalog:
 
 class AgentHostConfigTests(unittest.TestCase):
     def test_reset_checkpoint_tables_refuses_a_non_test_database(self) -> None:
-        from agents.runtime.agent_adapters.checkpointer import reset_checkpoint_tables
+        from agents.runtimes.deepagents.agent_adapters.checkpointer import reset_checkpoint_tables
 
         with self.assertRaises(RuntimeError):
             reset_checkpoint_tables("postgresql://example/agent")

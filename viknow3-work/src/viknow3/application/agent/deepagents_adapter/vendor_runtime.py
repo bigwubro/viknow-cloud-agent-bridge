@@ -1,11 +1,11 @@
-"""run_turn via agents.runtime DeepAgentsRuntime."""
+"""run_turn via agents.runtimes.deepagents DeepAgentsRuntime."""
 
 from __future__ import annotations
 
 import asyncio
 import logging
 
-from agents.runtime.core.runtime.domain import AgentOp, AgentOpType
+from agents.runtimes.deepagents.core.runtime.domain import AgentOp, AgentOpType
 
 from viknow3.application.agent.deepagents_adapter.protocol import TurnRuntime
 from viknow3.application.agent.deepagents_adapter.types import AgentTurnInput, AgentTurnResult

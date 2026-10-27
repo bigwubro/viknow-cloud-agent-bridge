@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from agents.runtime.core.runtime.domain import AgentEvent, AgentEventType
+from agents.runtimes.deepagents.core.runtime.domain import AgentEvent, AgentEventType
 
 from viknow3.application.agentcore.environment.context import RunState
 from viknow3.application.agentcore.runtime.events import RunEvents

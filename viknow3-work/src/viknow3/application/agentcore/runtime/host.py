@@ -1,6 +1,6 @@
 """Agent host. One turn runs on the agent loop.
 
-The profile id selects a package under src/agents. Libraries this run may
+The profile id selects a file under src/agents/profiles. Libraries this run may
 search are the ones the caller asked for and this user may access. The shell
 records events. The runtime keeps its own conversation context.
 """

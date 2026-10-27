@@ -1,7 +1,7 @@
 """Build one shared DeepAgentsRuntime per agent profile.
 
 Platform model endpoints come from viknow_ops. Shared loop settings come from
-``src/agents/runtime/runtime.yaml``. The profile comes from the agent directory.
+``src/agents/runtimes/deepagents/runtime.yaml``. The profile comes from ``src/agents/profiles``.
 """
 
 from __future__ import annotations
@@ -37,7 +37,7 @@ def _repo_root() -> Path:
 
 def _load_profile(package: AgentPackage):
     """Load one agent profile. Expert Buddy keeps the playground budget off."""
-    from agents.runtime.core.runtime.domain import AgentProfile
+    from agents.runtimes.deepagents.core.runtime.domain import AgentProfile
 
     data = yaml.safe_load(package.profile_path.read_text(encoding="utf-8"))
     if package.directory == "expert_buddy":
@@ -84,7 +84,7 @@ async def get_deepagents_runtime(public_id: str = "expertbuddy-deepagents") -> A
         cached = _RUNTIMES.get(key)
         if cached is not None:
             return cached
-        from agents.runtime.core.runtime.builder import build_agent_runtime
+        from agents.runtimes.deepagents.core.runtime.builder import build_agent_runtime
 
         log.info("runtime: loading config for %s", package.directory)
         config = _viknow_app_config(

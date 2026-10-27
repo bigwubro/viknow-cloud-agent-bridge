@@ -16,10 +16,10 @@ _ACTIO_IMPORT = re.compile(
 _HYPERRAG_IMPORT = re.compile(r"""(?:^from\s+hyperrag\b|^import\s+hyperrag\b|import_module\(\s*['\"]hyperrag)""")
 _VIKNOW_IMPORT = re.compile(r"""(?:^from\s+viknow3\b|^import\s+viknow3\b|import_module\(\s*['\"]viknow3)""")
 _DEEP_IMPORT = re.compile(
-    r"""(?:^from\s+agents\.runtime\b|^import\s+agents\.runtime\b|^from\s+deepagents\b|^import\s+deepagents\b)"""
+    r"""(?:^from\s+agents\.runtimes\.deepagents\b|^import\s+agents\.runtimes\.deepagents\b|^from\s+agents\.runtime\b|^import\s+agents\.runtime\b|^from\s+deepagents\b|^import\s+deepagents\b)"""
 )
 _ADK_IMPORT = re.compile(
-    r"""(?:^from\s+agents\.adk_buddy\b|^import\s+agents\.adk_buddy\b|^from\s+google\.adk\b|^import\s+google\.adk\b)"""
+    r"""(?:^from\s+agents\.runtimes\.adk\b|^import\s+agents\.runtimes\.adk\b|^from\s+google\.adk\b|^import\s+google\.adk\b)"""
 )
 
 
@@ -62,7 +62,7 @@ def test_agents_and_hyperrag_do_not_import_the_shell():
 
 
 def test_adk_does_not_import_deepagents():
-    hits = _hits(_python_files(ROOT / "src" / "agents" / "adk_buddy"), _DEEP_IMPORT)
+    hits = _hits(_python_files(ROOT / "src" / "agents" / "runtimes" / "adk"), _DEEP_IMPORT)
     hits += _hits(
         _python_files(ROOT / "src" / "viknow3" / "application" / "agent" / "adk_adapter"),
         _DEEP_IMPORT,
@@ -71,7 +71,7 @@ def test_adk_does_not_import_deepagents():
 
 
 def test_deepagents_does_not_import_adk():
-    hits = _hits(_python_files(ROOT / "src" / "agents" / "runtime"), _ADK_IMPORT)
+    hits = _hits(_python_files(ROOT / "src" / "agents" / "runtimes" / "deepagents"), _ADK_IMPORT)
     hits += _hits(
         _python_files(ROOT / "src" / "viknow3" / "application" / "agent" / "deepagents_adapter"),
         _ADK_IMPORT,
@@ -95,8 +95,8 @@ def test_unset_actio_port_does_not_invent_a_parser():
 
 def test_multimodal_tools_require_the_injected_actio_client():
     pytest.importorskip("scheduler_core")
-    from agents.runtime.core.tools.knowledge import KnowledgeToolHandlers
-    from agents.runtime.core.tools.multimodal import MultimodalToolHandlers
+    from agents.runtimes.deepagents.core.tools.knowledge import KnowledgeToolHandlers
+    from agents.runtimes.deepagents.core.tools.multimodal import MultimodalToolHandlers
 
     handlers = MultimodalToolHandlers(knowledge=KnowledgeToolHandlers())
     with pytest.raises(RuntimeError, match="actio client is required"):

@@ -31,7 +31,7 @@ def dispatch_inspect(
     workspace_id: str,
     session_id: str,
 ) -> str:
-    from agents.runtime.core.tools.context import (
+    from agents.runtimes.deepagents.core.tools.context import (
         ToolRunContext,
         reset_tool_run_context,
         set_tool_run_context,
@@ -99,7 +99,7 @@ class RuntimeInspect:
 
 def _build_handlers(knowledge: Any) -> Any:
     from agents.layout import package_for_public_id
-    from agents.runtime.core.tools import ViKnowToolHandlers
+    from agents.runtimes.deepagents.core.tools import ViKnowToolHandlers
     from viknow3.application.agent.deepagents_adapter.vendor.host_config import (
         build_agent_app_config,
         review_tool_configs,

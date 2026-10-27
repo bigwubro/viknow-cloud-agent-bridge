@@ -1,6 +1,6 @@
 # Agent
 
-一个 agent 是 `src/agents/<目录>/profile/*.yaml` 里的一份 profile，加上同目录的 `skills/`。它不是单独的进程，也不是容器。多数 agent 共用 `src/agents/runtime` 里的 DeepAgents 回合。`adk_buddy` 自带 ADK 回合，不进入那套循环。外壳按 profile 的 `runtime` 字段选择适配器。
+一个 agent 是 `src/agents/profiles/*.yaml` 里的一份 profile，加上共用的 `src/agents/skills/`。它不是单独的进程，也不是容器。回合在 `src/agents/runtimes/`：`langgraph` 用 DeepAgents，`adk` 用 ADK。外壳按 profile 的 `runtime` 字段选择适配器。
 
 你用 Agent 做这些事：
 
@@ -12,7 +12,7 @@
 
 **Profile。** 一份 YAML。`id` 就是对外 id。现在登记的是 `expertbuddy-deepagents` 和 `expertbuddy-adk`。
 
-**Agent 包。** `src/agents` 下的一个目录，里面有 `profile/*.yaml`。目录名 `runtime` 会被跳过，它是共用回合，不是 agent。
+**Agent 档案。** `src/agents/profiles/*.yaml`。技能正文在 `src/agents/skills/`，两份 profile 指向同一棵目录。
 
 **Run。** 一轮调用。外壳生成 `run_id`，把 `host.run` 提交到进程内唯一的 agent loop。一个会话同时只能有一个 `running` 的 run。
 
@@ -24,12 +24,12 @@ Registry 把 profile 里的 `runtime` 原样记下来。`host.turn_runtime` 读�
 
 ## 已登记的 agent
 
-`layout.discover_agents` 扫描带 profile 的目录。Registry 用 `public()` 对外只暴露 `id`、`label`、`description` 和时间戳。
+`layout.discover_agents` 扫描 `src/agents/profiles/*.yaml`。Registry 用 `public()` 对外只暴露 `id`、`label`、`description` 和时间戳。
 
-| 目录 | 对外 id | profile id | 名称 |
+| profile 文件 | 对外 id | runtime 字段 | 回合 |
 | --- | --- | --- | --- |
-| `expert_buddy` | `expertbuddy-deepagents` | `expertbuddy-deepagents` | expertbuddy-deepagents |
-| `adk_buddy` | `expertbuddy-adk` | `expertbuddy-adk` | expertbuddy-adk |
+| `profiles/expert_buddy.yaml` | `expertbuddy-deepagents` | `langgraph` | `runtimes/deepagents` |
+| `profiles/expert_buddy_adk.yaml` | `expertbuddy-adk` | `adk` | `runtimes/adk` |
 
 两个 agent 使用同一份 viknow2 线上技能 `knowledge-qa-v2`（`0.31.0-final-check-tool`）和 `visual-ground`。工具与线上 profile 一致：`knowledge_discover`、`uploaded_image_search`、`answer_plan`、`knowledge_search`、`video_inspect`、`visual_ground`、`document_inspect`、`list_video_segments`、`list_doc_segments`。最终答案由无参数 `final_check()` 提交。
 

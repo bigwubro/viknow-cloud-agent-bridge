@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from agents.runtime.core.multimodal.locate_anything import (
+from agents.runtimes.deepagents.core.multimodal.locate_anything import (
     LocateAnythingDetection,
     LocateAnythingResult,
 )

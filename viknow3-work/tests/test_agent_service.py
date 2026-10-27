@@ -80,7 +80,7 @@ _REAL_HYPERAG = None
 
 
 def setUpModule() -> None:
-    from agents.runtime.agent_adapters.checkpointer import reset_checkpoint_tables
+    from agents.runtimes.deepagents.agent_adapters.checkpointer import reset_checkpoint_tables
     from viknow3.pg import AGENT, dsn, require_test_database
     from viknow3.application.hyperrag import client as hyper_client
     from viknow3.store import STORE
@@ -228,7 +228,7 @@ class AgentServiceTests(unittest.TestCase):
         self.assertEqual((state.status, state.output), ("interrupted", "partial"))
 
     def test_closing_tool_messages_fill_open_calls(self) -> None:
-        from agents.runtime.agent_adapters.deepagents import closing_tool_messages
+        from agents.runtimes.deepagents.agent_adapters.deepagents import closing_tool_messages
 
         history = [
             HumanMessage(content="q"),

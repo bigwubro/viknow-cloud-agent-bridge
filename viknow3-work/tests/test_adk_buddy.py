@@ -7,10 +7,10 @@ import json
 import unittest
 from types import SimpleNamespace
 
-from agents.adk_buddy.instruction import build_instruction, load_profile
-from agents.adk_buddy.knowledge_tools import CitationLog, build_knowledge_tools
-from agents.adk_buddy.notices import AdkNotice, notices_from_adk_event
-from agents.adk_buddy.session_url import async_postgres_url
+from agents.runtimes.adk.instruction import build_instruction, load_profile
+from agents.runtimes.adk.knowledge_tools import CitationLog, build_knowledge_tools
+from agents.runtimes.adk.notices import AdkNotice, notices_from_adk_event
+from agents.runtimes.adk.session_url import async_postgres_url
 
 
 class AdkProfileTests(unittest.TestCase):

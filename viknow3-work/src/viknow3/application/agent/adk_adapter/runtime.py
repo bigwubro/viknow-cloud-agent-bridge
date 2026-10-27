@@ -10,8 +10,8 @@ import os
 from dataclasses import dataclass, field
 from typing import Any
 
-from agents.adk_buddy.loop import run_turn as run_adk_turn
-from agents.adk_buddy.notices import AdkNotice
+from agents.runtimes.adk.loop import run_turn as run_adk_turn
+from agents.runtimes.adk.notices import AdkNotice
 
 
 @dataclass

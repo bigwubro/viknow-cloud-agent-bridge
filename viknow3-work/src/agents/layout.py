@@ -1,9 +1,8 @@
-"""Discover agent packages.
+"""Discover agent profiles.
 
-Each agent is a directory under ``src/agents`` with ``profile/*.yaml``.
-``runtime`` is the DeepAgents loop and is not an agent. The public id is the
-profile ``id``. A profile may name its own ``runtime``; the default is
-``langgraph``.
+Profiles live in ``src/agents/profiles``. Skills live once in ``src/agents/skills``.
+Turn loops live in ``src/agents/runtimes``. ``runtime: adk`` selects the ADK loop.
+Any other value, including the default ``langgraph``, selects DeepAgents.
 """
 
 from __future__ import annotations
@@ -13,8 +12,6 @@ from functools import lru_cache
 from pathlib import Path
 
 import yaml
-
-_SKIP = {"runtime", "__pycache__"}
 
 
 @dataclass(frozen=True)
@@ -36,33 +33,31 @@ def agents_root() -> Path:
     return Path(__file__).resolve().parent
 
 
+def skills_root() -> Path:
+    return agents_root() / "skills"
+
+
 @lru_cache(maxsize=1)
 def discover_agents() -> tuple[AgentPackage, ...]:
     found: list[AgentPackage] = []
-    root = agents_root()
-    for child in sorted(path for path in root.iterdir() if path.is_dir()):
-        if child.name in _SKIP or child.name.startswith("."):
+    skills = skills_root()
+    for path in sorted((agents_root() / "profiles").glob("*.yaml")):
+        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        if not isinstance(data, dict) or not data.get("id"):
             continue
-        profile_dir = child / "profile"
-        if not profile_dir.is_dir():
-            continue
-        for path in sorted(profile_dir.glob("*.yaml")):
-            data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-            if not isinstance(data, dict) or not data.get("id"):
-                continue
-            tools = tuple(str(item) for item in data.get("enabled_tools") or ())
-            found.append(
-                AgentPackage(
-                    directory=child.name,
-                    profile_path=path,
-                    skills_dir=child / "skills",
-                    profile_id=str(data["id"]),
-                    label=str(data.get("label") or data["id"]),
-                    description=str(data.get("description") or ""),
-                    runtime=str(data.get("runtime") or "langgraph"),
-                    enabled_tools=tools,
-                )
+        tools = tuple(str(item) for item in data.get("enabled_tools") or ())
+        found.append(
+            AgentPackage(
+                directory=path.stem,
+                profile_path=path,
+                skills_dir=skills,
+                profile_id=str(data["id"]),
+                label=str(data.get("label") or data["id"]),
+                description=str(data.get("description") or ""),
+                runtime=str(data.get("runtime") or "langgraph"),
+                enabled_tools=tools,
             )
+        )
     return tuple(found)
 
 

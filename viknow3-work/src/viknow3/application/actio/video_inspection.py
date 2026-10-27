@@ -7,8 +7,8 @@ from typing import Any
 
 import httpx
 
-from agents.runtime.core.config import AgentModelConfig
-from agents.runtime.core.model_gateway import ModelGatewayRoute, gateway_chat_json
+from agents.runtimes.deepagents.core.config import AgentModelConfig
+from agents.runtimes.deepagents.core.model_gateway import ModelGatewayRoute, gateway_chat_json
 from viknow3.application.actio._load import load_actio
 
 _actio_video_inspection = load_actio("actio.video_inspection")

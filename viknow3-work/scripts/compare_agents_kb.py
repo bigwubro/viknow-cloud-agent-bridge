@@ -210,7 +210,7 @@ def main() -> int:
     md_lines.extend(
         [
             "",
-            "两份 profile 各自维护。DeepAgents 用 `expert_buddy` 的检查技能；ADK 用 `adk_buddy` 的检索作答技能。",
+            "两份 profile 在 `src/agents/profiles/`，技能正文共用 `src/agents/skills/`。",
             "对比的是同一知识库、同一组问题，不是同一份 YAML。",
             "",
             "## 叙述",

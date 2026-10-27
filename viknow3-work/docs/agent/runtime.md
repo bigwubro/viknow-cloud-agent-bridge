@@ -2,7 +2,7 @@
 
 Agent Runtime 是一轮调用的执行面。外壳负责接收请求和写事件。runtime 负责模型、工具、闸门、沙箱，以及它自己的对话上下文。
 
-当前接通两个 runtime，外壳都通过 `run_turn` 调用。DeepAgents 在 `src/agents/runtime`，适配器在 `src/viknow3/application/agent/deepagents_adapter/`。ADK 在 `src/agents/adk_buddy`，适配器在 `src/viknow3/application/agent/adk_adapter/`。两边的 profile、技能和回合代码互不导入。
+当前接通两个 runtime，外壳都通过 `run_turn` 调用。DeepAgents 在 `src/agents/runtimes/deepagents`，适配器在 `src/viknow3/application/agent/deepagents_adapter/`。ADK 在 `src/agents/runtimes/adk`，适配器在 `src/viknow3/application/agent/adk_adapter/`。两套回合互不导入。profile 和技能正文各只有一份。
 
 `host.turn_runtime` 读 Registry 里的 `runtime` 字段。profile 写了 `runtime: adk` 时走 ADK，其余走 DeepAgents。
 
@@ -21,8 +21,8 @@ flowchart TB
   shell["外壳 agentcore"]
   events["run_events"]
   adapter["deepagents_adapter"]
-  runtime["src/agents/runtime"]
-  pkg["agent 包 profile + skills"]
+  runtime["src/agents/runtimes/deepagents"]
+  pkg["profiles + skills"]
   ckpt["LangGraph checkpoint"]
   ops["viknow_ops"]
   engine["HyperRAG 引擎"]
@@ -103,7 +103,7 @@ sequenceDiagram
 
 HTTP、会话、`run_events` 和库授权不用改。ADK 已经按这个接法落地：
 
-1. `src/agents/adk_buddy` 自己维护 profile、技能和回合。session 使用外壳传入的 `user_id`、`workspace_id`、`session_id`，写在 ADK 自己的 session 里。外壳不解析这份 session。
+1. `src/agents/runtimes/adk` 提供回合和工具函数，读取 `src/agents/profiles/expert_buddy_adk.yaml` 和 `src/agents/skills/`。session 使用外壳传入的 `user_id`、`workspace_id`、`session_id`，写在 ADK 自己的 session 里。外壳不解析这份 session。
 2. `adk_adapter` 实现 `run_turn(turn, state, events)`，把输出写成同一组事件。检索使用外壳注入的知识库 client。ADK 不调用 Actio，也没有 DeepAgents 的检查、闸门和沙箱。
 
 ```mermaid

@@ -1,7 +1,7 @@
 """Resolve a chat model from viknow_ops.
 
 Platform rows hold the endpoint and key. Sampling defaults live in
-``src/agents/runtime/runtime.yaml``. This module does not read ``app.yaml``.
+``src/agents/runtimes/deepagents/runtime.yaml``. This module does not read ``app.yaml``.
 """
 
 from __future__ import annotations
@@ -156,7 +156,7 @@ def resolve_openai_chat(
     catalog: PlatformCatalog | None = None,
 ) -> ResolvedChatModel:
     """Resolve an OpenAI-compatible chat endpoint."""
-    from agents.runtime.runtime_config import load_model_defaults
+    from agents.runtimes.deepagents.runtime_config import load_model_defaults
 
     if catalog is None:
         catalog = load_platform_catalog()

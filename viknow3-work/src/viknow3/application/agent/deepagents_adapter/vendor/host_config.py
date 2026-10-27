@@ -1,6 +1,6 @@
 """Assemble one agent runtime from platform ops data and the shared kernel file.
 
-``viknow_ops`` supplies model endpoints. ``src/agents/runtime/runtime.yaml`` supplies
+``viknow_ops`` supplies model endpoints. ``src/agents/runtimes/deepagents/runtime.yaml`` supplies
 the shared loop. The agent directory supplies the profile. Nothing here reads
 ``app.yaml``.
 """
@@ -10,7 +10,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from agents.runtime.core.config import (
+from agents.runtimes.deepagents.core.config import (
     AgentModelConfig,
     AgentModelOption,
     AgentRuntimeConfig,
@@ -26,8 +26,8 @@ from agents.runtime.core.config import (
     ToolConfigs,
     resolve_model_config,
 )
-from agents.runtime.core.scheduler.unified_config import SchedulerSectionConfig, UnifiedSchedulerAppConfig
-from agents.runtime.runtime_config import RUNTIME_CONFIG_PATH, load_kernel_config, load_model_defaults
+from agents.runtimes.deepagents.core.scheduler.unified_config import SchedulerSectionConfig, UnifiedSchedulerAppConfig
+from agents.runtimes.deepagents.runtime_config import RUNTIME_CONFIG_PATH, load_kernel_config, load_model_defaults
 from viknow3.pg import AGENT, dsn
 from viknow3.ops.config.model_resolve import (
     PlatformCatalog,

@@ -5,7 +5,11 @@ from __future__ import annotations
 import unittest
 from pathlib import Path
 
-from agents.layout import discover_agents, package_for_public_id
+from agents.layout import discover_agents, package_for_public_id, skills_root
+
+
+def root_skills() -> Path:
+    return skills_root()
 
 
 class AgentLayoutTests(unittest.TestCase):
@@ -14,12 +18,16 @@ class AgentLayoutTests(unittest.TestCase):
         self.assertEqual(
             ids,
             [
-                "expertbuddy-adk",
                 "expertbuddy-deepagents",
+                "expertbuddy-adk",
             ],
         )
-        self.assertEqual(package_for_public_id("expertbuddy-deepagents").directory, "expert_buddy")
-        self.assertEqual(package_for_public_id("expertbuddy-adk").directory, "adk_buddy")
+        deepagents = package_for_public_id("expertbuddy-deepagents")
+        adk = package_for_public_id("expertbuddy-adk")
+        self.assertEqual(deepagents.directory, "expert_buddy")
+        self.assertEqual(adk.directory, "expert_buddy_adk")
+        self.assertEqual(deepagents.skills_dir, adk.skills_dir)
+        self.assertEqual(deepagents.skills_dir, root_skills())
         self.assertEqual(package_for_public_id("expertbuddy-adk").runtime, "adk")
         self.assertEqual(package_for_public_id("expertbuddy-deepagents").runtime, "langgraph")
         self.assertIsNone(package_for_public_id("missing"))
@@ -27,16 +35,10 @@ class AgentLayoutTests(unittest.TestCase):
         self.assertIsNone(package_for_public_id("adk"))
 
     def test_both_agents_use_the_same_knowledge_skill(self) -> None:
-        root = Path(__file__).resolve().parents[1] / "src" / "agents"
+        skills = root_skills()
         for name in ("knowledge-qa-v2", "visual-ground"):
-            adk = root / "adk_buddy" / "skills" / name
-            deepagents = root / "expert_buddy" / "skills" / name
-            adk_files = sorted(path.relative_to(adk).as_posix() for path in adk.rglob("*") if path.is_file())
-            deep_files = sorted(path.relative_to(deepagents).as_posix() for path in deepagents.rglob("*") if path.is_file())
-            self.assertEqual(adk_files, deep_files)
-            for relative in adk_files:
-                self.assertEqual((adk / relative).read_bytes(), (deepagents / relative).read_bytes())
-        skill = (root / "expert_buddy" / "skills" / "knowledge-qa-v2" / "SKILL.md").read_text(encoding="utf-8")
+            self.assertTrue((skills / name / "SKILL.md").is_file())
+        skill = (skills / "knowledge-qa-v2" / "SKILL.md").read_text(encoding="utf-8")
         self.assertIn("0.31.0-final-check-tool", skill)
         self.assertIn("final_check()", skill)
         tools = (

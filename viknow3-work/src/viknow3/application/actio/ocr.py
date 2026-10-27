@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from agents.runtime.core.multimodal.ocr import OCRResult
+from agents.runtimes.deepagents.core.multimodal.ocr import OCRResult
 from viknow3.application.actio._load import load_actio
 
 _actio_ocr = load_actio("actio.ocr")

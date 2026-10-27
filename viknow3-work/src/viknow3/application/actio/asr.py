@@ -6,7 +6,7 @@ import copy
 from pathlib import Path
 from time import perf_counter
 
-from agents.runtime.core.multimodal.asr import (
+from agents.runtimes.deepagents.core.multimodal.asr import (
     ASRTranscript,
     TranscriptSegment,
     _convert_asr_result,
@@ -15,7 +15,7 @@ from agents.runtime.core.multimodal.asr import (
     _sliced_wav,
     detect_voice_regions,
 )
-from agents.runtime.core.tools.context import remaining_run_seconds
+from agents.runtimes.deepagents.core.tools.context import remaining_run_seconds
 from viknow3.application.actio._load import load_actio
 
 _actio_asr_client_module = load_actio("actio.asr_client")

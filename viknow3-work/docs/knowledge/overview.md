@@ -12,7 +12,7 @@
 
 进程启动时 `server` 的 lifespan 调用 `init_hyperrag`。关闭时调用 `shutdown_background_runtime`。
 
-适配器装配 DeepAgents 时调用 `viknow3.application.hyperrag.runtime.get_engine_adapter()`。返回值满足 `agents.runtime.core.knowledge.client.KnowledgeClient`。工具使用公开方法，例如 `search`、`discover_libraries`、`evidence_for_chunk`。runtime 里没有第二份 HyperRAG 适配器。
+适配器装配 DeepAgents 时调用 `viknow3.application.hyperrag.runtime.get_engine_adapter()`。返回值满足 `agents.runtimes.deepagents.core.knowledge.client.KnowledgeClient`。工具使用公开方法，例如 `search`、`discover_libraries`、`evidence_for_chunk`。runtime 里没有第二份 HyperRAG 适配器。
 
 引擎自己的连接使用 `VIKNOW_HYPERRAG_DSN`。外壳另外还有一套面向 HTTP 的 HyperRAG 配置加载，在 `application/hyperrag/config.py`，和 agent runtime 的配置不是同一个函数。
 
@@ -22,7 +22,7 @@
 
 Actio 和 HyperRAG 用同一种接法。索引和多模态工具调用外壳注入的 client，不加载 `actio` 包。
 
-`viknow3.application.actio` 是唯一加载 `actio` 包的位置。`agents.runtime.core.actio.client.ActioClient` 是 runtime 看到的协议。装配 DeepAgents 时，`get_actio_client()` 把实现传进 `build_agent_runtime`，和 `KnowledgeClient` 放在一起。
+`viknow3.application.actio` 是唯一加载 `actio` 包的位置。`agents.runtimes.deepagents.core.actio.client.ActioClient` 是 runtime 看到的协议。装配 DeepAgents 时，`get_actio_client()` 把实现传进 `build_agent_runtime`，和 `KnowledgeClient` 放在一起。
 
 视频解析在 HyperRAG 里。HyperRAG 不加载 `actio`，也不引用 `viknow3`。`init_hyperrag` 调用 `install_actio_port()`，把解析器、caption 观察和 `normalize_global_context` 装进 `hyperrag.actio_port`。任务处理器只调用这个端口。端口还没装上时，视频解析失败，错误是 `actio is required for video_parse`。
 

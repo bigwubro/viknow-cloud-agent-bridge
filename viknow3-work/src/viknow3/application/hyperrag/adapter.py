@@ -41,7 +41,7 @@ def _catalog_object_key(library_id: str, asset_id: str, *candidates: Any) -> str
     """Catalog ``knowledge/assets/`` key for preview. Local paths and /media URLs are ignored."""
 
     try:
-        from agents.runtime.core.knowledge.object_key import resolve_asset_object_key
+        from agents.runtimes.deepagents.core.knowledge.object_key import resolve_asset_object_key
     except Exception:
         return None
     try:

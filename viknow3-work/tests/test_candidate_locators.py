@@ -1,6 +1,6 @@
 """Search hits must keep the document asset id the inspect gate checks."""
 
-from agents.runtime.core.runtime.evidence_ledger import _candidate_locators
+from agents.runtimes.deepagents.core.runtime.evidence_ledger import _candidate_locators
 
 
 def test_document_search_hit_keeps_full_doc_id_and_file_part_asset_id():

@@ -8,6 +8,8 @@ from typing import Any
 
 _SNIPPET_LIMIT = 1200
 _HIT_LIMIT = 8
+_CHUNK_MARK = "### chunk text"
+_CONTEXT_MARK = "### context"
 
 
 class CitationLog:
@@ -35,7 +37,7 @@ def build_knowledge_tools(
         return json.dumps({"libraries": rows}, ensure_ascii=False)
 
     async def knowledge_search(query: str, library_id: str = "") -> str:
-        """Search granted libraries and return evidence snippets that may be quoted."""
+        """Search granted libraries. Quote chunk_text only. index_note is an indexer description."""
         targets, refusal = _targets(library_id, allowed)
         if refusal:
             return refusal
@@ -45,7 +47,7 @@ def build_knowledge_tools(
                 result = await _search(client, library_id=target, query=query)
                 for item in getattr(result, "evidence", None) or []:
                     row = _evidence_row(item, target)
-                    if not row["snippet"] and not row["title"]:
+                    if not row["chunk_text"] and not row["title"]:
                         continue
                     citations.add(row)
                     hits.append(row)
@@ -148,7 +150,7 @@ def _library_row(row: Any) -> dict[str, Any]:
                 "asset_id": str(getattr(match, "asset_id", "") or ""),
                 "title": str(getattr(match, "title", "") or ""),
                 "modality": str(getattr(match, "modality", "") or ""),
-                "summary": str(getattr(match, "summary", "") or "")[:_SNIPPET_LIMIT],
+                "index_note": str(getattr(match, "summary", "") or "")[:_SNIPPET_LIMIT],
             }
         )
     return {
@@ -165,8 +167,8 @@ def _evidence_row(item: Any, library_id: str) -> dict[str, Any]:
         text = getattr(part, "text", None)
         if text:
             texts.append(str(text))
-    snippet = "\n".join(texts).strip()[:_SNIPPET_LIMIT]
-    return {
+    chunk_text, index_note = split_indexed_text("\n".join(texts))
+    row = {
         "id": str(getattr(item, "id", "") or meta.get("chunk_id") or ""),
         "library_id": library_id,
         "title": str(getattr(item, "title", "") or meta.get("title") or ""),
@@ -175,22 +177,48 @@ def _evidence_row(item: Any, library_id: str) -> dict[str, Any]:
         "page": meta.get("page"),
         "begin_ts": meta.get("begin_ts"),
         "end_ts": meta.get("end_ts"),
-        "snippet": snippet,
+        "chunk_text": chunk_text[:_SNIPPET_LIMIT],
     }
+    if index_note:
+        row["index_note"] = index_note[:_SNIPPET_LIMIT]
+    return row
 
 
 def _segment_row(chunk: dict[str, Any], library_id: str, asset_id: str) -> dict[str, Any]:
     meta = _meta(chunk.get("metadata"))
-    return {
+    chunk_text, index_note = split_indexed_text(str(chunk.get("content") or ""))
+    row = {
         "id": str(chunk.get("chunk_id") or chunk.get("id") or meta.get("chunk_id") or ""),
         "library_id": library_id,
         "asset_id": asset_id,
         "title": str(meta.get("title") or chunk.get("full_doc_id") or ""),
-        "text": str(chunk.get("content") or "")[:_SNIPPET_LIMIT],
+        "chunk_text": chunk_text[:_SNIPPET_LIMIT],
         "page": meta.get("page", meta.get("page_number")),
         "begin_ts": meta.get("begin_ts"),
         "end_ts": meta.get("end_ts"),
     }
+    if index_note:
+        row["index_note"] = index_note[:_SNIPPET_LIMIT]
+    return row
+
+
+def split_indexed_text(raw: str) -> tuple[str, str]:
+    """Separate indexer context from the source text stored in one chunk."""
+    text = raw.strip()
+    if _CHUNK_MARK not in text:
+        return text, ""
+    before, after = text.split(_CHUNK_MARK, 1)
+    note = ""
+    if _CONTEXT_MARK in before:
+        note = _unwrap_quoted(before.split(_CONTEXT_MARK, 1)[1])
+    return _unwrap_quoted(after), note
+
+
+def _unwrap_quoted(value: str) -> str:
+    text = value.strip()
+    if len(text) >= 2 and text[0] == '"' and text[-1] == '"':
+        text = text[1:-1].strip()
+    return text
 
 
 def _is_video(chunk: dict[str, Any]) -> bool:

@@ -23,7 +23,8 @@ class AdkProfileTests(unittest.TestCase):
             ["knowledge_discover", "knowledge_search", "list_doc_segments", "list_video_segments"],
         )
         instruction = build_instruction(("e2e-artifacts-20261022",))
-        self.assertIn("检索到的片段", instruction)
+        self.assertIn("chunk_text", instruction)
+        self.assertIn("index_note", instruction)
         self.assertIn("e2e-artifacts-20261022", instruction)
         self.assertNotIn("read_file", instruction)
         self.assertNotIn("visual_ground", instruction)
@@ -52,7 +53,11 @@ class AdkProfileTests(unittest.TestCase):
         tools = {tool.__name__: tool for tool in build_knowledge_tools(client, ("lib-a",), citations)}
         payload = json.loads(asyncio.run(tools["knowledge_search"]("验收", "")))
         self.assertEqual(client.searched, "lib-a")
-        self.assertEqual(payload["evidence"][0]["snippet"], "ViKnow 20261022")
+        hit = payload["evidence"][0]
+        self.assertEqual(hit["chunk_text"], "ViKnow 20261022")
+        self.assertIn("稳定性", hit["index_note"])
+        self.assertNotIn("稳定性", hit["chunk_text"])
+        self.assertNotIn("snippet", hit)
         self.assertEqual(citations.rows[0]["id"], "ev-1")
 
     def test_segments_split_document_and_video(self) -> None:
@@ -61,8 +66,17 @@ class AdkProfileTests(unittest.TestCase):
         tools = {tool.__name__: tool for tool in build_knowledge_tools(client, ("lib-a",), citations)}
         docs = json.loads(asyncio.run(tools["list_doc_segments"]("lib-a", "asset-doc")))
         videos = json.loads(asyncio.run(tools["list_video_segments"]("lib-a", "asset-doc")))
-        self.assertEqual(docs["document_segments"][0]["text"], "doc body")
-        self.assertEqual(videos["video_segments"][0]["text"], "ViKnow")
+        self.assertEqual(docs["document_segments"][0]["chunk_text"], "doc body")
+        self.assertNotIn("index_note", docs["document_segments"][0])
+        self.assertEqual(videos["video_segments"][0]["chunk_text"], "ViKnow")
+
+    def test_discover_labels_the_indexer_summary(self) -> None:
+        client = _FakeKnowledge()
+        tools = {tool.__name__: tool for tool in build_knowledge_tools(client, ("lib-a",), CitationLog())}
+        payload = json.loads(asyncio.run(tools["knowledge_discover"]("验收")))
+        asset = payload["libraries"][0]["assets"][0]
+        self.assertEqual(asset["index_note"], "确认索引构建与运行的稳定性")
+        self.assertNotIn("summary", asset)
 
     def test_event_notice_keeps_the_tool_name(self) -> None:
         event = SimpleNamespace(
@@ -146,9 +160,26 @@ class _FakeKnowledge:
             title="index-smoke-20261022.md",
             score=0.9,
             metadata={"full_doc_id": "asset-doc", "page": 0},
-            parts=[SimpleNamespace(text="ViKnow 20261022")],
+            parts=[
+                SimpleNamespace(
+                    text=(
+                        '### context\n\n"确认索引构建与运行的稳定性及上线标准符合性。"\n\n'
+                        '### chunk text\n\n"ViKnow 20261022"'
+                    )
+                )
+            ],
         )
         return SimpleNamespace(evidence=[evidence], metadata={})
+
+    async def discover_libraries_async(self, query: str, *, top_k: int | None = None, library_ids=None):
+        library = SimpleNamespace(id="lib-a", name="lib-a")
+        asset = SimpleNamespace(
+            asset_id="asset-doc",
+            title="index-smoke-20261022.md",
+            modality="document",
+            summary="确认索引构建与运行的稳定性",
+        )
+        return [SimpleNamespace(library=library, asset_matches=[asset])]
 
     def list_asset_segments(self, *, library_id: str, asset_id: str):
         return [

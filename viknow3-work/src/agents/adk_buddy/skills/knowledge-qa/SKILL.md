@@ -9,7 +9,9 @@ description: 用已授权知识库里的检索片段回答文档、视频和资�
 
 ## 怎么回答
 
-- `knowledge_search` 和片段列表返回的正文就是可以引用的证据。用片段里的原话回答，并写上证据 id 和标题。
+- 回答资料内容时只引用 `chunk_text`，并写上证据 id 和标题。
+- `index_note` 是索引器写的说明，只用来选择资料。不要把它写成文档正文、视频画面或验收原文。
+- `chunk_text` 里没有的句子，就说原文里没有。
 - 用户没有点名资料时，先 `knowledge_discover`，再搜索命中的资料。
 - 只搜索本轮授予的库。授予名单之外的库会被工具拒绝。
 - `list_doc_segments` 和 `list_video_segments` 列出某个 asset 的片段。片段正文同样可以引用。

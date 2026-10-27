@@ -13,7 +13,6 @@ from json import JSONDecodeError
 from pathlib import Path
 from time import perf_counter
 from typing import TYPE_CHECKING, Any
-from urllib.parse import quote
 
 from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
@@ -21,6 +20,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from agents.runtime.core.actio.client import ActioClient
 from agents.runtime.core.config import ModelProvider, ToolConfigs
 from agents.runtime.core.evidence import Evidence, EvidencePart, EvidencePartKind, EvidenceTimeRange
+from agents.runtime.core.knowledge.object_key import resolve_asset_object_key
 from agents.runtime.core.model_gateway import model_connection_options
 from agents.runtime.core.multimodal.asr import EvidenceTranscriber
 from agents.runtime.core.multimodal.document_page_renderer import (
@@ -2190,14 +2190,13 @@ def _require_evidence_library_allowed(evidence: Evidence) -> None:
     _require_library_allowed(library_id)
 
 
-def _library_asset_video_url(evidence: Evidence) -> str | None:
-    """Build a servable original-video URL for HyperRAG evidence."""
-    library_id = evidence.metadata.get("library_id") or ""
-    video_part = next((p for p in evidence.parts if p.kind == EvidencePartKind.VIDEO), None)
+def _evidence_asset_identity(evidence: Evidence) -> tuple[str, str, EvidencePart | None]:
+    video_part = next((part for part in evidence.parts if part.kind == EvidencePartKind.VIDEO), None)
     part_meta = video_part.metadata if video_part is not None else {}
     if not isinstance(part_meta, dict):
         part_meta = {}
-    asset_id = (
+    library_id = str(evidence.metadata.get("library_id") or "").strip()
+    asset_id = str(
         part_meta.get("source_video_id")
         or part_meta.get("video_id")
         or evidence.metadata.get("source_video_id")
@@ -2206,32 +2205,53 @@ def _library_asset_video_url(evidence: Evidence) -> str | None:
         or evidence.metadata.get("asset_id")
         or evidence.metadata.get("full_doc_id")
         or ""
-    )
-    if video_part is not None:
-        asset_id = asset_id or part_meta.get("asset_id") or part_meta.get("video_id") or ""
+    ).strip()
     if not asset_id and video_part is not None and video_part.uri:
         asset_id = Path(video_part.uri).stem
-    if not library_id or not asset_id:
-        return None
+    return library_id, asset_id, video_part
 
-    url = f"/media/libraries/{library_id}/assets/{asset_id}/video"
-    if video_part is not None and video_part.time_range is not None:
-        begin = video_part.time_range.start_seconds
-        end = video_part.time_range.end_seconds
-        return f"{url}#t={begin:.1f},{end:.1f}"
-    return url
+
+def _library_asset_object_key(evidence: Evidence) -> str | None:
+    """Catalog object key for this evidence. Never a /media URL."""
+
+    library_id, asset_id, video_part = _evidence_asset_identity(evidence)
+    return resolve_asset_object_key(
+        library_id,
+        asset_id,
+        evidence.metadata.get("asset_path"),
+        evidence.metadata.get("file_path"),
+        evidence.metadata.get("source_uri"),
+        video_part.uri if video_part is not None else None,
+    )
+
+
+def _video_source_with_object_key(
+    evidence: Evidence,
+    source: InspectClaimSource,
+) -> InspectClaimSource:
+    key = _library_asset_object_key(evidence)
+    if not key:
+        return source
+    return source.model_copy(update={"asset_path": key})
+
+
+def _library_asset_video_url(evidence: Evidence) -> str | None:
+    """Object key of the original video. Playback range stays on the timestamp fields."""
+
+    return _library_asset_object_key(evidence)
 
 
 def _enrich_evidence_with_video_url(evidence: Evidence) -> Evidence:
-    """Inject a servable video_url into evidence metadata if not already present."""
+    """Record the catalog object key on evidence. Drop any /media locator."""
+
     metadata = dict(evidence.metadata)
     metadata["video_timestamps_absolute"] = True
-    if evidence.metadata.get("video_url"):
-        return evidence.model_copy(update={"metadata": metadata})
-    url = _library_asset_video_url(evidence)
-    if url is None:
-        return evidence.model_copy(update={"metadata": metadata})
-    metadata["video_url"] = url
+    key = _library_asset_object_key(evidence)
+    if key:
+        metadata["asset_path"] = key
+        metadata["video_url"] = key
+    elif str(metadata.get("video_url") or "").startswith("/media/"):
+        metadata.pop("video_url", None)
     return evidence.model_copy(update={"metadata": metadata})
 
 
@@ -2603,23 +2623,26 @@ def _inspect_claim_source(tool_name: str, claim: Any, evidence: Evidence) -> Ins
                 source_metadata["clip_start_seconds"] = clip_start
             if clip_end is not None:
                 source_metadata["clip_end_seconds"] = clip_end
-            return InspectClaimSource(
-                type="video",
-                library_id=library_id,
-                asset_id=asset_id,
-                evidence_id=evidence.id,
-                title=evidence.title,
-                segment_id=segment_id,
-                timestamp_start=clip_start,
-                timestamp_end=clip_end,
-                uri=video_part.uri,
-                anchors=_video_source_anchors(
-                    evidence,
+            return _video_source_with_object_key(
+                evidence,
+                InspectClaimSource(
+                    type="video",
+                    library_id=library_id,
+                    asset_id=asset_id,
+                    evidence_id=evidence.id,
+                    title=evidence.title,
+                    segment_id=segment_id,
+                    timestamp_start=clip_start,
+                    timestamp_end=clip_end,
                     uri=video_part.uri,
-                    absolute_start=clip_start,
-                    absolute_end=clip_end,
+                    anchors=_video_source_anchors(
+                        evidence,
+                        uri=video_part.uri,
+                        absolute_start=clip_start,
+                        absolute_end=clip_end,
+                    ),
+                    metadata=source_metadata,
                 ),
-                metadata=source_metadata,
             )
         image_part = _first_part(evidence, EvidencePartKind.IMAGE)
         if image_part is not None or _source_refs(evidence, kind="image"):
@@ -2701,23 +2724,26 @@ def _inspect_claim_source(tool_name: str, claim: Any, evidence: Evidence) -> Ins
     if clip_end is not None:
         metadata["relative_timestamp_end"] = ts_end - clip_start if clip_start is not None else None
     metadata.update(_base_source_metadata(evidence))
-    return InspectClaimSource(
-        type="video",
-        library_id=library_id,
-        asset_id=asset_id,
-        evidence_id=evidence.id,
-        title=evidence.title,
-        segment_id=evidence.id,
-        timestamp_start=ts_start,
-        timestamp_end=ts_end,
-        uri=video_part.uri if video_part is not None else None,
-        anchors=_video_source_anchors(
-            evidence,
+    return _video_source_with_object_key(
+        evidence,
+        InspectClaimSource(
+            type="video",
+            library_id=library_id,
+            asset_id=asset_id,
+            evidence_id=evidence.id,
+            title=evidence.title,
+            segment_id=evidence.id,
+            timestamp_start=ts_start,
+            timestamp_end=ts_end,
             uri=video_part.uri if video_part is not None else None,
-            absolute_start=ts_start,
-            absolute_end=ts_end,
+            anchors=_video_source_anchors(
+                evidence,
+                uri=video_part.uri if video_part is not None else None,
+                absolute_start=ts_start,
+                absolute_end=ts_end,
+            ),
+            metadata=metadata,
         ),
-        metadata=metadata,
     )
 
 
@@ -3156,6 +3182,7 @@ def _base_source_metadata(evidence: Evidence) -> dict[str, Any]:
         "source_video_id",
         "begin_ts",
         "end_ts",
+        "asset_path",
         "video_url",
     ):
         value = evidence.metadata.get(key)
@@ -3286,18 +3313,21 @@ def _video_source_anchors(
     absolute_start: Any,
     absolute_end: Any,
 ) -> list[dict[str, Any]]:
-    video_url = _metadata_string(evidence.metadata, "video_url") or _library_asset_video_url(
-        evidence
-    )
+    object_key = _library_asset_object_key(evidence)
+    start = _optional_float_value(absolute_start)
+    end = _optional_float_value(absolute_end)
     return [
         _drop_empty_fields(
             {
                 "kind": "video_clip",
-                "video_url": video_url,
+                "asset_path": object_key,
+                "video_url": object_key,
                 "uri": uri,
                 "evidence_id": evidence.id,
-                "absolute_start_seconds": _optional_float_value(absolute_start),
-                "absolute_end_seconds": _optional_float_value(absolute_end),
+                "timestamp_start": start,
+                "timestamp_end": end,
+                "absolute_start_seconds": start,
+                "absolute_end_seconds": end,
             }
         )
     ]
@@ -3384,23 +3414,14 @@ def _normalize_page_size(value: Any) -> list[float] | None:
 
 
 def _library_asset_document_url(evidence: Evidence) -> str | None:
-    library_id = _metadata_string(evidence.metadata, "library_id")
-    asset_id = _metadata_string(evidence.metadata, "asset_id") or _metadata_string(
-        evidence.metadata, "full_doc_id"
-    )
-    if not library_id or not asset_id:
-        return None
-    return (
-        f"/media/libraries/{quote(library_id, safe='')}/assets/{quote(asset_id, safe='')}/document"
-    )
+    return _library_asset_object_key(evidence)
 
 
 def _library_asset_page_image_url(evidence: Evidence, location: dict[str, Any]) -> str | None:
-    document_url = _library_asset_document_url(evidence)
-    page = _location_page(location)
-    if document_url is None or page is None:
-        return None
-    return f"{document_url}/pages/{page}.png"
+    """Page rasters are not catalog objects. Preview the original document instead."""
+
+    del evidence, location
+    return None
 
 
 def _library_asset_image_url(
@@ -3409,17 +3430,8 @@ def _library_asset_image_url(
     source_image_id: str | None,
     image_uri: str | None,
 ) -> str | None:
-    library_id = _metadata_string(evidence.metadata, "library_id")
-    asset_id = _metadata_string(evidence.metadata, "asset_id") or _metadata_string(
-        evidence.metadata, "full_doc_id"
-    )
-    image_name = Path(str(source_image_id or image_uri or "")).name
-    if not library_id or not asset_id or not image_name:
-        return None
-    return (
-        f"/media/libraries/{quote(library_id, safe='')}/assets/"
-        f"{quote(asset_id, safe='')}/images/{quote(image_name, safe='')}"
-    )
+    del source_image_id, image_uri
+    return _library_asset_object_key(evidence)
 
 
 def _image_ref_matches(ref: dict[str, Any], source_image_id: str) -> bool:

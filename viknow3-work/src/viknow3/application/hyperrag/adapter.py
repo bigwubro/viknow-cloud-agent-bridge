@@ -37,6 +37,19 @@ from viknow3.application.hyperrag.scheduler_context import get_source_id
 from viknow3.application.hyperrag.table_evidence_source import bind_table_sources
 
 
+def _catalog_object_key(library_id: str, asset_id: str, *candidates: Any) -> str | None:
+    """Catalog ``knowledge/assets/`` key for preview. Local paths and /media URLs are ignored."""
+
+    try:
+        from agents.runtime.core.knowledge.object_key import resolve_asset_object_key
+    except Exception:
+        return None
+    try:
+        return resolve_asset_object_key(library_id, asset_id, *candidates)
+    except Exception:
+        return None
+
+
 def _text_file_as_single_page_pdf(path: Path) -> Path | None:
     """Give text assets a one-page PDF so document_inspect can render them."""
     target = path.with_name(path.name + ".inspect.pdf")
@@ -1832,6 +1845,15 @@ class HyperRAGAdapter:
             "chunk_id": chunk_id,
             "file_path": file_path,
         }
+        object_key = _catalog_object_key(
+            library_id,
+            asset_id,
+            evidence_metadata.get("asset_path"),
+            file_path,
+            evidence_metadata.get("source_uri"),
+        )
+        if object_key:
+            evidence_metadata["asset_path"] = object_key
         if not is_video and evidence_metadata.get("page") is None and evidence_metadata.get("page_number") is None:
             evidence_metadata["page"] = 0
 

@@ -38,6 +38,7 @@ from agents.runtime.core.evidence import (
     EvidencePartKind,
 )
 from agents.runtime.core.knowledge.client import KnowledgeClient, KnowledgeSearchResult
+from agents.runtime.core.knowledge.object_key import resolve_asset_object_key
 from agents.runtime.core.model_gateway import model_connection_options
 from agents.runtime.core.multimodal.structured_llm import invoke_structured_llm, invoke_text_llm
 from agents.runtime.core.scheduler.domain import Priority, extra_body_with_priority
@@ -976,6 +977,7 @@ class KnowledgeToolHandlers:
                 asset_kind=asset_kind,
                 catalog_id=str(args.get("catalog_id") or "").strip() or None,
             )
+            object_key = resolve_asset_object_key(library_id, asset_id)
             base = {
                 "tool": tool,
                 "mode": mode,
@@ -983,6 +985,8 @@ class KnowledgeToolHandlers:
                 "asset_id": asset_id,
                 "catalog": _catalog_payload(catalog),
             }
+            if object_key and mode == "map":
+                base["asset_path"] = object_key
             if mode == "map":
                 return json.dumps(base, ensure_ascii=False)
             if mode == "page":
@@ -995,7 +999,9 @@ class KnowledgeToolHandlers:
                     {
                         **base,
                         "cursor": cursor,
-                        "segments": [record.as_payload() for record in page.records],
+                        "segments": [
+                            _segment_preview_payload(record, object_key) for record in page.records
+                        ],
                         "next_cursor": page.next_cursor,
                         "next_action": _segment_next_action(asset_kind, mode="page"),
                     },
@@ -1012,9 +1018,13 @@ class KnowledgeToolHandlers:
                 return json.dumps(
                     {
                         **base,
-                        "segments": [record.as_payload() for record in selection.matches],
+                        "segments": [
+                            _segment_preview_payload(record, object_key)
+                            for record in selection.matches
+                        ],
                         "adjacent_segments": [
-                            record.as_payload() for record in selection.neighbors
+                            _segment_preview_payload(record, object_key)
+                            for record in selection.neighbors
                         ],
                         "selection_basis": selection.selection_basis,
                         "next_action": _segment_next_action(asset_kind, mode="select"),
@@ -2118,6 +2128,13 @@ def _scout_report_validation_hint(error: Exception) -> tuple[str, str]:
 
 def _segment_tool_error(tool: str, message: str) -> str:
     return json.dumps({"tool": tool, "error": message}, ensure_ascii=False)
+
+
+def _segment_preview_payload(record: SegmentRecord, object_key: str | None) -> dict[str, Any]:
+    payload = record.as_payload()
+    if object_key:
+        payload["asset_path"] = object_key
+    return payload
 
 
 def _catalog_payload(catalog: SegmentCatalog) -> dict[str, Any]:

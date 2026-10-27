@@ -13,6 +13,7 @@ class InspectClaimSource(BaseModel):
     type: Literal["text", "image", "video"]
     library_id: str | None = None
     asset_id: str | None = None
+    asset_path: str | None = None
     evidence_id: str | None = None
     title: str | None = None
     segment_id: str | None = None

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import unittest
+import uuid
 from unittest import mock
 
 from viknow3.access.knowledge import store
@@ -31,7 +32,9 @@ class StorageIndexJobTests(unittest.TestCase):
         reset_object_store()
 
     def test_create_index_job_without_asset_path_uses_storage(self) -> None:
-        store.create_library("lib-a", "A")
+        library_id = f"lib-a-{uuid.uuid4().hex[:8]}"
+        asset_id = "file-1"
+        store.create_library(library_id, "A")
         captured: dict = {}
 
         class FakeClient:
@@ -69,20 +72,21 @@ class StorageIndexJobTests(unittest.TestCase):
             mock.patch("viknow3.service.hyperrag.object_gateway.get_storage_client", return_value=client),
             mock.patch("viknow3.access.knowledge.service.HYPERAG.create_index", side_effect=fake_create_index),
         ):
-            job = create_index_job({"library_id": "lib-a", "asset_id": "file-1"})
+            job = create_index_job({"library_id": library_id, "asset_id": asset_id})
 
         self.assertEqual(job["job_id"], "job-1")
-        self.assertEqual(captured["object_key"], "storage://lib-a/file-1")
+        self.assertEqual(captured["object_key"], f"storage://{library_id}/{asset_id}")
         self.assertTrue(captured["path"])
-        row = store.get_asset("lib-a", "file-1")
+        row = store.get_asset(library_id, asset_id)
         self.assertIsNotNone(row)
-        self.assertEqual(row.asset_path, "storage://lib-a/file-1")
+        self.assertEqual(row.asset_path, f"storage://{library_id}/{asset_id}")
 
     def test_missing_storage_and_asset_path_rejected(self) -> None:
-        store.create_library("lib-b", "B")
+        library_id = f"lib-b-{uuid.uuid4().hex[:8]}"
+        store.create_library(library_id, "B")
         with mock.patch("viknow3.access.knowledge.service.storage_configured", return_value=False):
             with self.assertRaises(KnowledgeError) as caught:
-                create_index_job({"library_id": "lib-b", "asset_id": "x"})
+                create_index_job({"library_id": library_id, "asset_id": "x"})
         self.assertEqual(caught.exception.status, 422)
 
     def test_storage_missing_asset_is_404(self) -> None:
@@ -95,7 +99,7 @@ class StorageIndexJobTests(unittest.TestCase):
             mock.patch("viknow3.access.knowledge.service.get_storage_client", return_value=FakeClient()),
         ):
             with self.assertRaises(KnowledgeError) as caught:
-                create_index_job({"library_id": "lib-a", "asset_id": "missing"})
+                create_index_job({"library_id": f"lib-miss-{uuid.uuid4().hex[:8]}", "asset_id": "missing"})
         self.assertEqual(caught.exception.status, 404)
 
 

@@ -101,7 +101,7 @@ class PlaygroundUserUiTests(unittest.TestCase):
     @mock.patch("viknow3.access.agent.service.session_runs")
     def test_nested_session_runs_route(self, session_runs: mock.Mock) -> None:
         session_runs.return_value = [{"id": "run-1", "session_id": "sess-1", "status": "completed"}]
-        response = self.client.get("/api/v1/agent/agents/deepagents/sessions/sess-1/runs")
+        response = self.client.get("/api/v1/agent/agents/expertbuddy-deepagents/sessions/sess-1/runs")
         self.assertEqual(response.status_code, 200)
         session_runs.assert_called_once()
         self.assertEqual(response.json()[0]["id"], "run-1")

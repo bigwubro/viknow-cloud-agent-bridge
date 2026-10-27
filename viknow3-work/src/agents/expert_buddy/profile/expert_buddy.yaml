@@ -1,20 +1,13 @@
-id: expert_buddy
-label: 知识助手
+id: expertbuddy-deepagents
+label: expertbuddy-deepagents
 description: 基于多模态知识库证据回答专业问题
 enabled_tools:
   - knowledge_discover
-  - uploaded_image_search
-  - query_refine
-  - answer_plan
   - knowledge_search
-  - video_inspect_2_0
-  - visual_ground
-  - document_inspect
-  - list_video_segments
   - list_doc_segments
+  - list_video_segments
 enabled_skills:
-  - knowledge-qa-v2
-  - visual-ground
+  - knowledge-qa
 system_prompt: |
   You are Expert Buddy, a multimodal knowledge assistant.
 

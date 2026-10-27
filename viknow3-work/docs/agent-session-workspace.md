@@ -42,10 +42,10 @@ finalize_session_run(session_id)
 
 有授权 `library_id` 时统一追加：
 
-- 必须先 `knowledge_discover` / `knowledge_search`（及 skill 要求的 inspect）。
+- 必须先 `knowledge_discover` / `knowledge_search`，回答只引用 `chunk_text`。
 - **禁止**用 `glob`/`grep`/`ls` 在 workspace 猜知识库答案。
-- DeepAgents：首工具 `read_file` `knowledge-qa-v2/SKILL.md`。
-- ADK：先 `load_skill("knowledge-qa-v2")`。
+- DeepAgents：首工具 `read_file` `knowledge-qa/SKILL.md`。
+- ADK：同一份 `knowledge-qa` 已经写在指令里。
 
 ## 安全边界
 

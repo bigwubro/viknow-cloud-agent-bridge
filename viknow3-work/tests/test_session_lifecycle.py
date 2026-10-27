@@ -16,7 +16,7 @@ from viknow3.server import app
 from viknow3.store import STORE, RunRef, _rows
 
 AUTH = {"Authorization": "Bearer dev-app-key"}
-AGENT = "/api/v1/agent/agents/deepagents"
+AGENT = "/api/v1/agent/agents/expertbuddy-deepagents"
 
 
 def setUpModule() -> None:
@@ -73,7 +73,7 @@ class SessionLifecycleTests(unittest.TestCase):
         from viknow3.clock import new_id, now
 
         moment = now()
-        ref = RunRef(new_id(), session_id, self.user["id"], "deepagents", [], "running", moment, input="x", updated_at=moment)
+        ref = RunRef(new_id(), session_id, self.user["id"], "expertbuddy-deepagents", [], "running", moment, input="x", updated_at=moment)
         STORE.runs[ref.id] = ref
         return ref
 
@@ -164,7 +164,7 @@ class SessionLifecycleTests(unittest.TestCase):
         for path in (base, f"{base}/runs", f"{base}/files", run_base, f"{run_base}/history", f"{run_base}/events"):
             self.assertEqual(self.client.get(path, headers=AUTH).status_code, 404, path)
         self.assertEqual(self.client.get(f"/api/v1/agent/runs/{submitted['run_id']}", headers=AUTH).status_code, 404)
-        self.assertEqual(self.client.get(f"/api/v1/agent/files/{file_id}?agent_id=deepagents", headers=AUTH).status_code, 404)
+        self.assertEqual(self.client.get(f"/api/v1/agent/files/{file_id}?agent_id=expertbuddy-deepagents", headers=AUTH).status_code, 404)
         listed = self.client.get(f"{AGENT}/sessions?user_id={self.user['id']}", headers=AUTH).json()
         self.assertNotIn(session_id, [item["id"] for item in listed])
         again = self.client.post(f"{base}/runs", json={"user_id": self.user["id"], "message": "还在吗"}, headers=AUTH)

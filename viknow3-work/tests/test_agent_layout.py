@@ -5,8 +5,6 @@ from __future__ import annotations
 import unittest
 from pathlib import Path
 
-import yaml
-
 from agents.layout import discover_agents, package_for_public_id
 
 
@@ -16,32 +14,30 @@ class AgentLayoutTests(unittest.TestCase):
         self.assertEqual(
             ids,
             [
-                "mmlongbench-doc-eval",
-                "mmlongbench-doc-extract",
-                "evidence-oracle",
-                "deepagents",
-                "ops",
-                "viknow-v2-advanced-video",
+                "expertbuddy-adk",
+                "expertbuddy-deepagents",
             ],
         )
-        self.assertEqual(package_for_public_id("deepagents").directory, "expert_buddy")
+        self.assertEqual(package_for_public_id("expertbuddy-deepagents").directory, "expert_buddy")
+        self.assertEqual(package_for_public_id("expertbuddy-adk").directory, "adk_buddy")
+        self.assertEqual(package_for_public_id("expertbuddy-adk").runtime, "adk")
+        self.assertEqual(package_for_public_id("expertbuddy-deepagents").runtime, "langgraph")
         self.assertIsNone(package_for_public_id("missing"))
+        self.assertIsNone(package_for_public_id("deepagents"))
+        self.assertIsNone(package_for_public_id("adk"))
 
-    def test_evidence_oracle_uses_a_profile_flag(self) -> None:
-        path = (
-            Path(__file__).resolve().parents[1]
-            / "src"
-            / "agents"
-            / "evidence_oracle"
-            / "profile"
-            / "evidence-oracle.yaml"
-        )
-        data = yaml.safe_load(path.read_text(encoding="utf-8"))
-        self.assertTrue(data["oracle_collection"])
-        self.assertTrue(data["multi_agent_enabled"])
-        sidecar = path.parents[1] / "subagents" / "evidence-oracle.yaml"
-        subagents = yaml.safe_load(sidecar.read_text(encoding="utf-8"))["subagents"]
-        self.assertEqual([item["name"] for item in subagents], ["evidence-scout", "evidence-inspector"])
+    def test_both_agents_use_the_same_knowledge_skill(self) -> None:
+        root = Path(__file__).resolve().parents[1] / "src" / "agents"
+        adk = (root / "adk_buddy" / "skills" / "knowledge-qa" / "SKILL.md").read_text(encoding="utf-8")
+        deepagents = (root / "expert_buddy" / "skills" / "knowledge-qa" / "SKILL.md").read_text(encoding="utf-8")
+        self.assertEqual(adk, deepagents)
+        self.assertEqual(package_for_public_id("expertbuddy-adk").enabled_tools, package_for_public_id("expertbuddy-deepagents").enabled_tools)
+        self.assertEqual(package_for_public_id("expertbuddy-adk").enabled_tools, (
+            "knowledge_discover",
+            "knowledge_search",
+            "list_doc_segments",
+            "list_video_segments",
+        ))
 
 
 if __name__ == "__main__":

@@ -37,7 +37,7 @@ def mount_access_api(app: FastAPI) -> None:
     def playground_app_key() -> AppKey:
         if configured in APP_KEYS:
             return APP_KEYS[configured]
-        return AppKey(configured, "deepagents")
+        return AppKey(configured, "expertbuddy-deepagents")
 
     def knowledge_error(_request, exc: KnowledgeError) -> JSONResponse:
         return JSONResponse(exc.body, status_code=exc.status)

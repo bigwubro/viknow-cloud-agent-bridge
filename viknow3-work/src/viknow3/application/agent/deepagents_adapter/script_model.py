@@ -14,7 +14,7 @@ from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import AIMessage, AIMessageChunk, BaseMessage, ToolMessage
 from langchain_core.outputs import ChatGeneration, ChatGenerationChunk, ChatResult
 
-_SKILL_PATH = "/workspace/.skills/knowledge-qa-v2/SKILL.md"
+_SKILL_PATH = "/workspace/.skills/knowledge-qa/SKILL.md"
 
 
 def script_model_enabled() -> bool:
@@ -83,7 +83,7 @@ def _tool_names(messages: list[BaseMessage]) -> set[str]:
 
 
 class KnowledgeAssistantModel(BaseChatModel):
-    """Drives read_file, discover, refine, search, then a fixed answer."""
+    """Drives read_file, discover, search, then a fixed answer."""
 
     @property
     def _llm_type(self) -> str:
@@ -139,17 +139,6 @@ class KnowledgeAssistantModel(BaseChatModel):
                 library_id = str(first.get("library_id") or first.get("id") or library_id)
         if not library_id:
             return AIMessage(content="未能发现可用知识库，请确认 library_ids 已授权。")
-        if "query_refine" not in done:
-            return AIMessage(
-                content="",
-                tool_calls=[
-                    {
-                        "id": "call-refine",
-                        "name": "query_refine",
-                        "args": {"query": question},
-                    }
-                ],
-            )
         if "knowledge_search" not in done:
             return AIMessage(
                 content="",

@@ -15,6 +15,12 @@ _ACTIO_IMPORT = re.compile(
 )
 _HYPERRAG_IMPORT = re.compile(r"""(?:^from\s+hyperrag\b|^import\s+hyperrag\b|import_module\(\s*['\"]hyperrag)""")
 _VIKNOW_IMPORT = re.compile(r"""(?:^from\s+viknow3\b|^import\s+viknow3\b|import_module\(\s*['\"]viknow3)""")
+_DEEP_IMPORT = re.compile(
+    r"""(?:^from\s+agents\.runtime\b|^import\s+agents\.runtime\b|^from\s+deepagents\b|^import\s+deepagents\b)"""
+)
+_ADK_IMPORT = re.compile(
+    r"""(?:^from\s+agents\.adk_buddy\b|^import\s+agents\.adk_buddy\b|^from\s+google\.adk\b|^import\s+google\.adk\b)"""
+)
 
 
 def _python_files(root: Path) -> list[Path]:
@@ -52,6 +58,24 @@ def test_hyperrag_package_is_imported_only_by_its_client():
 def test_agents_and_hyperrag_do_not_import_the_shell():
     files = _python_files(ROOT / "src" / "agents") + _python_files(HYPER_SRC)
     hits = _hits(files, _VIKNOW_IMPORT)
+    assert hits == []
+
+
+def test_adk_does_not_import_deepagents():
+    hits = _hits(_python_files(ROOT / "src" / "agents" / "adk_buddy"), _DEEP_IMPORT)
+    hits += _hits(
+        _python_files(ROOT / "src" / "viknow3" / "application" / "agent" / "adk_adapter"),
+        _DEEP_IMPORT,
+    )
+    assert hits == []
+
+
+def test_deepagents_does_not_import_adk():
+    hits = _hits(_python_files(ROOT / "src" / "agents" / "runtime"), _ADK_IMPORT)
+    hits += _hits(
+        _python_files(ROOT / "src" / "viknow3" / "application" / "agent" / "deepagents_adapter"),
+        _ADK_IMPORT,
+    )
     assert hits == []
 
 

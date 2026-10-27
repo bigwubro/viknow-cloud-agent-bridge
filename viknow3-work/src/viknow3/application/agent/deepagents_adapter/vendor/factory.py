@@ -68,7 +68,7 @@ def _viknow_app_config(skills: str, profile_dir: str, public_id: str, profile_id
     )
 
 
-async def get_deepagents_runtime(public_id: str = "deepagents") -> Any:
+async def get_deepagents_runtime(public_id: str = "expertbuddy-deepagents") -> Any:
     """Lazy runtime for one public profile id. Must run on the agent event loop."""
     global _RUNTIME_LOCK
     package = package_for_public_id(public_id)

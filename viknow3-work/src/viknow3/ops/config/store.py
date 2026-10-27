@@ -241,7 +241,7 @@ def _seed(conn: Connection) -> None:
             """,
             (model_id, provider_id, name, label, moment, moment),
         )
-    for agent_id, model_id in (("deepagents", "private:qwen"),):
+    for agent_id, model_id in (("expertbuddy-deepagents", "private:qwen"), ("expertbuddy-adk", "private:qwen")):
         conn.execute(
             """
             INSERT INTO agent_model (agent_id, model_id, created_at, updated_at)

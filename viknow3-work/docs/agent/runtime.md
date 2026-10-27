@@ -2,13 +2,15 @@
 
 Agent Runtime 是一轮调用的执行面。外壳负责接收请求和写事件。runtime 负责模型、工具、闸门、沙箱，以及它自己的对话上下文。
 
-当前接通的 runtime 是 DeepAgents，代码在 `src/agents/runtime`。外壳通过 `TurnRuntime.run_turn` 调用它。适配器在 `src/viknow3/application/agent/deepagents_adapter/`。
+当前接通两个 runtime，外壳都通过 `run_turn` 调用。DeepAgents 在 `src/agents/runtime`，适配器在 `src/viknow3/application/agent/deepagents_adapter/`。ADK 在 `src/agents/adk_buddy`，适配器在 `src/viknow3/application/agent/adk_adapter/`。两边的 profile、技能和回合代码互不导入。
+
+`host.turn_runtime` 读 Registry 里的 `runtime` 字段。profile 写了 `runtime: adk` 时走 ADK，其余走 DeepAgents。
 
 你可以用这层做这些事：
 
 - 在一个已经授权的库范围内跑完一轮工具循环。
-- 把 DeepAgents 的输出映射成外壳事件。
-- 用 LangGraph checkpoint 记住这个 user、workspace、session 上的 agent 上下文。
+- 把 runtime 的输出映射成外壳事件。
+- DeepAgents 用 LangGraph checkpoint 记住这个 user、workspace、session 上的上下文。ADK 用自己的 session 记住同一组标识。
 
 ## 分层
 
@@ -99,12 +101,10 @@ sequenceDiagram
 
 ## 再接一个 runtime
 
-HTTP、会话、`run_events` 和库授权不用改。新增两块：
+HTTP、会话、`run_events` 和库授权不用改。ADK 已经按这个接法落地：
 
-1. 新 runtime 实现自己的循环和自己的 session。session 使用外壳传入的 `user_id`、`workspace_id`、`session_id`。外壳不解析这份 session。
-2. 外壳里的适配器实现同一个 `TurnRuntime.run_turn(turn, state, events)`，把输出写成同一组事件。需要检索或 Actio 能力时使用外壳已经注入的 client。
-
-`host.py` 里现在只有一处写死了 DeepAgents。选择适配器就加在这次调用上。DeepAgents 的 `runtime.yaml`、checkpoint、工具闸门和回答检查留在 `deepagents_adapter` 后面。
+1. `src/agents/adk_buddy` 自己维护 profile、技能和回合。session 使用外壳传入的 `user_id`、`workspace_id`、`session_id`，写在 ADK 自己的 session 里。外壳不解析这份 session。
+2. `adk_adapter` 实现 `run_turn(turn, state, events)`，把输出写成同一组事件。检索使用外壳注入的知识库 client。ADK 不调用 Actio，也没有 DeepAgents 的检查、闸门和沙箱。
 
 ```mermaid
 sequenceDiagram
@@ -115,22 +115,23 @@ sequenceDiagram
   participant Ckpt as LangGraph checkpoint
   participant Sess as ADK session
 
-  Host->>Host: 按 agent 选择适配器
-  alt 当前代码一律走 DeepAgents
+  Host->>Host: 读 profile.runtime
+  alt runtime 不是 adk
     Host->>DA: run_turn
     DA->>Ckpt: 自己的 thread id
     DA->>Events: 同一组事件
-  else 接上另一个 runtime 之后
+  else runtime 是 adk
     Host->>ADK: run_turn
     ADK->>Sess: 自己的 session
     ADK->>Events: 同一组事件
   end
 ```
 
-代码里还没有 `adk_adapter`。上面的 `else` 是适配点，不是已经接通的路径。
+两边的对外 id 分别是 `expertbuddy-deepagents` 和 `expertbuddy-adk`。技能正文是同一份 `knowledge-qa`，都只引用 `chunk_text`。DeepAgents 用 `read_file` 读取它，ADK 把它附在指令里。
 
 ## 下一步
 
 - [会话](sessions.md)
 - [事件](events.md)
 - [工具和模型](tools.md)
+- [评测](adk-eval.md)：同一知识库、同一组问题上 DeepAgents 和 ADK 的对照。

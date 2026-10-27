@@ -72,6 +72,7 @@ from agents.runtime.core.answer_review import (
     AnswerReviewResult,
     AnswerReviewSemanticReviewer,
     CitationPolicyClassifier,
+    CitationPolicyMode,
     LLMClaimReviewer,
     LLMPolicyClassifier,
     LLMSemanticReviewer,
@@ -2497,18 +2498,7 @@ class DeepAgentsRuntime(AgentRuntime):
         if state.stop_gate is None:
             state.stop_gate = StopCandidateGate(judge=self._stop_gate_judge(op))
         decision = state.stop_gate.evaluate(
-            StopGateInput(
-                question=op.input or "",
-                answer=answer,
-                citation_policy=citation_context.citation_policy,
-                resolved_citation_count=len(citation_context.review_citations),
-                citation_errors=citation_context.citation_errors,
-                eligible_claims=collect_claim_bundle(
-                    state.completed_tool_calls.values(),
-                    filter_invalid=True,
-                ),
-                completed_tool_calls=list(state.completed_tool_calls.values()),
-            )
+            self._stop_gate_input(op, state, answer, citation_context)
         )
         if not decision.passed:
             await self._emit(
@@ -2576,6 +2566,42 @@ class DeepAgentsRuntime(AgentRuntime):
             "请继续完成任务。不要复述 gate 说明；最终只输出可以发布给用户的答案。"
         )
 
+    def _stop_gate_input(
+        self,
+        op: AgentOp,
+        state: _RunState,
+        answer: str,
+        citation_context: _FinalAnswerCitationContext,
+    ) -> StopGateInput:
+        require_inspect = bool(set(self.profile.enabled_tools) & set(CLAIM_TOOL_NAMES))
+        policy = citation_context.citation_policy
+        if not require_inspect and not citation_context.review_citations:
+            policy = policy.model_copy(
+                update={
+                    "mode": CitationPolicyMode.OPTIONAL,
+                    "evidence_required": False,
+                    "reason": "chunk_text_without_inspect",
+                }
+            )
+        return StopGateInput(
+            question=op.input or "",
+            answer=answer,
+            citation_policy=policy,
+            resolved_citation_count=len(citation_context.review_citations),
+            citation_errors=citation_context.citation_errors,
+            eligible_claims=collect_claim_bundle(
+                state.completed_tool_calls.values(),
+                filter_invalid=True,
+            ),
+            completed_tool_calls=list(state.completed_tool_calls.values()),
+            answer_plan=answer_plan_judge_context(
+                state.answer_plan,
+                state.evidence_ledger,
+                state.answer_plan_review,
+            ),
+            require_inspect=require_inspect,
+        )
+
     def _stop_gate_judge(self, op: AgentOp) -> StopGateJudge | None:
         if self.stop_gate_judge is not None:
             return self.stop_gate_judge
@@ -2595,22 +2621,7 @@ class DeepAgentsRuntime(AgentRuntime):
         if state.stop_gate is None:
             state.stop_gate = StopCandidateGate(judge=self._stop_gate_judge(op))
         decision = state.stop_gate.evaluate(
-            StopGateInput(
-                question=op.input or "",
-                answer=answer,
-                citation_policy=citation_context.citation_policy,
-                resolved_citation_count=len(citation_context.review_citations),
-                citation_errors=citation_context.citation_errors,
-                eligible_claims=collect_claim_bundle(
-                    state.completed_tool_calls.values(), filter_invalid=True
-                ),
-                completed_tool_calls=list(state.completed_tool_calls.values()),
-                answer_plan=answer_plan_judge_context(
-                    state.answer_plan,
-                    state.evidence_ledger,
-                    state.answer_plan_review,
-                ),
-            )
+            self._stop_gate_input(op, state, answer, citation_context)
         )
         return decision, citation_context
 

@@ -54,11 +54,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--source-workspace",
         default="default",
-        help="Workspace filter for public.hyperrag_bm25_chunks",
+        help="Workspace filter for hyperrag.hyperrag_bm25_chunks",
     )
     parser.add_argument(
         "--chunk-table",
-        default="public.hyperrag_bm25_chunks",
+        default="hyperrag.hyperrag_bm25_chunks",
         help="Postgres chunk table",
     )
     parser.add_argument("--chunk-limit", type=int, default=256, help="Sampled chunk count")

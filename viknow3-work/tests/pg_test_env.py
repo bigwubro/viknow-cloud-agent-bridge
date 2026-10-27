@@ -64,6 +64,6 @@ def apply() -> None:
         port = os.environ.get("VIKNOW_TEST_PG_PORT", "16432")
         base = f"postgresql://{user}:{password}@{host}:{port}"
 
-    os.environ["VIKNOW_ACCESS_DSN"] = f"{base}/viknow_access_test"
-    os.environ["VIKNOW_AGENT_DSN"] = f"{base}/viknow_agent_test"
+    os.environ["VIKNOW_ACCESS_DSN"] = f"{base}/viknow3_access_test"
+    os.environ["VIKNOW_AGENT_DSN"] = f"{base}/viknow3_agent_test"
     os.environ["VIKNOW_HYPERRAG_DSN"] = f"{base}/viknow3_knowledge_test"

@@ -1,8 +1,8 @@
 # 接入层数据
 
-接入层的业务行在 `VIKNOW_ACCESS_DSN` 指向的库。表由 `viknow3.store` 在进程使用存储时创建。删除是写 `deleted_at`，不是物理删除。
+接入层的业务行在 `VIKNOW_ACCESS_DSN` 指向的库 `viknow3_access`，schema `access`。表由 `viknow3.store` 在进程使用存储时创建。删除是写 `deleted_at`，不是物理删除。
 
-DeepAgents 的 checkpoint 不在这个库。它在 `VIKNOW_AGENT_DSN`。知识库引擎的表不在这个库。它在 `VIKNOW_HYPERRAG_DSN`。
+DeepAgents 的 checkpoint 在 `VIKNOW_AGENT_DSN`（`viknow3_agent`，schema `checkpoint`）。ADK 的 session 在同一个库的 schema `adk`。知识库在 `VIKNOW_HYPERRAG_DSN`（`viknow3_knowledge`）：目录在 schema `catalog`，HyperRAG 表在 `hyperrag`，向量在 `hyperrag_kg`。运维配置在 `viknow3_ops` 的 schema `ops`。`public` 只放扩展。
 
 ## 表
 

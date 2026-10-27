@@ -164,7 +164,10 @@ class KGVectorStore:
                     )
                 self.db = await ClientManager.get_client()
             try:
-                await self.db.execute("CREATE EXTENSION IF NOT EXISTS vector", upsert=True)
+                await self.db.execute(
+                    "CREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA public",
+                    upsert=True,
+                )
             except Exception as exc:
                 logger.warning("failed to create pgvector extension: %s", exc)
             await self.db.execute(f"CREATE SCHEMA IF NOT EXISTS {self.schema}", upsert=True)

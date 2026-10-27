@@ -1,4 +1,4 @@
-"""Read and write viknow_ops. One Postgres instance, one database per environment."""
+"""Read and write viknow3_ops, schema ``ops``. One Postgres instance, one database per environment."""
 
 from __future__ import annotations
 
@@ -14,8 +14,7 @@ from psycopg.rows import dict_row
 
 from viknow3.clock import new_id, now, stamp
 from viknow3.ops.config.catalog import ROW_KEY, SINGLETONS, TABLES, Column
-
-SCHEMA = "viknow_ops"
+from viknow3.pg import OPS_SCHEMA as SCHEMA
 
 
 class ConfigError(Exception):
@@ -149,8 +148,8 @@ def server_default_model() -> str | None:
 
 def reset_for_tests() -> None:
     dsn = os.environ.get("VIKNOW_OPS_DSN") or ""
-    if not dsn.rstrip("/").endswith("/viknow_ops_test"):
-        raise ConfigError(400, {"code": "refusing_reset", "message": "reset only runs against viknow_ops_test"})
+    if not dsn.rstrip("/").split("?", 1)[0].endswith("/viknow3_ops_test"):
+        raise ConfigError(400, {"code": "refusing_reset", "message": "reset only runs against viknow3_ops_test"})
     with _session() as conn:
         conn.execute(
             """
@@ -203,7 +202,7 @@ def _connect() -> Connection:
 
 def _ensure(conn: Connection) -> None:
     conn.execute(f"CREATE SCHEMA IF NOT EXISTS {SCHEMA}")
-    conn.execute(f"SET search_path TO {SCHEMA}")
+    conn.execute(f"SET search_path TO {SCHEMA}, public")
     for statement in _STATEMENTS:
         conn.execute(statement)
     conn.execute("SELECT pg_advisory_xact_lock(%s)", (81432026,))

@@ -1,4 +1,7 @@
-"""Knowledge libraries and assets in Postgres (VIKNOW_HYPERRAG_DSN → viknow3_knowledge)."""
+"""Knowledge catalog in viknow3_knowledge, schema ``catalog``.
+
+HyperRAG's own tables are in schema ``hyperrag``. Vector tables stay in ``hyperrag_kg``.
+"""
 
 from __future__ import annotations
 
@@ -7,9 +10,9 @@ from datetime import datetime
 from typing import Any
 
 from viknow3.clock import now, stamp
-from viknow3.pg import HYPERRAG, connect
+from viknow3.pg import CATALOG_SCHEMA, HYPERRAG, HYPERRAG_SCHEMA, connect
 
-_CONN = connect(HYPERRAG)
+_CONN = connect(HYPERRAG, schema=CATALOG_SCHEMA)
 
 
 def _row_tuple(row: Any, expected: int) -> tuple[Any, ...]:
@@ -43,7 +46,7 @@ def _column_exists(table: str, column: str) -> bool:
             FROM information_schema.columns
             WHERE table_schema = %s AND table_name = %s AND column_name = %s
             """,
-            ("public", table, column),
+            (CATALOG_SCHEMA, table, column),
         )
         return cur.fetchone() is not None
 
@@ -99,7 +102,7 @@ def _ensure_fk_hyperrag_asset_status() -> None:
     with _CONN.cursor() as cur:
         cur.execute(
             "SELECT to_regclass(%s)",
-            ("public.hyperrag_asset_status",),
+            (f"{HYPERRAG_SCHEMA}.hyperrag_asset_status",),
         )
         if cur.fetchone()[0] is None:
             return
@@ -110,17 +113,17 @@ def _ensure_fk_hyperrag_asset_status() -> None:
             """,
             (
                 "hyperrag_asset_status_asset_fk",
-                "public.hyperrag_asset_status",
+                f"{HYPERRAG_SCHEMA}.hyperrag_asset_status",
             ),
         )
         if cur.fetchone() is not None:
             return
         cur.execute(
-            """
-            ALTER TABLE hyperrag_asset_status
+            f"""
+            ALTER TABLE {HYPERRAG_SCHEMA}.hyperrag_asset_status
             ADD CONSTRAINT hyperrag_asset_status_asset_fk
             FOREIGN KEY (workspace, asset_id)
-            REFERENCES knowledge_assets (library_id, asset_id)
+            REFERENCES {CATALOG_SCHEMA}.knowledge_assets (library_id, asset_id)
             NOT VALID
             """
         )
@@ -377,14 +380,14 @@ def get_latest_hyperrag_asset_status(library_id: str, asset_id: str) -> dict[str
     with _CONN.cursor() as cur:
         cur.execute(
             "SELECT to_regclass(%s)",
-            ("public.hyperrag_asset_status",),
+            (f"{HYPERRAG_SCHEMA}.hyperrag_asset_status",),
         )
         if cur.fetchone()[0] is None:
             return None
         cur.execute(
-            """
+            f"""
             SELECT workspace, id, asset_id, status, error_message, updated_at
-            FROM hyperrag_asset_status
+            FROM {HYPERRAG_SCHEMA}.hyperrag_asset_status
             WHERE workspace = %s AND asset_id = %s
             ORDER BY updated_at DESC
             LIMIT 1

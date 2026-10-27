@@ -12,6 +12,7 @@ from typing import Any
 
 from agents.runtimes.adk.loop import run_turn as run_adk_turn
 from agents.runtimes.adk.notices import AdkNotice
+from viknow3.pg import ADK_SCHEMA, AGENT, dsn, ensure_schema, with_search_path
 
 
 @dataclass
@@ -52,7 +53,7 @@ class AdkTurnRuntime:
             api_key=resolved.api_key,
             temperature=resolved.temperature,
             knowledge=knowledge,
-            session_dsn=os.environ.get("VIKNOW_AGENT_DSN", ""),
+            session_dsn=_agent_session_dsn(),
             inspect=inspect,
         ):
             if notice.kind == "failed":
@@ -67,6 +68,14 @@ class AdkTurnRuntime:
             state.citations = citations
         events.completed(final_text, usage if isinstance(usage, dict) else None)
         return TurnResult(output=final_text, citations=dict(state.citations or {}), token_usage=usage)
+
+
+def _agent_session_dsn() -> str:
+    raw = os.environ.get("VIKNOW_AGENT_DSN", "").strip()
+    if not raw:
+        return ""
+    ensure_schema(AGENT, ADK_SCHEMA)
+    return with_search_path(dsn(AGENT), ADK_SCHEMA)
 
 
 def _emit(notice: AdkNotice, events: Any, state: Any) -> None:

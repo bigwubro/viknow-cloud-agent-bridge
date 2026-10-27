@@ -24,7 +24,7 @@ flowchart TB
   runtime["src/agents/runtimes/deepagents"]
   pkg["profiles + skills"]
   ckpt["LangGraph checkpoint"]
-  ops["viknow_ops"]
+  ops["viknow3_ops"]
   engine["HyperRAG 引擎"]
 
   caller --> access --> shell

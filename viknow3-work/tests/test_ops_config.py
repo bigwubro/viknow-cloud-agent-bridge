@@ -32,7 +32,7 @@ class OpsConfigTests(unittest.TestCase):
         updated = set_value("model_provider", "api_key", "plain-key", "private", "admin")
         self.assertEqual(updated["api_key"], {"set": True})
         with psycopg.connect(os.environ["VIKNOW_OPS_DSN"]) as conn:
-            conn.execute("SET search_path TO viknow_ops")
+            conn.execute("SET search_path TO ops, public")
             stored = conn.execute("SELECT api_key FROM model_provider WHERE id = 'private'").fetchone()[0]
         self.assertNotIn("plain-key", stored)
         from viknow3.ops.config.store import changes, revert

@@ -1,6 +1,6 @@
 """Assemble one agent runtime from platform ops data and the shared kernel file.
 
-``viknow_ops`` supplies model endpoints. ``src/agents/runtimes/deepagents/runtime.yaml`` supplies
+``viknow3_ops`` supplies model endpoints. ``src/agents/runtimes/deepagents/runtime.yaml`` supplies
 the shared loop. The agent directory supplies the profile. Nothing here reads
 ``app.yaml``.
 """
@@ -28,7 +28,7 @@ from agents.runtimes.deepagents.core.config import (
 )
 from agents.runtimes.deepagents.core.scheduler.unified_config import SchedulerSectionConfig, UnifiedSchedulerAppConfig
 from agents.runtimes.deepagents.runtime_config import RUNTIME_CONFIG_PATH, load_kernel_config, load_model_defaults
-from viknow3.pg import AGENT, dsn
+from viknow3.pg import AGENT, CHECKPOINT_SCHEMA, dsn, ensure_schema, with_search_path
 from viknow3.ops.config.model_resolve import (
     PlatformCatalog,
     agent_model_ref,
@@ -56,6 +56,7 @@ def build_agent_app_config(
     state_dir = files_root / "state"
     state_dir.mkdir(parents=True, exist_ok=True)
 
+    ensure_schema(AGENT, CHECKPOINT_SCHEMA)
     kernel = load_kernel_config()
     kernel = kernel.model_copy(
         update={
@@ -63,7 +64,7 @@ def build_agent_app_config(
                 update={
                     "enabled": True,
                     "backend": PersistenceBackend.POSTGRES,
-                    "postgres_dsn": dsn(AGENT),
+                    "postgres_dsn": with_search_path(dsn(AGENT), CHECKPOINT_SCHEMA),
                 }
             )
         }

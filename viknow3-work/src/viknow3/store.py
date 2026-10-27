@@ -1,4 +1,4 @@
-"""Access-layer state in the viknow_access database.
+"""Access-layer state in the viknow3_access database, schema ``access``.
 
 Users, sessions, workspaces, files, runs, run events, and run files live here,
 so deleting a session or a user is one transaction. The LangGraph checkpoint
@@ -18,7 +18,7 @@ from typing import Any, Iterator
 from psycopg.types.json import Json
 
 from viknow3.clock import new_id, now, stamp
-from viknow3.pg import ACCESS, connect, require_test_database
+from viknow3.pg import ACCESS, ACCESS_SCHEMA, connect, require_test_database
 
 MAX_FILE_BYTES = 20 * 1024 * 1024
 
@@ -398,8 +398,11 @@ def _ensure() -> None:
         for table in SOFT_DELETE_TABLES:
             cur.execute(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS deleted_at timestamptz")
             cur.execute(
-                "SELECT 1 FROM information_schema.columns WHERE table_name = %s AND column_name = 'deleted'",
-                (table,),
+                """
+                SELECT 1 FROM information_schema.columns
+                WHERE table_schema = %s AND table_name = %s AND column_name = 'deleted'
+                """,
+                (ACCESS_SCHEMA, table),
             )
             if cur.fetchone():
                 cur.execute(f"UPDATE {table} SET deleted_at = COALESCE(updated_at, created_at) WHERE deleted AND deleted_at IS NULL")
@@ -707,6 +710,6 @@ def _page(rows: list[Any], limit: int, after: str | None) -> list[Any]:
     return rows[:limit]
 
 
-_CONN = connect(ACCESS)
+_CONN = connect(ACCESS, schema=ACCESS_SCHEMA)
 _ensure()
 STORE = Store()

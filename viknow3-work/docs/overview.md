@@ -9,7 +9,7 @@ ViKnow 是一个进程里的接入层加应用层。调用方用 HTTP 建用户�
 - 用 app key 调用 `/api/v1/agent`，开始或继续一个会话，并用 SSE 读这一轮的事件。
 - 让一个已登记的 agent 在受控的库范围里调用工具，并把用户能看见的问答写入 `run_events`。
 - 用 `/api/v1/knowledge` 和 `/api/v1/knowledge/search` 管理库、上传并检索。
-- 用管理员凭证读写 `viknow_ops` 里的平台配置。
+- 用管理员凭证读写 `viknow3_ops` 里的平台配置。
 
 ## 平台由哪几块组成
 
@@ -19,7 +19,7 @@ ViKnow 是一个进程里的接入层加应用层。调用方用 HTTP 建用户�
 | Agent | `src/viknow3/application/agentcore/` 和 `src/agents/` | 一轮调用、事件、DeepAgents 与 ADK 回合 |
 | 知识库 | `src/viknow3/application/hyperrag/` | 索引和检索。引擎由外壳持有，调用方走 HyperRAG client |
 | Actio | `src/viknow3/application/actio/` | 视频解析和多模态工具。调用方走 Actio client |
-| 运维 | `src/viknow3/ops/` | `viknow_ops` 里的模型、provider 和配置变更 |
+| 运维 | `src/viknow3/ops/` | `viknow3_ops`（schema `ops`）里的模型、provider 和配置变更 |
 
 ```mermaid
 flowchart TB
@@ -31,7 +31,7 @@ flowchart TB
   adk["adk_adapter"]
   adkrt["src/agents/runtimes/adk"]
   knowledge["HyperRAG"]
-  ops["viknow_ops"]
+  ops["viknow3_ops"]
   accessDb["VIKNOW_ACCESS_DSN"]
   agentDb["VIKNOW_AGENT_DSN"]
 

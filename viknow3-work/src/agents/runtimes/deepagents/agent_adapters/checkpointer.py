@@ -83,6 +83,8 @@ def reset_checkpoint_tables(postgres_dsn: str) -> None:
     import psycopg
 
     with psycopg.connect(postgres_dsn, autocommit=True) as conn:
+        conn.execute("CREATE SCHEMA IF NOT EXISTS checkpoint")
+        conn.execute("SET search_path TO checkpoint, public")
         for table in CHECKPOINT_TABLES:
             try:
                 conn.execute(f"TRUNCATE {table}")

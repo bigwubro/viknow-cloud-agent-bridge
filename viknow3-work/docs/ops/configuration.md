@@ -1,6 +1,6 @@
 # 配置
 
-平台配置和某一轮的循环参数是分开的。模型名、provider 地址和密钥的环境变量名在 `viknow_ops`。多个 agent 共用的循环参数在 `src/agents/runtimes/deepagents/runtime.yaml`。某个 agent 的工具、技能和提示词在 `src/agents/profiles/*.yaml`，技能正文在 `src/agents/skills/`。
+平台配置和某一轮的循环参数是分开的。模型名、provider 地址和密钥的环境变量名在 `viknow3_ops`（schema `ops`）。多个 agent 共用的循环参数在 `src/agents/runtimes/deepagents/runtime.yaml`。某个 agent 的工具、技能和提示词在 `src/agents/profiles/*.yaml`，技能正文在 `src/agents/skills/`。
 
 agent runtime 不读 `app.yaml`。
 
@@ -8,7 +8,7 @@ agent runtime 不读 `app.yaml`。
 
 | 内容 | 来源 | 谁读取 |
 | --- | --- | --- |
-| provider、模型名 | `viknow_ops` | `build_agent_app_config` |
+| provider、模型名 | `viknow3_ops` | `build_agent_app_config` |
 | 温度、超时、沙箱、递归上限、checkpoint 开关 | `runtime.yaml` | `load_kernel_config`，再由外壳改 checkpoint |
 | 工具、技能、系统提示、回答检查 | profile YAML | 适配器按 agent 包装配 |
 | checkpoint 连接 | `VIKNOW_AGENT_DSN` | 外壳写入 AppConfig，runtime 自己建 saver |
@@ -16,7 +16,7 @@ agent runtime 不读 `app.yaml`。
 
 `runtime.yaml` 的 `model` 块没有 URL，也没有密钥。外壳把它和 ops 里的模型引用合成 `AgentModelConfig`。
 
-checkpoint 在这条路径上被固定为启用、后端 Postgres、DSN 来自 `VIKNOW_AGENT_DSN`。
+checkpoint 在这条路径上被固定为启用、后端 Postgres、DSN 来自 `VIKNOW_AGENT_DSN`，表在 schema `checkpoint`。
 
 ## 运维接口
 

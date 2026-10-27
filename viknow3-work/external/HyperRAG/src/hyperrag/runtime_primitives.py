@@ -181,6 +181,13 @@ class PostgreSQLDB:
         return None
 
 
+async def _use_hyperrag_schema(conn) -> None:
+    """Put engine tables in ``hyperrag`` and keep ``public`` for extensions such as vector."""
+
+    await conn.execute("CREATE SCHEMA IF NOT EXISTS hyperrag")
+    await conn.execute("SET search_path TO hyperrag, public")
+
+
 class ClientManager:
     _pool: asyncpg.Pool | None = None
     _pool_lock = asyncio.Lock()
@@ -219,6 +226,7 @@ class ClientManager:
                     min_size=1,
                     max_size=int(os.environ.get("POSTGRES_MAX_CONNECTIONS", "20")),
                     command_timeout=60,
+                    init=_use_hyperrag_schema,
                 )
             return cls._pool
 

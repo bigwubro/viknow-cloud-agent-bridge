@@ -12,9 +12,25 @@
 ### 必做
 
 1. 用 Secret `VIKNOW_236_SSH_KEY` 写入 `~/.ssh/id_ed25519`（chmod 600）
-2. SSH：`cursor-agent@36.103.198.236`
+2. **236 用 SSH 长连接（ControlMaster）**，不要每条命令新建 TCP（易被 reset）：
+
+```bash
+# ~/.ssh/config 片段
+Host viknow236
+  HostName 36.103.198.236
+  User cursor-agent
+  IdentityFile ~/.ssh/id_ed25519
+  StrictHostKeyChecking accept-new
+  ControlMaster auto
+  ControlPath ~/.ssh/cm-%r@%h:%p
+  ControlPersist 45m
+
+ssh -fN viknow236   # 先拉起 master（可选，auto 也会建）
+ssh viknow236 '...' # 后续命令复用同一条连接
+```
+
 3. 进入容器：`docker exec -it viknow2-test-dev bash`（非交互可用 `docker exec viknow2-test-dev bash -lc '...'`）
-4. 在 `/workspace` 的 `main` 上开发：
+4. 在 `/workspace` 开发（viknow2 容器内；viknow3 Playground 见下节 `agent/<topic>` 或 `main` 约定）：
    - `git fetch origin && git checkout main && git pull`
    - 改代码、跑测试、`:5176` / 容器内 `:8000` 冒烟
    - `git commit` 后 `git push origin main`

@@ -26,8 +26,18 @@ class AdkTurnRuntime:
         from viknow3.application.hyperrag.runtime import get_engine_adapter
         from viknow3.ops.config.model_resolve import resolve_openai_chat
 
+        from viknow3.application.agent.adk_adapter.inspect import RuntimeInspect
+
         resolved = resolve_openai_chat(getattr(turn, "model_selector", None))
         knowledge = get_engine_adapter()
+        inspect = RuntimeInspect(
+            knowledge,
+            library_ids=tuple(turn.library_ids),
+            question=turn.user_message,
+            user_id=turn.user_id,
+            workspace_id=turn.workspace_id or "",
+            session_id=turn.session_id,
+        )
         final_text = ""
         usage = None
         citations: dict[str, Any] = {}
@@ -43,6 +53,7 @@ class AdkTurnRuntime:
             temperature=resolved.temperature,
             knowledge=knowledge,
             session_dsn=os.environ.get("VIKNOW_AGENT_DSN", ""),
+            inspect=inspect,
         ):
             if notice.kind == "failed":
                 events.failed(notice.text or "adk run failed")

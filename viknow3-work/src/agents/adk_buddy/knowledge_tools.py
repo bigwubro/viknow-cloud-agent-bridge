@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 from collections.abc import Callable
 from pathlib import Path
@@ -30,6 +31,7 @@ def build_knowledge_tools(
     library_ids: tuple[str, ...],
     citations: CitationLog,
     question: str = "",
+    inspect: Callable[[str, dict[str, Any]], str] | None = None,
 ) -> list[Callable[..., Any]]:
     allowed = tuple(dict.fromkeys(library_id for library_id in library_ids if library_id))
     enabled = set(load_enabled_tools())
@@ -107,9 +109,16 @@ def build_knowledge_tools(
         except FileNotFoundError:
             return json.dumps({"error": f"file not found: {file_path}"}, ensure_ascii=False)
 
-    async def uploaded_image_search(query: str = "", workspace_path: str = "") -> str:
-        """Analyze one user-uploaded image. This ADK runtime does not execute it."""
-        return _unavailable("uploaded_image_search")
+    async def uploaded_image_search(workspace_path: str, query: str, library_id: str = "") -> str:
+        """Analyze one uploaded image before search or inspection."""
+        refused = _refused("uploaded_image_search", library_id, allowed)
+        if refused:
+            return refused
+        return await _inspect(
+            inspect,
+            "uploaded_image_search",
+            _present(workspace_path=workspace_path, query=query, library_id=library_id),
+        )
 
     async def video_inspect(
         library_id: str,
@@ -119,19 +128,80 @@ def build_knowledge_tools(
         evidence_id: str = "",
         title: str = "",
     ) -> str:
-        """Inspect one video range. This ADK runtime does not execute it."""
-        del library_id, asset_id, time_range, question, evidence_id, title
-        return _unavailable("video_inspect")
+        """Inspect one video range copied from search evidence."""
+        refused = _refused("video_inspect", library_id, allowed)
+        if refused:
+            return refused
+        return await _inspect(
+            inspect,
+            "video_inspect",
+            _present(
+                library_id=library_id,
+                asset_id=asset_id,
+                time_range=time_range,
+                question=question,
+                evidence_id=evidence_id,
+                title=title,
+            ),
+        )
 
-    async def visual_ground(query: str, file_path: str = "", frame_time: float = 0) -> str:
-        """Locate or count visible objects. This ADK runtime does not execute it."""
-        del query, file_path, frame_time
-        return _unavailable("visual_ground")
+    async def visual_ground(
+        query: str,
+        workspace_path: str = "",
+        library_id: str = "",
+        asset_id: str = "",
+        evidence_id: str = "",
+        mode: str = "",
+        max_results: int = 0,
+        generation_mode: str = "",
+        page_number: int = 0,
+        frame_time: float = -1,
+    ) -> str:
+        """Locate or count a visible target in one image, page, or video frame."""
+        refused = _refused("visual_ground", library_id, allowed)
+        if refused:
+            return refused
+        fields = _present(
+            query=query,
+            workspace_path=workspace_path,
+            library_id=library_id,
+            asset_id=asset_id,
+            evidence_id=evidence_id,
+            mode=mode,
+            generation_mode=generation_mode,
+        )
+        if max_results > 0:
+            fields["max_results"] = max_results
+        if page_number > 0:
+            fields["page_number"] = page_number
+        if frame_time >= 0:
+            fields["frame_time"] = frame_time
+        return await _inspect(inspect, "visual_ground", fields)
 
-    async def document_inspect(library_id: str, asset_id: str, page: int = 1, question: str = "") -> str:
-        """Inspect one document page. This ADK runtime does not execute it."""
-        del library_id, asset_id, page, question
-        return _unavailable("document_inspect")
+    async def document_inspect(
+        library_id: str,
+        asset_id: str,
+        evidence_id: str,
+        question: str,
+        title: str = "",
+        page_indices: list[int] | None = None,
+    ) -> str:
+        """Inspect the original document pages for one selected evidence item."""
+        refused = _refused("document_inspect", library_id, allowed)
+        if refused:
+            return refused
+        return await _inspect(
+            inspect,
+            "document_inspect",
+            _present(
+                library_id=library_id,
+                asset_id=asset_id,
+                evidence_id=evidence_id,
+                question=question,
+                title=title,
+                page_indices=page_indices,
+            ),
+        )
 
     tools = {
         "knowledge_discover": knowledge_discover,
@@ -165,17 +235,34 @@ def _enabled_skills() -> tuple[str, ...]:
     return tuple(str(item) for item in load_profile().get("enabled_skills") or ())
 
 
-def _unavailable(name: str) -> str:
-    return json.dumps(
-        {
-            "tool": name,
-            "error": (
-                f"{name} is named by the shared skill, but this ADK runtime does not "
-                "execute it. Record the gap and do not invent the missing fact."
-            ),
-        },
-        ensure_ascii=False,
-    )
+def _refused(name: str, library_id: str, allowed: tuple[str, ...]) -> str:
+    chosen = library_id.strip()
+    if chosen and chosen not in allowed:
+        return json.dumps(
+            {"tool": name, "error": f"library {chosen} is not granted for this turn"},
+            ensure_ascii=False,
+        )
+    return ""
+
+
+def _present(**fields: Any) -> dict[str, Any]:
+    return {key: value for key, value in fields.items() if value not in ("", None)}
+
+
+async def _inspect(
+    inspect: Callable[[str, dict[str, Any]], str] | None,
+    name: str,
+    args: dict[str, Any],
+) -> str:
+    if inspect is None:
+        return json.dumps(
+            {"tool": name, "error": f"{name} is not attached to this ADK turn"},
+            ensure_ascii=False,
+        )
+    try:
+        return await asyncio.to_thread(inspect, name, args)
+    except Exception as exc:
+        return _error(exc)
 
 
 def _read_skill_file(file_path: str) -> str:

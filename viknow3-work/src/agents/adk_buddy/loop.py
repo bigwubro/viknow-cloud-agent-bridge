@@ -30,6 +30,7 @@ async def run_turn(
     temperature: float,
     knowledge: Any,
     session_dsn: str,
+    inspect: Any = None,
 ) -> AsyncIterator[AdkNotice]:
     """Yield tool and answer notices. The caller writes shell events."""
     citations = CitationLog()
@@ -51,6 +52,7 @@ async def run_turn(
             citations=citations,
             session_dsn=session_dsn,
             question=message,
+            inspect=inspect,
         )
         await _ensure_session(runner, adk_user, adk_session)
         yield AdkNotice(kind="model_started")
@@ -103,6 +105,7 @@ def _prepare(
     citations: CitationLog,
     session_dsn: str,
     question: str,
+    inspect: Any = None,
 ) -> tuple[Any, Any, str, str]:
     from google.adk.agents.llm_agent import Agent
     from google.adk.models.lite_llm import LiteLlm
@@ -120,7 +123,7 @@ def _prepare(
         name="adk_buddy",
         model=endpoint,
         instruction=build_instruction(library_ids),
-        tools=build_knowledge_tools(knowledge, library_ids, citations, question),
+        tools=build_knowledge_tools(knowledge, library_ids, citations, question, inspect),
     )
     service = _session_service(session_dsn)
     try:

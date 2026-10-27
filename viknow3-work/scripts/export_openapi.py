@@ -37,14 +37,11 @@ def tag_for_path(path: str) -> str:
             "/sessions",
             "/runs",
             "/files",
-            "/workspace",
             "/events",
             "/history",
             "/interrupt",
         )
         if any(m in path for m in chat_markers):
-            return "Chat"
-        if path.startswith("/api/v1/agent/runs") or path.startswith("/api/v1/agent/sessions"):
             return "Chat"
         return "Agent"
     return "Knowledge"

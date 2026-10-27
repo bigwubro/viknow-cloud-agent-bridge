@@ -50,20 +50,6 @@ def permissions(user_id: str, library_id: str | None, asset_id: str | None) -> d
     }
 
 
-def create_run(app_key: AppKey, fields: dict[str, Any], uploads: list[tuple[str, str | None, bytes]]) -> dict[str, Any]:
-    profile_id = str(fields.get("profile_id") or app_key.default_agent_id)
-    session_id = str(fields.get("session_id") or "") or None
-    body = _submit(app_key, profile_id, fields, uploads, session_id)
-    return {
-        "run_id": body["run_id"],
-        "session_id": body["session_id"],
-        "workspace_id": body["workspace_id"],
-        "profile_id": profile_id,
-        "status": body["status"],
-        "file_ids": body["file_ids"],
-    }
-
-
 def start_session(app_key: AppKey, agent_id: str, fields: dict[str, Any], uploads: list[tuple[str, str | None, bytes]]) -> dict[str, Any]:
     """POST .../agents/{agent_id}/sessions: a new session and its first run."""
     return _submit_result(_submit(app_key, agent_id, fields, uploads, None))
@@ -247,11 +233,6 @@ def run_history(app_key: AppKey, agent_id: str, session_id: str, run_id: str) ->
     return read_events(run_id, 0, app_key)
 
 
-def get_run(run_id: str, app_key: AppKey) -> dict[str, Any]:
-    with STORE.lock:
-        return _visible_run(run_id, app_key).public()
-
-
 def interrupt(run_id: str, app_key: AppKey) -> dict[str, Any]:
     with STORE.lock:
         run = _visible_run(run_id, app_key)
@@ -300,13 +281,6 @@ def get_session(app_key: AppKey, session_id: str, agent_id: str) -> dict[str, An
     return _session(app_key, session_id, agent_id).public()
 
 
-def update_session(app_key: AppKey, session_id: str, agent_id: str, title: str) -> dict[str, Any]:
-    with STORE.lock:
-        session = _session(app_key, session_id, agent_id)
-        session.update(title=title, updated_at=now())
-        return session.public()
-
-
 def session_runs(app_key: AppKey, session_id: str, agent_id: str, status: str | None, limit: int, after: str | None) -> list[dict[str, Any]]:
     get_session(app_key, session_id, agent_id)
     rows = [run for run in STORE.runs.values() if run.session_id == session_id and not run.deleted]
@@ -317,20 +291,6 @@ def session_runs(app_key: AppKey, session_id: str, agent_id: str, status: str | 
         index = next((i for i, item in enumerate(rows) if item.id == after), None)
         rows = [] if index is None else rows[index + 1 :]
     return [item.public() for item in rows[:limit]]
-
-
-def workspace_of(app_key: AppKey, session_id: str, agent_id: str) -> dict[str, Any]:
-    session = STORE.find_session(session_id, agent_id=agent_id)
-    if session is None:
-        raise AgentError(404, {"detail": "workspace not found"})
-    return STORE.workspaces[session.workspace_id].public()
-
-
-def upload_file(app_key: AppKey, session_id: str, agent_id: str, name: str, mime: str | None, content: bytes) -> dict[str, Any]:
-    with STORE.lock:
-        session = _session(app_key, session_id, agent_id)
-        workspace = STORE.workspaces[session.workspace_id]
-        return _save_file(workspace, session, name, mime, content).public()
 
 
 def list_files(app_key: AppKey, session_id: str, agent_id: str, limit: int, after: str | None) -> list[dict[str, Any]]:
@@ -344,26 +304,10 @@ def list_files(app_key: AppKey, session_id: str, agent_id: str, limit: int, afte
     return [item.public() for item in rows[:limit]]
 
 
-def get_file(app_key: AppKey, file_id: str, agent_id: str) -> dict[str, Any]:
-    record = STORE.files.get(file_id)
-    if record is None or record.deleted or record.agent_id != agent_id:
-        raise AgentError(404, {"detail": "file not found"})
-    return record.public()
-
-
-def file_bytes(app_key: AppKey, file_id: str, agent_id: str) -> tuple[str, bytes]:
-    record = STORE.files.get(file_id)
-    if record is None or record.deleted or record.agent_id != agent_id:
-        raise AgentError(404, {"detail": "file not found"})
-    return record.mime_type or "application/octet-stream", record.content
-
-
-def delete_file(app_key: AppKey, file_id: str, agent_id: str, session_id: str | None = None) -> None:
+def delete_file(app_key: AppKey, file_id: str, agent_id: str, session_id: str) -> None:
     with STORE.lock:
         record = STORE.files.get(file_id)
-        if record is None or record.deleted or record.agent_id != agent_id:
-            raise AgentError(404, {"detail": "file not found"})
-        if session_id is not None and record.session_id != session_id:
+        if record is None or record.deleted or record.agent_id != agent_id or record.session_id != session_id:
             raise AgentError(404, {"detail": "file not found"})
         in_use = any(
             run.status == "running" and file_id in run.file_ids and not run.deleted

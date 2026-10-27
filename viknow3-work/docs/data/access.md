@@ -18,7 +18,7 @@ DeepAgents 的 checkpoint 不在这个库。它在 `VIKNOW_AGENT_DSN`。知识�
 
 `sessions.library_ids` 和 `run_refs` 的 `file_ids`、`citations`、`token_usage` 是 JSON。`files.content` 是 `bytea`。
 
-对外 JSON 不返回 `deleted_at`，也不返回文件字节。文件字节走 `GET /api/v1/agent/files/{file_id}/content`。用户的 `public()` 含 `id`、`display_name`、时间、`memory_enabled`。会话的 `public()` 含 `id`、`user_id`、`agent_id`、`title`、`library_ids` 和时间，不含 `workspace_id`。workspace 单独用 workspace 接口读。
+对外 JSON 不返回 `deleted_at`，也不返回文件字节。用户的 `public()` 含 `id`、`display_name`、时间、`memory_enabled`。会话的 `public()` 含 `id`、`user_id`、`agent_id`、`title`、`library_ids` 和时间，不含 `workspace_id`。
 
 ## 谁写终态
 

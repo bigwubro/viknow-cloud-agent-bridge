@@ -97,25 +97,26 @@ class AccessTests(unittest.TestCase):
         status, _ = self.request("GET", "/api/v1/agent/profiles/deepagents", key="nope")
         self.assertEqual(status, 401)
 
+        agent = "/api/v1/agent/agents/expertbuddy-deepagents"
         status, no_lib = self.request(
             "POST",
-            "/api/v1/agent/runs",
-            {"user_id": user["id"], "message": "你好", "profile_id": "expertbuddy-deepagents"},
+            f"{agent}/sessions",
+            {"user_id": user["id"], "message": "你好"},
         )
         self.assertEqual(status, 422)
 
         status, run = self.request(
             "POST",
-            "/api/v1/agent/runs",
+            f"{agent}/sessions",
             {"user_id": user["id"], "message": "你好", "library_ids": ["library-1"]},
         )
         self.assertEqual(status, 200)
-        self.assertEqual(run["status"], "running")
+        self.assertEqual(run["agent_id"], "expertbuddy-deepagents")
 
         status, busy = self.request(
             "POST",
-            "/api/v1/agent/runs",
-            {"user_id": user["id"], "message": "第二句", "session_id": run["session_id"]},
+            f"{agent}/sessions/{run['session_id']}/runs",
+            {"user_id": user["id"], "message": "第二句"},
         )
         self.assertEqual(status, 409)
         self.assertEqual(busy["code"], "session_busy")
@@ -127,7 +128,7 @@ class AccessTests(unittest.TestCase):
         self.assertTrue(allowed["allowed"])
 
         raw = self.client.get(
-            f"/api/v1/agent/runs/{run['run_id']}/events",
+            f"{agent}/sessions/{run['session_id']}/runs/{run['run_id']}/events",
             headers={"Authorization": "Bearer dev-app-key"},
         ).text
         self.assertIn("event: run_completed", raw)
@@ -137,12 +138,18 @@ class AccessTests(unittest.TestCase):
 
         status, again = self.request(
             "POST",
-            "/api/v1/agent/runs",
-            {"user_id": user["id"], "message": "继续", "session_id": run["session_id"]},
+            f"{agent}/sessions/{run['session_id']}/runs",
+            {"user_id": user["id"], "message": "继续"},
         )
         self.assertEqual(status, 200, again)
-        status, interrupted = self.request("POST", f"/api/v1/agent/runs/{again['run_id']}/interrupt", {})
+        status, interrupted = self.request(
+            "POST",
+            f"{agent}/sessions/{again['session_id']}/runs/{again['run_id']}/interrupt",
+            {},
+        )
         self.assertEqual(status, 200)
+        self.assertEqual(interrupted["run_id"], again["run_id"])
+        self.assertEqual(interrupted["session_id"], again["session_id"])
 
         status, missing = self.request("POST", "/api/v1/knowledge/search", {"library_id": "nope", "query": "步骤"})
         self.assertEqual(status, 200)

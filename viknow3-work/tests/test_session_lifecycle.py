@@ -163,8 +163,6 @@ class SessionLifecycleTests(unittest.TestCase):
         run_base = f"{base}/runs/{submitted['run_id']}"
         for path in (base, f"{base}/runs", f"{base}/files", run_base, f"{run_base}/history", f"{run_base}/events"):
             self.assertEqual(self.client.get(path, headers=AUTH).status_code, 404, path)
-        self.assertEqual(self.client.get(f"/api/v1/agent/runs/{submitted['run_id']}", headers=AUTH).status_code, 404)
-        self.assertEqual(self.client.get(f"/api/v1/agent/files/{file_id}?agent_id=expertbuddy-deepagents", headers=AUTH).status_code, 404)
         listed = self.client.get(f"{AGENT}/sessions?user_id={self.user['id']}", headers=AUTH).json()
         self.assertNotIn(session_id, [item["id"] for item in listed])
         again = self.client.post(f"{base}/runs", json={"user_id": self.user["id"], "message": "还在吗"}, headers=AUTH)

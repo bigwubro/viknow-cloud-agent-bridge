@@ -13,12 +13,8 @@ JSON 和 `multipart/form-data` 都可以提交一轮。multipart 里的文件字
 | `library_ids` | 仅第一轮使用。启用了知识库工具的 agent 必须恰好一个库 |
 | `agent_model` 或 `model` | 可选。未知模型 400，`code` 为 `unknown_model` |
 | `attachment_file_ids` 或 `file_ids` | 可选。文件必须属于这个会话的 workspace，否则 400，`code` 为 `invalid_file_ids` |
-| `profile_id` | 只在 `POST /runs` 上使用。缺省是 app key 的默认 agent |
-| `session_id` | 只在 `POST /runs` 上使用。空则新建会话 |
 
-`POST /agents/{agent_id}/sessions` 的成功体包含 `run_id`、`session_id`、`workspace_id`、`agent_id`、`uploaded_file_ids`。
-
-`POST /runs` 的成功体包含 `run_id`、`session_id`、`workspace_id`、`profile_id`、`status`、`file_ids`。
+`POST /agents/{agent_id}/sessions` 和 `POST .../sessions/{session_id}/runs` 的成功体包含 `run_id`、`session_id`、`workspace_id`、`agent_id`、`uploaded_file_ids`。
 
 ## 路径
 
@@ -29,7 +25,6 @@ JSON 和 `multipart/form-data` 都可以提交一轮。multipart 里的文件字
 | POST | `/agents/{agent_id}/sessions` | 新会话和第一轮 |
 | GET | `/agents/{agent_id}/sessions?user_id=` | 该用户在这个 agent 下的会话 |
 | GET | `/agents/{agent_id}/sessions/{session_id}` | 一个会话 |
-| PATCH | `/agents/{agent_id}/sessions/{session_id}` | 用 body 里的 `title` 改标题 |
 | DELETE | `/agents/{agent_id}/sessions/{session_id}?user_id=` | 204。忙则 409 `session_busy` |
 | POST | `/agents/{agent_id}/sessions/{session_id}/runs` | 继续会话 |
 | GET | `/agents/{agent_id}/sessions/{session_id}/runs` | 该会话的 run。可带 `status`、`limit`、`after` |
@@ -39,25 +34,11 @@ JSON 和 `multipart/form-data` 都可以提交一轮。multipart 里的文件字
 | GET | `/agents/{agent_id}/sessions/{session_id}/runs/{run_id}/history` | 已结束 run 的事件。仍在跑则 409 |
 | POST | `/agents/{agent_id}/sessions/{session_id}/runs/{run_id}/interrupt` | `{run_id, session_id}` |
 | GET | `/agents/{agent_id}/sessions/{session_id}/files` | 会话文件 |
-| DELETE | `/agents/{agent_id}/sessions/{session_id}/files/{file_id}` | 204 |
+| DELETE | `/agents/{agent_id}/sessions/{session_id}/files/{file_id}` | 204。仍被 run 使用时 409，`code` 为 `file_in_use` |
 | GET | `/profiles` | `{default_profile, profiles}` |
 | GET | `/profiles/{agent_id}` | 同单个 agent |
 | GET | `/models` | `default_model` 和 `models` |
 | GET | `/permissions?user_id=` | 还要 `library_id` 或 `asset_id`。返回 `{allowed, user_id, library_id, asset_id}` |
-| POST | `/runs` | 用 `profile_id` 开始一轮，可带已有 `session_id` |
-| GET | `/runs/{run_id}` | 一个 run |
-| GET | `/runs/{run_id}/events` | SSE |
-| POST | `/runs/{run_id}/interrupt` | `{status: interrupted}` |
-| GET | `/sessions?user_id=` | 可带 `agent_id`，缺省用 app key 的默认 agent |
-| GET | `/sessions/{session_id}` | 一个会话 |
-| PATCH | `/sessions/{session_id}` | 改标题 |
-| GET | `/sessions/{session_id}/runs` | 该会话的 run |
-| GET | `/sessions/{session_id}/workspace` | workspace |
-| GET | `/sessions/{session_id}/files` | 文件列表 |
-| POST | `/sessions/{session_id}/files` | 上传。没有文件时 422 |
-| GET | `/files/{file_id}` | 文件元数据 |
-| GET | `/files/{file_id}/content` | 文件字节 |
-| DELETE | `/files/{file_id}` | 204。仍被 run 使用时 409，`code` 为 `file_in_use` |
 
 嵌套路径会核对 run 属于该 session 和 agent。对不上按不存在处理。
 

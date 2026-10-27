@@ -36,7 +36,7 @@ runtime 自己的 run-started 和 user-message 不会再写一遍。终态只接
 
 ## 怎么读
 
-`GET /api/v1/agent/runs/{run_id}/events` 和嵌套的 `.../sessions/{session_id}/runs/{run_id}/events` 都是 SSE。查询参数：
+`GET /api/v1/agent/agents/{agent_id}/sessions/{session_id}/runs/{run_id}/events` 是 SSE。查询参数：
 
 | 参数 | 缺省 | 作用 |
 | --- | --- | --- |

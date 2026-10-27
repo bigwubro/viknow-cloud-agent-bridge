@@ -23,7 +23,7 @@
 
 视频检查、语音转写、OCR、视觉定位、视频发现和抽帧走注入的 `ActioClient`。工具不自己构造这些客户端，也不加载 `actio` 包。没有注入 client 时，这些工具报 `actio client is required`。
 
-知识助手的技能要求：匹配技能时，第一个工具调用是 `read_file`，读该技能的 `SKILL.md`。最终给用户的正文放在没有工具调用的消息里。回答检查开着，`max_retries` 是 0，`allow_low_confidence_output` 是 true。这是 `expertbuddy-deepagents`。`expertbuddy-adk` 不读这份技能，它自己的 `knowledge-qa` 只引用 `chunk_text`，工具函数在 `agents/adk_buddy/knowledge_tools.py`，调用的是同一个注入的知识库 client。
+两个知识助手使用同一份 `knowledge-qa`。回答只引用 `chunk_text`。`expertbuddy-deepagents` 的第一个工具调用是 `read_file`，读这份 `SKILL.md`。回答检查开着，`max_retries` 是 0，`allow_low_confidence_output` 是 true。`expertbuddy-adk` 把同一份技能附在指令里，工具函数在 `agents/adk_buddy/knowledge_tools.py`，调用的是同一个注入的知识库 client。
 
 运维助手的工具是 Prometheus、vLLM 和 NPM 的查询与健康检查，不是知识库工具。证据采集器在检索之外还有一组 `evidence_*` 工具。各包的完整名单以 profile YAML 为准。
 

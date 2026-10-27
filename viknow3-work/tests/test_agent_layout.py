@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import unittest
+from pathlib import Path
 
 from agents.layout import discover_agents, package_for_public_id
 
@@ -24,6 +25,19 @@ class AgentLayoutTests(unittest.TestCase):
         self.assertIsNone(package_for_public_id("missing"))
         self.assertIsNone(package_for_public_id("deepagents"))
         self.assertIsNone(package_for_public_id("adk"))
+
+    def test_both_agents_use_the_same_knowledge_skill(self) -> None:
+        root = Path(__file__).resolve().parents[1] / "src" / "agents"
+        adk = (root / "adk_buddy" / "skills" / "knowledge-qa" / "SKILL.md").read_text(encoding="utf-8")
+        deepagents = (root / "expert_buddy" / "skills" / "knowledge-qa" / "SKILL.md").read_text(encoding="utf-8")
+        self.assertEqual(adk, deepagents)
+        self.assertEqual(package_for_public_id("expertbuddy-adk").enabled_tools, package_for_public_id("expertbuddy-deepagents").enabled_tools)
+        self.assertEqual(package_for_public_id("expertbuddy-adk").enabled_tools, (
+            "knowledge_discover",
+            "knowledge_search",
+            "list_doc_segments",
+            "list_video_segments",
+        ))
 
 
 if __name__ == "__main__":

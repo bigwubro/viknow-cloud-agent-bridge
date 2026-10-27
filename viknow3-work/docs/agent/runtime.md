@@ -127,7 +127,7 @@ sequenceDiagram
   end
 ```
 
-ADK 的对外 id 是 `expertbuddy-adk`，目录是 `adk_buddy`。它的技能允许直接引用 `chunk_text`。`expertbuddy-deepagents` 的 `knowledge-qa-v2` 要求 inspect 声明，不拿来给 ADK 用。
+两边的对外 id 分别是 `expertbuddy-deepagents` 和 `expertbuddy-adk`。技能正文是同一份 `knowledge-qa`，都只引用 `chunk_text`。DeepAgents 用 `read_file` 读取它，ADK 把它附在指令里。
 
 ## 下一步
 

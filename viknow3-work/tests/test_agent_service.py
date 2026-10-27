@@ -153,7 +153,7 @@ class AgentServiceTests(unittest.TestCase):
         started = [item["payload"] for item in events if item["type"] == "tool_call_started"]
         self.assertEqual(
             [item["name"] for item in started],
-            ["read_file", "knowledge_discover", "query_refine", "knowledge_search"],
+            ["read_file", "knowledge_discover", "knowledge_search"],
         )
         completed = [item["payload"] for item in events if item["type"] == "tool_call_completed"]
         self.assertEqual([item["tool_call_id"] for item in completed], [item["tool_call_id"] for item in started])

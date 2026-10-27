@@ -31,9 +31,9 @@ Registry 把 profile 里的 `runtime` 原样记下来。`host.turn_runtime` 读�
 | `expert_buddy` | `expertbuddy-deepagents` | `expertbuddy-deepagents` | expertbuddy-deepagents |
 | `adk_buddy` | `expertbuddy-adk` | `expertbuddy-adk` | expertbuddy-adk |
 
-工具和技能以各 profile 的 `enabled_tools`、`enabled_skills` 为准。`expertbuddy-deepagents` 启用 `knowledge_discover`、`knowledge_search`、`query_refine`、`answer_plan`、`uploaded_image_search`、`video_inspect_2_0`、`visual_ground`、`document_inspect`、`list_video_segments`、`list_doc_segments`，技能是 `knowledge-qa-v2` 和 `visual-ground`。它的 `answer_review.max_retries` 是 0：检查仍会跑，未通过时发布当前答案。
+两个 agent 使用同一份 `knowledge-qa` 技能正文，工具都是 `knowledge_discover`、`knowledge_search`、`list_doc_segments`、`list_video_segments`。回答只引用工具返回的 `chunk_text`。
 
-`expertbuddy-adk` 单独维护 profile 和技能 `knowledge-qa`。工具只有 `knowledge_discover`、`knowledge_search`、`list_doc_segments`、`list_video_segments`。回答只引用工具返回的 `chunk_text`。索引器生成的 context 不会交给模型。没有 inspect 和回答检查。
+`expertbuddy-deepagents` 仍先 `read_file` 读技能，并跑回答检查。`max_retries` 是 0，未通过时发布当前答案。`expertbuddy-adk` 把同一份技能写进指令，不读文件，也不跑回答检查。
 
 ## 外壳里的对象
 

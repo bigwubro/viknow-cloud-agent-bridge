@@ -5,7 +5,26 @@ from __future__ import annotations
 from typing import Any
 
 _PREFIX = "knowledge/assets/"
+_STORAGE_PREFIX = "storage://"
 _CACHE: dict[tuple[str, str], str] = {}
+
+
+def storage_uri(library_id: str, asset_id: str) -> str:
+    return f"{_STORAGE_PREFIX}{library_id}/{asset_id}"
+
+
+def parse_storage_uri(value: Any) -> tuple[str, str] | None:
+    if not isinstance(value, str) or not value.startswith(_STORAGE_PREFIX):
+        return None
+    rest = value[len(_STORAGE_PREFIX) :].strip()
+    if not rest or "/" not in rest:
+        return None
+    library_id, asset_id = rest.split("/", 1)
+    library_id = library_id.strip()
+    asset_id = asset_id.strip()
+    if not library_id or not asset_id or ".." in library_id or ".." in asset_id:
+        return None
+    return library_id, asset_id
 
 
 def knowledge_object_key(value: Any) -> str | None:
@@ -41,10 +60,17 @@ def catalog_asset_object_key(library_id: str, asset_id: str) -> str | None:
         return None
     if row is None:
         return None
-    key = knowledge_object_key(getattr(row, "asset_path", None))
+    path = getattr(row, "asset_path", None)
+    key = knowledge_object_key(path)
     if key:
         _CACHE[(library, asset)] = key
-    return key
+        return key
+    parsed = parse_storage_uri(path)
+    if parsed and parsed == (library, asset):
+        uri = storage_uri(library, asset)
+        _CACHE[(library, asset)] = uri
+        return uri
+    return None
 
 
 def resolve_asset_object_key(

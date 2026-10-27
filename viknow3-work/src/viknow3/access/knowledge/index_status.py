@@ -6,6 +6,8 @@ from typing import Any
 
 from viknow3.access.knowledge import store
 from viknow3.access.knowledge.service import KnowledgeError
+from viknow3.service.storage.client import StorageClientError
+from viknow3.service.storage.gateway import get_storage_client, storage_configured
 
 _INDEX_DONE = frozenset({"done", "completed"})
 _INDEX_FAILED = frozenset({"failed", "cancelled"})
@@ -192,13 +194,34 @@ def _payload_from_persisted_job(library_id: str, asset_id: str, job: store.Index
     }
 
 
+def _resolve_index_asset(library_id: str, asset_id: str) -> store.AssetRow | None:
+    row = store.get_asset(library_id, asset_id)
+    if row is not None:
+        return row
+    if not storage_configured():
+        return None
+    try:
+        client = get_storage_client()
+        if not client.asset_exists(library_id, asset_id):
+            return None
+        remote = client.get_asset(library_id, asset_id)
+    except StorageClientError:
+        return None
+    return store.ensure_asset_for_index(
+        library_id,
+        asset_id,
+        str(remote.get("title") or asset_id),
+        str(remote.get("modality") or "document"),
+    )
+
+
 def get_asset_index_status(library_id: str, asset_id: str) -> dict[str, Any]:
     library_id = str(library_id or "").strip()
     asset_id = str(asset_id or "").strip()
     if not library_id or not asset_id:
         raise KnowledgeError(422, {"detail": "library_id and asset_id are required"})
 
-    asset = store.get_asset(library_id, asset_id)
+    asset = _resolve_index_asset(library_id, asset_id)
     if asset is None:
         raise KnowledgeError(404, {"detail": "asset not found"})
 
@@ -279,11 +302,23 @@ def list_library_assets_index_status(library_id: str, limit: int | None = None) 
     library_id = str(library_id or "").strip()
     if not library_id:
         raise KnowledgeError(422, {"detail": "library_id is required"})
-    if store.get_library(library_id) is None:
-        raise KnowledgeError(404, {"detail": "library not found"})
     cap = 100 if limit is None else max(1, min(int(limit), 100))
-    assets = store.list_assets(library_id, cap, None)
-    return [get_asset_index_status(library_id, asset.asset_id) for asset in assets]
+    asset_ids: list[str] = []
+    if storage_configured():
+        try:
+            client = get_storage_client()
+            client.get_library(library_id)
+            asset_ids = [str(row.get("asset_id") or "") for row in client.list_assets(library_id, limit=cap)]
+            asset_ids = [aid for aid in asset_ids if aid]
+        except StorageClientError as exc:
+            if exc.status == 404:
+                raise KnowledgeError(404, {"detail": "library not found"}) from exc
+            raise KnowledgeError(exc.status, {"detail": exc.detail}) from exc
+    else:
+        if store.get_library(library_id) is None:
+            raise KnowledgeError(404, {"detail": "library not found"})
+        asset_ids = [asset.asset_id for asset in store.list_assets(library_id, cap, None)]
+    return [get_asset_index_status(library_id, asset_id) for asset_id in asset_ids]
 
 
 def get_latest_index_job(library_id: str, asset_id: str) -> dict[str, Any]:
@@ -291,7 +326,7 @@ def get_latest_index_job(library_id: str, asset_id: str) -> dict[str, Any]:
     asset_id = str(asset_id or "").strip()
     if not library_id or not asset_id:
         raise KnowledgeError(422, {"detail": "library_id and asset_id are required"})
-    if store.get_asset(library_id, asset_id) is None:
+    if _resolve_index_asset(library_id, asset_id) is None:
         raise KnowledgeError(404, {"detail": "asset not found"})
     job = store.get_latest_index_job(library_id, asset_id)
     if job is None:

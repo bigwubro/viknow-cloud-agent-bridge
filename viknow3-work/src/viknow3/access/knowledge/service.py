@@ -9,7 +9,9 @@ from uuid import uuid4
 
 from viknow3.access.knowledge import store
 from viknow3.service.hyperrag.client import HYPERAG, HyperragClientError
-from viknow3.service.hyperrag.object_gateway import ObjectFetchError, fetch_index_object, get_object_store
+from viknow3.service.hyperrag.object_gateway import ObjectFetchError, fetch_index_asset, fetch_index_object, get_object_store
+from viknow3.service.storage.client import StorageClientError
+from viknow3.service.storage.gateway import get_storage_client, storage_configured
 from viknow3.storage import s3
 
 _LIBRARY_ID = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$")
@@ -248,20 +250,49 @@ def create_index_job(body: dict[str, Any]) -> dict[str, Any]:
     library_id = str(body.get("library_id") or "").strip()
     asset_id = str(body.get("asset_id") or "").strip()
     asset_path = str(body.get("asset_path") or "").strip()
-    if not library_id or not asset_id or not asset_path:
-        raise KnowledgeError(422, {"detail": [{"loc": ["body"], "msg": "library_id, asset_id and asset_path are required", "type": "missing"}]})
-    asset = _catalog_asset(library_id, asset_id)
-    if asset_path != asset.asset_path:
+    if not library_id or not asset_id:
         raise KnowledgeError(
             422,
-            {"detail": [{"loc": ["body", "asset_path"], "msg": "asset_path does not match the asset", "type": "value_error"}]},
+            {"detail": [{"loc": ["body"], "msg": "library_id and asset_id are required", "type": "missing"}]},
         )
-    if asset_path.startswith("missing/") or "\x00" in asset_path:
-        raise KnowledgeError(400, {"detail": "asset_path is not an available storage object key or absolute file path"})
     params = body.get("params") or {}
     title = params.get("title") if isinstance(params, dict) else None
-    if title is None:
-        title = asset.title
+
+    if asset_path:
+        asset = _catalog_asset(library_id, asset_id)
+        if asset_path != asset.asset_path:
+            raise KnowledgeError(
+                422,
+                {"detail": [{"loc": ["body", "asset_path"], "msg": "asset_path does not match the asset", "type": "value_error"}]},
+            )
+        if asset_path.startswith("missing/") or "\x00" in asset_path:
+            raise KnowledgeError(400, {"detail": "asset_path is not an available storage object key or absolute file path"})
+        if title is None:
+            title = asset.title
+        fetch = lambda: fetch_index_object(asset_path)
+    elif storage_configured():
+        try:
+            client = get_storage_client()
+            if not client.asset_exists(library_id, asset_id):
+                raise KnowledgeError(404, {"detail": "asset not found"})
+            remote = client.get_asset(library_id, asset_id)
+        except StorageClientError as exc:
+            raise KnowledgeError(exc.status, {"detail": exc.detail}) from exc
+        store.ensure_asset_for_index(
+            library_id,
+            asset_id,
+            str(remote.get("title") or asset_id),
+            str(remote.get("modality") or "document"),
+        )
+        if title is None:
+            title = remote.get("title")
+        fetch = lambda: fetch_index_asset(library_id, asset_id)
+    else:
+        raise KnowledgeError(
+            422,
+            {"detail": [{"loc": ["body", "asset_path"], "msg": "asset_path is required when viknow-storage is not configured", "type": "missing"}]},
+        )
+
     if title is not None and not str(title).strip():
         raise KnowledgeError(422, {"detail": [{"loc": ["body", "params", "title"], "msg": "title must be non-empty", "type": "value_error"}]})
     compile_mode = body.get("compile_mode")
@@ -269,7 +300,7 @@ def create_index_job(body: dict[str, Any]) -> dict[str, Any]:
         raise KnowledgeError(422, {"detail": [{"loc": ["body", "compile_mode"], "msg": "invalid compile_mode", "type": "literal_error"}]})
     mode = compile_mode if compile_mode in ("pre_compile", "fast_ingest") else None
     try:
-        fetched = fetch_index_object(asset_path)
+        fetched = fetch()
     except ObjectFetchError as exc:
         raise KnowledgeError(exc.status, exc.body) from exc
     job = HYPERAG.create_index(
@@ -306,6 +337,30 @@ def get_index_job_tasks(job_id: str) -> list[dict[str, Any]]:
     if not job_id.strip():
         raise KnowledgeError(422, {"detail": "job_id is required"})
     return _hyperrag_call(lambda: HYPERAG.get_index_job_tasks(job_id))
+
+
+def proxy_storage_asset(
+    library_id: str,
+    asset_id: str,
+    *,
+    preview: bool,
+    range_header: str | None = None,
+) -> tuple[int, dict[str, str], bytes]:
+    """Stream bytes from viknow-storage for Playground/agents (AppKey on this hop)."""
+
+    if not storage_configured():
+        raise KnowledgeError(503, {"detail": "viknow-storage is not configured"})
+    library_id = str(library_id or "").strip()
+    asset_id = str(asset_id or "").strip()
+    if not library_id or not asset_id:
+        raise KnowledgeError(422, {"detail": "library_id and asset_id are required"})
+    try:
+        client = get_storage_client()
+        if not client.asset_exists(library_id, asset_id):
+            raise KnowledgeError(404, {"detail": "asset not found"})
+        return client.fetch_bytes(library_id, asset_id, preview=preview, range_header=range_header)
+    except StorageClientError as exc:
+        raise KnowledgeError(exc.status, {"detail": exc.detail}) from exc
 
 
 def delete_index(library_id: str, asset_id: str) -> dict[str, Any]:

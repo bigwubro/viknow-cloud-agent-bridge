@@ -3,6 +3,9 @@ const PlaygroundLibrary = (() => {
   const STORAGE_KEY = "viknow_playground_user";
   const APP_KEY_STORAGE = "viknow_app_key";
   const KNOWLEDGE = "/api/v1/knowledge";
+  const storageBase = () => String(window.VIKNOW_STORAGE_URL || "").replace(/\/$/, "");
+  const storageToken = () => String(window.VIKNOW_STORAGE_TOKEN || "").trim();
+  const storageEnabled = () => Boolean(storageBase() && storageToken());
   const INDEX_JOB_TERMINAL = new Set(["done", "failed", "cancelled", "completed"]);
   const INDEX_JOB_SUCCESS = new Set(["done", "completed"]);
   const INDEX_JOB_POLL_MS = 2000;
@@ -36,6 +39,46 @@ const PlaygroundLibrary = (() => {
       throw new Error(detailMessage(payload));
     }
     return payload;
+  }
+
+  async function storageApi(path, options = {}) {
+    const headers = { Authorization: `Bearer ${storageToken()}`, ...(options.headers || {}) };
+    if (!(options.body instanceof FormData)) {
+      headers["Content-Type"] = "application/json";
+    }
+    const response = await fetch(`${storageBase()}${path}`, { ...options, headers });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(detailMessage(payload));
+    }
+    return payload;
+  }
+
+  async function storageMultipart(path, formData) {
+    const response = await fetch(`${storageBase()}${path}`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${storageToken()}` },
+      body: formData,
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(detailMessage(payload));
+    }
+    return payload;
+  }
+
+  async function openStorageBlob(path) {
+    const response = await fetch(`${storageBase()}${path}`, {
+      headers: { Authorization: `Bearer ${storageToken()}` },
+    });
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      throw new Error(detailMessage(payload));
+    }
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    window.open(url, "_blank", "noopener");
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
   }
 
   async function apiMultipart(path, formData) {
@@ -97,10 +140,19 @@ const PlaygroundLibrary = (() => {
   }
 
   async function loadLibraries() {
+    if (storageEnabled()) {
+      return storageApi("/libraries?limit=100");
+    }
     return api(`${KNOWLEDGE}/libraries?limit=100`);
   }
 
   async function createLibrary(libraryId, title) {
+    if (storageEnabled()) {
+      return storageApi("/libraries", {
+        method: "POST",
+        body: JSON.stringify({ library_id: libraryId, title: title || libraryId }),
+      });
+    }
     return api(`${KNOWLEDGE}/libraries`, {
       method: "POST",
       body: JSON.stringify({ library_id: libraryId, title: title || null }),
@@ -108,6 +160,9 @@ const PlaygroundLibrary = (() => {
   }
 
   async function loadAssets(libraryId) {
+    if (storageEnabled()) {
+      return storageApi(`/libraries/${encodeURIComponent(libraryId)}/assets?limit=100`);
+    }
     return api(`${KNOWLEDGE}/libraries/${encodeURIComponent(libraryId)}/assets?limit=100`);
   }
 
@@ -141,7 +196,6 @@ const PlaygroundLibrary = (() => {
     const body = {
       library_id: libraryId,
       asset_id: row.asset_id,
-      asset_path: row.asset_path,
     };
     if (compileMode === "fast_ingest" || compileMode === "pre_compile") {
       body.compile_mode = compileMode;
@@ -469,7 +523,9 @@ const PlaygroundLibrary = (() => {
 
     async function refreshMeta() {
       try {
-        const lib = await api(`${KNOWLEDGE}/libraries/${encodeURIComponent(libraryId)}`);
+        const lib = storageEnabled()
+          ? await storageApi(`/libraries/${encodeURIComponent(libraryId)}`)
+          : await api(`${KNOWLEDGE}/libraries/${encodeURIComponent(libraryId)}`);
         titleEl.textContent = lib.title || lib.library_id;
         metaEl.textContent = `创建于 ${lib.created_at}`;
       } catch (error) {
@@ -499,7 +555,7 @@ const PlaygroundLibrary = (() => {
           tr.innerHTML = `
             <td class="pg-mono">${row.asset_id}</td>
             <td>${row.title || "—"}</td>
-            <td class="pg-mono pg-path">${row.asset_path}</td>
+            <td>${row.modality || "—"}</td>
             <td data-role="index-status" class="pg-index-status"></td>
             <td class="pg-actions">
               <button type="button" class="pg-button pg-button-link" data-action="preview">预览</button>
@@ -515,10 +571,22 @@ const PlaygroundLibrary = (() => {
           ensureBackgroundPoll(row.asset_id, row);
 
           btnPreview.addEventListener("click", async () => {
+            if (storageEnabled()) {
+              await openStorageBlob(
+                `/libraries/${encodeURIComponent(libraryId)}/assets/${encodeURIComponent(row.asset_id)}/preview`,
+              );
+              return;
+            }
             const signed = await presignGet(row.asset_path, null);
             window.open(signed.url, "_blank", "noopener");
           });
           btnDownload.addEventListener("click", async () => {
+            if (storageEnabled()) {
+              await openStorageBlob(
+                `/libraries/${encodeURIComponent(libraryId)}/assets/${encodeURIComponent(row.asset_id)}/content`,
+              );
+              return;
+            }
             const signed = await presignGet(row.asset_path, row.title || row.asset_id);
             window.location.href = signed.url;
           });
@@ -557,14 +625,22 @@ const PlaygroundLibrary = (() => {
       uploadBtn.disabled = true;
       try {
         uploadStatus.hidden = false;
-        uploadStatus.textContent = "上传到对象网关…";
-        const stored = await uploadLibraryFile(libraryId, file);
-        uploadStatus.textContent = "创建 Asset 记录…";
-        await createAsset(libraryId, {
-          asset_id: stored.asset_id,
-          asset_path: stored.asset_path,
-          title: file.name,
-        });
+        if (storageEnabled()) {
+          uploadStatus.textContent = "上传到 viknow-storage…";
+          const form = new FormData();
+          form.append("file", file, file.name);
+          form.append("title", file.name);
+          await storageMultipart(`/libraries/${encodeURIComponent(libraryId)}/assets`, form);
+        } else {
+          uploadStatus.textContent = "上传到对象网关…";
+          const stored = await uploadLibraryFile(libraryId, file);
+          uploadStatus.textContent = "创建 Asset 记录…";
+          await createAsset(libraryId, {
+            asset_id: stored.asset_id,
+            asset_path: stored.asset_path,
+            title: file.name,
+          });
+        }
         uploadStatus.textContent = "完成";
         uploadInput.value = "";
         await refreshAssets();

@@ -141,6 +141,36 @@ def gateway_from_ops() -> GatewayStore:
     return GatewayStore(client, bucket)
 
 
+def fetch_index_asset(library_id: str, asset_id: str) -> IndexObject:
+    """Download bytes from viknow-storage into scratch for HyperRAG indexing."""
+
+    from viknow3.service.storage.client import StorageClientError
+    from viknow3.service.storage.gateway import get_storage_client
+
+    library = str(library_id or "").strip()
+    asset = str(asset_id or "").strip()
+    if not library or not asset:
+        raise ObjectFetchError(422, {"detail": "library_id and asset_id are required"})
+    key = f"storage://{library}/{asset}"
+    path = scratch_root() / "storage" / library / asset / "original"
+    locks = scratch_root() / ".materialize-locks"
+    locks.mkdir(parents=True, exist_ok=True)
+    identity = hashlib.sha256(f"{key}:{path}".encode()).hexdigest()
+    with (locks / identity).open("a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        if path.is_file() and path.stat().st_size > 0:
+            return IndexObject(key, path)
+        try:
+            payload = get_storage_client().download(library, asset)
+        except StorageClientError as exc:
+            raise ObjectFetchError(exc.status, {"detail": exc.detail}) from exc
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(payload)
+    if not path.is_file() or path.stat().st_size <= 0:
+        raise ObjectFetchError(503, {"detail": "object storage is unavailable"})
+    return IndexObject(key, path)
+
+
 def fetch_index_object(asset_path: str) -> IndexObject:
     """Download ``asset_path`` when it is a knowledge object key."""
 

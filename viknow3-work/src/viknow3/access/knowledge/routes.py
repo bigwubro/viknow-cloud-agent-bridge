@@ -1,11 +1,15 @@
-"""Knowledge HTTP routes: libraries, assets, uploads, index jobs, and search."""
+"""Knowledge HTTP routes.
+
+Playground uploads libraries/assets to viknow-storage, then calls index-jobs here with
+library_id + asset_id only. Legacy presign/upload routes remain for actio and older clients.
+"""
 
 from __future__ import annotations
 
 import json
 from typing import Any
 
-from fastapi import APIRouter, Depends, File, Request, Response, UploadFile
+from fastapi import APIRouter, Depends, File, Header, Request, Response, UploadFile
 
 from viknow3.access.auth import AppKey, require_app
 from viknow3.access.knowledge import service
@@ -142,6 +146,34 @@ def latest_asset_index_job(
 ) -> dict[str, Any]:
     del app_key
     return service.get_latest_asset_index_job(library_id, asset_id)
+
+
+@router.get("/libraries/{library_id}/assets/{asset_id}/preview")
+def preview_storage_asset(
+    library_id: str,
+    asset_id: str,
+    range_header: str | None = Header(default=None, alias="Range"),
+    app_key: AppKey = Depends(require_app),
+) -> Response:
+    del app_key
+    status, headers, body = service.proxy_storage_asset(
+        library_id, asset_id, preview=True, range_header=range_header
+    )
+    return Response(content=body, status_code=status, headers=headers)
+
+
+@router.get("/libraries/{library_id}/assets/{asset_id}/content")
+def download_storage_asset(
+    library_id: str,
+    asset_id: str,
+    range_header: str | None = Header(default=None, alias="Range"),
+    app_key: AppKey = Depends(require_app),
+) -> Response:
+    del app_key
+    status, headers, body = service.proxy_storage_asset(
+        library_id, asset_id, preview=False, range_header=range_header
+    )
+    return Response(content=body, status_code=status, headers=headers)
 
 
 @router.post("/downloads")

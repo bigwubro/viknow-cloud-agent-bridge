@@ -279,6 +279,24 @@ def get_library(library_id: str) -> LibraryRow | None:
     return None if row is None else _library_from_row(row)
 
 
+def storage_uri(library_id: str, asset_id: str) -> str:
+    return f"storage://{library_id}/{asset_id}"
+
+
+def ensure_library_for_index(library_id: str, title: str) -> None:
+    if get_library(library_id) is not None:
+        return
+    create_library(library_id, title or library_id)
+
+
+def ensure_asset_for_index(library_id: str, asset_id: str, title: str, modality: str) -> AssetRow:
+    existing = get_asset(library_id, asset_id)
+    if existing is not None:
+        return existing
+    ensure_library_for_index(library_id, title or library_id)
+    return create_asset(library_id, asset_id, title, modality, storage_uri(library_id, asset_id))
+
+
 def create_asset(
     library_id: str,
     asset_id: str,

@@ -93,6 +93,14 @@ const PlaygroundAgent = (() => {
       return "";
     }
     const text = value.trim().split("#")[0].split("?")[0].replace(/^\/+/, "");
+    if (text.startsWith("storage://")) {
+      const rest = text.slice("storage://".length);
+      const slash = rest.indexOf("/");
+      if (slash > 0 && rest.slice(slash + 1)) {
+        return text;
+      }
+      return "";
+    }
     if (!text.startsWith("knowledge/assets/")) {
       return "";
     }
@@ -100,6 +108,23 @@ const PlaygroundAgent = (() => {
       return "";
     }
     return text;
+  }
+
+  function storageIdsFromUri(value) {
+    if (typeof value !== "string" || !value.startsWith("storage://")) {
+      return null;
+    }
+    const rest = value.slice("storage://".length);
+    const slash = rest.indexOf("/");
+    if (slash < 0) {
+      return null;
+    }
+    const libraryId = rest.slice(0, slash).trim();
+    const assetId = rest.slice(slash + 1).trim();
+    if (!libraryId || !assetId) {
+      return null;
+    }
+    return { library_id: libraryId, asset_id: assetId };
   }
 
   function finite(value) {
@@ -324,15 +349,28 @@ const PlaygroundAgent = (() => {
     if (cached) {
       return cached;
     }
-    const pending = api(`${KNOWLEDGE_API}/downloads`, {
-      method: "POST",
-      body: JSON.stringify({ asset_path: objectKey }),
-    }).then((body) => {
-      if (!body || typeof body.url !== "string" || !body.url) {
-        throw new Error("预签名失败");
-      }
-      return body.url;
-    });
+    const storageIds = storageIdsFromUri(objectKey);
+    const pending = storageIds
+      ? fetch(
+          `${KNOWLEDGE_API}/libraries/${encodeURIComponent(storageIds.library_id)}/assets/${encodeURIComponent(storageIds.asset_id)}/preview`,
+          { headers: { "Content-Type": "application/json" } },
+        ).then(async (response) => {
+          const payload = await response.json().catch(() => ({}));
+          if (!response.ok) {
+            throw new Error(payload.detail || "预览失败");
+          }
+          const blob = await response.blob();
+          return URL.createObjectURL(blob);
+        })
+      : api(`${KNOWLEDGE_API}/downloads`, {
+          method: "POST",
+          body: JSON.stringify({ asset_path: objectKey }),
+        }).then((body) => {
+          if (!body || typeof body.url !== "string" || !body.url) {
+            throw new Error("预签名失败");
+          }
+          return body.url;
+        });
     signedUrlCache.set(objectKey, pending);
     pending.catch(() => signedUrlCache.delete(objectKey));
     return pending;

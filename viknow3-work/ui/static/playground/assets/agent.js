@@ -774,14 +774,6 @@ const PlaygroundAgent = (() => {
           if (text) {
             decorateAnswer(text, byMarker);
           }
-          const strip = document.createElement("div");
-          strip.className = "pg-citations";
-          const title = document.createElement("div");
-          title.className = "pg-citation-title";
-          title.textContent = "引用";
-          strip.append(title);
-          seenPreviews.slice(0, 8).forEach((item) => strip.append(previewBlock(item)));
-          body.appendChild(strip);
         }
         if (usage && (usage.input_tokens || usage.output_tokens || usage.total_tokens)) {
           const meta = document.createElement("div");

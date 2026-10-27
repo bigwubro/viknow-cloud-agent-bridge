@@ -133,39 +133,115 @@ const PlaygroundAgent = (() => {
     return name;
   }
 
-  function previewFromNode(node, marker) {
-    let raw = "";
-    let key = "";
-    URI_FIELDS.forEach((field) => {
-      if (key) {
-        return;
-      }
-      const found = s3Uri(node[field]);
-      if (found) {
-        key = found;
-        raw = String(node[field]);
+  function positiveInt(value) {
+    return Number.isInteger(value) && value > 0 ? value : null;
+  }
+
+  function nearby(node) {
+    const list = [node];
+    ["source", "metadata", "render"].forEach((name) => {
+      const child = node[name];
+      if (child && typeof child === "object" && !Array.isArray(child)) {
+        list.push(child);
       }
     });
-    if (!key && node.render && typeof node.render === "object") {
-      key = s3Uri(node.render.url);
-      raw = String(node.render.url || "");
+    const source = node.source && typeof node.source === "object" ? node.source : null;
+    if (source && source.metadata && typeof source.metadata === "object") {
+      list.push(source.metadata);
     }
+    [node.anchors, source && source.anchors].forEach((anchors) => {
+      if (!Array.isArray(anchors)) {
+        return;
+      }
+      anchors.forEach((anchor) => {
+        if (anchor && typeof anchor === "object") {
+          list.push(anchor);
+        }
+      });
+    });
+    return list;
+  }
+
+  function keyFrom(nodes) {
+    let found = "";
+    let raw = "";
+    nodes.forEach((node) => {
+      if (found) {
+        return;
+      }
+      URI_FIELDS.forEach((field) => {
+        if (found) {
+          return;
+        }
+        const key = s3Uri(node[field]);
+        if (key) {
+          found = key;
+          raw = String(node[field]);
+        }
+      });
+    });
+    return [found, raw];
+  }
+
+  function rangeFrom(nodes, raw) {
+    let begin = null;
+    let end = null;
+    nodes.forEach((node) => {
+      if (begin != null && end != null) {
+        return;
+      }
+      const range = node.time_range && typeof node.time_range === "object" ? node.time_range : {};
+      const start = finite(node.begin_seconds) ?? finite(node.begin_ts) ?? finite(node.timestamp_start) ?? finite(node.absolute_start_seconds) ?? finite(range.start_seconds);
+      const stop = finite(node.end_seconds) ?? finite(node.end_ts) ?? finite(node.timestamp_end) ?? finite(node.absolute_end_seconds) ?? finite(range.end_seconds);
+      if (start != null && stop != null && stop >= start) {
+        begin = start;
+        end = stop;
+      }
+    });
+    if (begin == null || end == null) {
+      return fragmentRange(raw);
+    }
+    return [begin, end];
+  }
+
+  function pageFrom(nodes) {
+    let indexed = null;
+    for (const node of nodes) {
+      const numbered = positiveInt(node.document_page)
+        ?? positiveInt(node.document_inspect_page)
+        ?? positiveInt(node.visual_ground_page)
+        ?? positiveInt(node.page_number);
+      if (numbered) {
+        return numbered;
+      }
+      if (node.page_range && positiveInt(node.page_range.start_page)) {
+        return node.page_range.start_page;
+      }
+      if ((node.kind === "document_page" || node.kind === "text_span" || node.kind === "image_region") && Number.isInteger(node.page) && node.page >= 0) {
+        indexed = node.page + 1;
+      }
+    }
+    if (indexed) {
+      return indexed;
+    }
+    for (const node of nodes) {
+      if (Number.isInteger(node.page) && node.page >= 0) {
+        return node.page === 0 ? 1 : node.page;
+      }
+    }
+    return null;
+  }
+
+  function previewFromNode(node, marker) {
+    const nodes = nearby(node);
+    const [key, raw] = keyFrom(nodes);
     if (!key) {
       return null;
     }
-    const range = node.time_range && typeof node.time_range === "object" ? node.time_range : {};
-    const fragment = fragmentRange(raw);
-    const begin = finite(node.begin_seconds) ?? finite(node.begin_ts) ?? finite(node.timestamp_start) ?? finite(range.start_seconds) ?? fragment[0];
-    const end = finite(node.end_seconds) ?? finite(node.end_ts) ?? finite(node.timestamp_end) ?? finite(range.end_seconds) ?? fragment[1];
-    let page = null;
-    if (Number.isInteger(node.page) && node.page >= 0) {
-      page = node.page === 0 ? 1 : node.page;
-    } else if (Number.isInteger(node.page_number) && node.page_number > 0) {
-      page = node.page_number;
-    } else if (node.page_range && Number.isInteger(node.page_range.start_page) && node.page_range.start_page > 0) {
-      page = node.page_range.start_page;
-    }
-    const title = String(node.title || node.display_label || node.asset_id || "");
+    const [begin, end] = rangeFrom(nodes, raw);
+    const page = pageFrom(nodes);
+    const named = node.title || (node.source && node.source.title) || "";
+    const title = String(named || ((begin == null && page == null) ? node.display_label : "") || node.asset_id || "");
     return {
       object_key: key,
       begin_seconds: begin != null && end != null && end >= begin ? begin : null,
@@ -190,14 +266,15 @@ const PlaygroundAgent = (() => {
       }
       return;
     }
-    const bare = item.begin_seconds != null
+    const bare = item.begin_seconds != null || item.page != null
       ? list.find((row) => row.object_key === item.object_key && row.begin_seconds == null && row.page == null)
       : null;
     if (bare) {
       Object.assign(bare, item);
+      bare.display_label = previewLabel(bare);
       return;
     }
-    if (item.begin_seconds == null && list.some((row) => row.object_key === item.object_key && row.begin_seconds != null)) {
+    if (item.begin_seconds == null && item.page == null && list.some((row) => row.object_key === item.object_key && (row.begin_seconds != null || row.page != null))) {
       return;
     }
     list.push(item);
@@ -318,11 +395,24 @@ const PlaygroundAgent = (() => {
       frame.title = citation.display_label || "文档预览";
       host.insertBefore(frame, open);
       signedUrl(key).then((url) => {
-        frame.src = `${url}${citation.page ? `#page=${citation.page}` : ""}`;
+        frame.src = `${url}${playbackFragment(citation)}`;
       }).catch(() => {
         frame.remove();
       });
     }
+  }
+
+  function playbackFragment(citation) {
+    const lower = String(citation.object_key || "").toLowerCase();
+    const start = citation.begin_seconds;
+    const end = citation.end_seconds;
+    if (/\.(mp4|webm|mov|mkv)$/.test(lower) && typeof start === "number") {
+      return typeof end === "number" && end >= start ? `#t=${start},${end}` : `#t=${start}`;
+    }
+    if (lower.endsWith(".pdf") && citation.page) {
+      return `#page=${citation.page}`;
+    }
+    return "";
   }
 
   function mountVideo(host, citation, key) {
@@ -330,10 +420,10 @@ const PlaygroundAgent = (() => {
     video.className = "pg-preview-video";
     video.controls = true;
     video.preload = "metadata";
-    const start = Number(citation.begin_seconds);
-    const end = Number(citation.end_seconds);
+    const start = typeof citation.begin_seconds === "number" ? citation.begin_seconds : null;
+    const end = typeof citation.end_seconds === "number" ? citation.end_seconds : null;
     video.addEventListener("loadedmetadata", () => {
-      if (Number.isFinite(start)) {
+      if (start != null) {
         video.currentTime = start;
       }
     });
@@ -349,15 +439,15 @@ const PlaygroundAgent = (() => {
     play.className = "pg-button pg-button-link";
     play.textContent = "播放片段";
     play.addEventListener("click", () => {
-      if (Number.isFinite(start)) {
+      if (start != null) {
         video.currentTime = start;
       }
-      stopAt = Number.isFinite(end) ? end : null;
+      stopAt = end != null && start != null && end >= start ? end : null;
       video.play().catch(() => {});
     });
     host.append(video, play);
     signedUrl(key).then((url) => {
-      video.src = url;
+      video.src = `${url}${playbackFragment(citation)}`;
     }).catch(() => {
       host.append(previewError());
     });
@@ -371,7 +461,7 @@ const PlaygroundAgent = (() => {
     button.addEventListener("click", async () => {
       try {
         const url = await signedUrl(key);
-        window.open(`${url}${citation.page ? `#page=${citation.page}` : ""}`, "_blank", "noopener");
+        window.open(`${url}${playbackFragment(citation)}`, "_blank", "noopener");
       } catch {
         button.textContent = "打开失败";
       }

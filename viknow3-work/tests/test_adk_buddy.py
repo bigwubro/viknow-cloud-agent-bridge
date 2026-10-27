@@ -24,7 +24,7 @@ class AdkProfileTests(unittest.TestCase):
         )
         instruction = build_instruction(("e2e-artifacts-20261022",))
         self.assertIn("chunk_text", instruction)
-        self.assertIn("index_note", instruction)
+        self.assertNotIn("index_note", instruction)
         self.assertIn("e2e-artifacts-20261022", instruction)
         self.assertNotIn("read_file", instruction)
         self.assertNotIn("visual_ground", instruction)
@@ -55,9 +55,8 @@ class AdkProfileTests(unittest.TestCase):
         self.assertEqual(client.searched, "lib-a")
         hit = payload["evidence"][0]
         self.assertEqual(hit["chunk_text"], "ViKnow 20261022")
-        self.assertIn("稳定性", hit["index_note"])
-        self.assertNotIn("稳定性", hit["chunk_text"])
-        self.assertNotIn("snippet", hit)
+        self.assertNotIn("index_note", hit)
+        self.assertNotIn("稳定性", json.dumps(hit, ensure_ascii=False))
         self.assertEqual(citations.rows[0]["id"], "ev-1")
 
     def test_segments_split_document_and_video(self) -> None:
@@ -75,8 +74,10 @@ class AdkProfileTests(unittest.TestCase):
         tools = {tool.__name__: tool for tool in build_knowledge_tools(client, ("lib-a",), CitationLog())}
         payload = json.loads(asyncio.run(tools["knowledge_discover"]("验收")))
         asset = payload["libraries"][0]["assets"][0]
-        self.assertEqual(asset["index_note"], "确认索引构建与运行的稳定性")
+        self.assertEqual(asset["title"], "index-smoke-20261022.md")
+        self.assertNotIn("index_note", asset)
         self.assertNotIn("summary", asset)
+        self.assertNotIn("稳定性", json.dumps(asset, ensure_ascii=False))
 
     def test_event_notice_keeps_the_tool_name(self) -> None:
         event = SimpleNamespace(

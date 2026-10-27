@@ -38,7 +38,7 @@ Registry 把 profile 里的 `runtime` 原样记下来。`host.turn_runtime` 读�
 
 工具和技能以各 profile 的 `enabled_tools`、`enabled_skills` 为准。知识助手（DeepAgents）启用 `knowledge_discover`、`knowledge_search`、`query_refine`、`answer_plan`、`uploaded_image_search`、`video_inspect_2_0`、`visual_ground`、`document_inspect`、`list_video_segments`、`list_doc_segments`，技能是 `knowledge-qa-v2` 和 `visual-ground`。它的 `answer_review.max_retries` 是 0：检查仍会跑，未通过时发布当前答案。
 
-知识助手（ADK）单独维护 profile 和技能 `knowledge-qa`。工具只有 `knowledge_discover`、`knowledge_search`、`list_doc_segments`、`list_video_segments`。回答只引用工具返回的 `chunk_text`。`index_note` 是索引说明。没有 inspect 和回答检查。
+知识助手（ADK）单独维护 profile 和技能 `knowledge-qa`。工具只有 `knowledge_discover`、`knowledge_search`、`list_doc_segments`、`list_video_segments`。回答只引用工具返回的 `chunk_text`。索引器生成的 context 不会交给模型。没有 inspect 和回答检查。
 
 ## 外壳里的对象
 

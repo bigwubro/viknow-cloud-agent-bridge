@@ -37,7 +37,7 @@ def build_knowledge_tools(
         return json.dumps({"libraries": rows}, ensure_ascii=False)
 
     async def knowledge_search(query: str, library_id: str = "") -> str:
-        """Search granted libraries. Quote chunk_text only. index_note is an indexer description."""
+        """Search granted libraries. Quote chunk_text. Do not add facts that are not in chunk_text."""
         targets, refusal = _targets(library_id, allowed)
         if refusal:
             return refusal
@@ -150,7 +150,6 @@ def _library_row(row: Any) -> dict[str, Any]:
                 "asset_id": str(getattr(match, "asset_id", "") or ""),
                 "title": str(getattr(match, "title", "") or ""),
                 "modality": str(getattr(match, "modality", "") or ""),
-                "index_note": str(getattr(match, "summary", "") or "")[:_SNIPPET_LIMIT],
             }
         )
     return {
@@ -167,7 +166,7 @@ def _evidence_row(item: Any, library_id: str) -> dict[str, Any]:
         text = getattr(part, "text", None)
         if text:
             texts.append(str(text))
-    chunk_text, index_note = split_indexed_text("\n".join(texts))
+    chunk_text, _index_note = split_indexed_text("\n".join(texts))
     row = {
         "id": str(getattr(item, "id", "") or meta.get("chunk_id") or ""),
         "library_id": library_id,
@@ -179,15 +178,13 @@ def _evidence_row(item: Any, library_id: str) -> dict[str, Any]:
         "end_ts": meta.get("end_ts"),
         "chunk_text": chunk_text[:_SNIPPET_LIMIT],
     }
-    if index_note:
-        row["index_note"] = index_note[:_SNIPPET_LIMIT]
     return row
 
 
 def _segment_row(chunk: dict[str, Any], library_id: str, asset_id: str) -> dict[str, Any]:
     meta = _meta(chunk.get("metadata"))
-    chunk_text, index_note = split_indexed_text(str(chunk.get("content") or ""))
-    row = {
+    chunk_text, _index_note = split_indexed_text(str(chunk.get("content") or ""))
+    return {
         "id": str(chunk.get("chunk_id") or chunk.get("id") or meta.get("chunk_id") or ""),
         "library_id": library_id,
         "asset_id": asset_id,
@@ -197,9 +194,6 @@ def _segment_row(chunk: dict[str, Any], library_id: str, asset_id: str) -> dict[
         "begin_ts": meta.get("begin_ts"),
         "end_ts": meta.get("end_ts"),
     }
-    if index_note:
-        row["index_note"] = index_note[:_SNIPPET_LIMIT]
-    return row
 
 
 def split_indexed_text(raw: str) -> tuple[str, str]:

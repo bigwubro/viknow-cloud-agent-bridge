@@ -187,6 +187,23 @@ const PlaygroundAgent = (() => {
     return list;
   }
 
+  function idsFrom(nodes) {
+    let libraryId = "";
+    let assetId = "";
+    nodes.forEach((node) => {
+      if (libraryId && assetId) {
+        return;
+      }
+      const lib = node.library_id;
+      const aid = node.asset_id;
+      if (typeof lib === "string" && lib.trim() && typeof aid === "string" && aid.trim()) {
+        libraryId = lib.trim();
+        assetId = aid.trim();
+      }
+    });
+    return libraryId && assetId ? { library_id: libraryId, asset_id: assetId } : null;
+  }
+
   function keyFrom(nodes) {
     let found = "";
     let raw = "";
@@ -259,16 +276,20 @@ const PlaygroundAgent = (() => {
 
   function previewFromNode(node, marker) {
     const nodes = nearby(node);
+    const ids = idsFrom(nodes);
     const [key, raw] = keyFrom(nodes);
-    if (!key) {
+    if (!key && !ids) {
       return null;
     }
+    const objectKey = key || (ids ? `storage://${ids.library_id}/${ids.asset_id}` : "");
     const [begin, end] = rangeFrom(nodes, raw);
     const page = pageFrom(nodes);
     const named = node.title || (node.source && node.source.title) || "";
     const title = String(named || ((begin == null && page == null) ? node.display_label : "") || "");
     return {
-      object_key: key,
+      object_key: objectKey,
+      library_id: ids?.library_id || "",
+      asset_id: ids?.asset_id || "",
       begin_seconds: begin != null && end != null && end >= begin ? begin : null,
       end_seconds: begin != null && end != null && end >= begin ? end : null,
       page,
@@ -344,12 +365,15 @@ const PlaygroundAgent = (() => {
     }
   }
 
-  function signedUrl(objectKey) {
-    const cached = signedUrlCache.get(objectKey);
+  function signedUrl(objectKey, libraryId, assetId) {
+    const cacheKey = libraryId && assetId ? `ref:${libraryId}/${assetId}` : objectKey;
+    const cached = signedUrlCache.get(cacheKey);
     if (cached) {
       return cached;
     }
-    const storageIds = storageIdsFromUri(objectKey);
+    const storageIds = libraryId && assetId
+      ? { library_id: libraryId, asset_id: assetId }
+      : storageIdsFromUri(objectKey);
     const pending = storageIds
       ? fetch(
           `${KNOWLEDGE_API}/libraries/${encodeURIComponent(storageIds.library_id)}/assets/${encodeURIComponent(storageIds.asset_id)}/preview`,
@@ -370,9 +394,17 @@ const PlaygroundAgent = (() => {
           }
           return body.url;
         });
-    signedUrlCache.set(objectKey, pending);
-    pending.catch(() => signedUrlCache.delete(objectKey));
+    signedUrlCache.set(cacheKey, pending);
+    pending.catch(() => signedUrlCache.delete(cacheKey));
     return pending;
+  }
+
+  function signedUrlForCitation(citation) {
+    return signedUrl(
+      citation.object_key,
+      citation.library_id || "",
+      citation.asset_id || "",
+    );
   }
 
   function previewBlock(citation) {
@@ -402,7 +434,7 @@ const PlaygroundAgent = (() => {
 
   function mountPreview(host, citation) {
     const key = citation.object_key || "";
-    if (!key) {
+    if (!key && !(citation.library_id && citation.asset_id)) {
       host.textContent = "没有可预览的对象";
       return;
     }
@@ -417,7 +449,7 @@ const PlaygroundAgent = (() => {
       image.className = "pg-preview-image";
       image.alt = citation.display_label || "预览";
       host.append(image);
-      signedUrl(key).then((url) => {
+      signedUrlForCitation(citation).then((url) => {
         image.src = url;
       }).catch(() => {
         host.append(previewError());
@@ -431,7 +463,7 @@ const PlaygroundAgent = (() => {
       frame.className = "pg-preview-frame";
       frame.title = citation.display_label || "文档预览";
       host.insertBefore(frame, open);
-      signedUrl(key).then((url) => {
+      signedUrlForCitation(citation).then((url) => {
         frame.src = `${url}${playbackFragment(citation)}`;
       }).catch(() => {
         frame.remove();
@@ -483,7 +515,7 @@ const PlaygroundAgent = (() => {
       video.play().catch(() => {});
     });
     host.append(video, play);
-    signedUrl(key).then((url) => {
+    signedUrlForCitation(citation).then((url) => {
       video.src = `${url}${playbackFragment(citation)}`;
     }).catch(() => {
       host.append(previewError());
@@ -497,7 +529,7 @@ const PlaygroundAgent = (() => {
     button.textContent = citation.page ? `打开原文 · 第 ${citation.page} 页` : "打开原文";
     button.addEventListener("click", async () => {
       try {
-        const url = await signedUrl(key);
+        const url = await signedUrlForCitation(citation);
         window.open(`${url}${playbackFragment(citation)}`, "_blank", "noopener");
       } catch {
         button.textContent = "打开失败";

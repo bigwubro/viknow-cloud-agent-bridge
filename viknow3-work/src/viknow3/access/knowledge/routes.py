@@ -1,7 +1,8 @@
 """Knowledge HTTP routes.
 
-Playground uploads libraries/assets to viknow-storage, then calls index-jobs here with
-library_id + asset_id only. Legacy presign/upload routes remain for actio and older clients.
+Playground uploads libraries/assets to viknow-storage, then calls index-jobs with
+library_id + asset_id only. ``/downloads`` accepts library_id+asset_id; legacy asset_path
+presign is only for old ``knowledge/assets/`` citations.
 """
 
 from __future__ import annotations
@@ -85,49 +86,6 @@ def library_assets_index_status_batch(
     return service.list_library_assets_index_status(library_id, limit)
 
 
-@router.post("/libraries/{library_id}/uploads")
-async def presign_library_upload(
-    library_id: str,
-    request: Request,
-    app_key: AppKey = Depends(require_app),
-) -> dict[str, Any]:
-    """Presigned PUT URL for async upload to the object gateway (before POST …/assets)."""
-
-    body = await _json(request)
-    allowed = {"file_name", "content_type", "asset_id"}
-    unknown = [key for key in body if key not in allowed]
-    if unknown:
-        raise service.KnowledgeError(
-            422,
-            {"detail": [{"loc": ["body", key], "msg": "extra fields not permitted", "type": "extra_forbidden"} for key in unknown]},
-        )
-    file_name = str(body.get("file_name") or "").strip()
-    if not file_name:
-        raise service.KnowledgeError(422, {"detail": [{"loc": ["body", "file_name"], "msg": "field required", "type": "missing"}]})
-    service.get_library(library_id)
-    content_type = str(body.get("content_type") or "application/octet-stream")
-    asset_id = body.get("asset_id")
-    asset_id_text = str(asset_id).strip() if asset_id is not None else None
-    return service.presign_upload(library_id, file_name, asset_id_text, content_type)
-
-
-@router.post("/libraries/{library_id}/uploads/direct")
-async def direct_library_upload(
-    library_id: str,
-    file: UploadFile = File(...),
-    app_key: AppKey = Depends(require_app),
-) -> dict[str, Any]:
-    """Multipart upload via Playground API (server writes to S3; no browser presigned PUT)."""
-
-    del app_key
-    return service.upload_library_file(
-        library_id,
-        file.filename or "",
-        file.file,
-        file.content_type or "application/octet-stream",
-    )
-
-
 @router.get("/libraries/{library_id}/assets/{asset_id}/index-status")
 def asset_index_status(
     library_id: str,
@@ -182,16 +140,23 @@ async def presign_asset_download(request: Request, app_key: AppKey = Depends(req
 
     del app_key
     body = await _json(request)
-    allowed = {"asset_path", "download_name"}
+    allowed = {"library_id", "asset_id", "download", "asset_path", "download_name"}
     unknown = [key for key in body if key not in allowed]
     if unknown:
         raise service.KnowledgeError(
             422,
             {"detail": [{"loc": ["body", key], "msg": "extra fields not permitted", "type": "extra_forbidden"} for key in unknown]},
         )
+    library_id = str(body.get("library_id") or "").strip()
+    asset_id = str(body.get("asset_id") or "").strip()
+    if library_id and asset_id:
+        return service.asset_content_url(library_id, asset_id, download=bool(body.get("download")))
     asset_path = str(body.get("asset_path") or "").strip()
     if not asset_path:
-        raise service.KnowledgeError(422, {"detail": [{"loc": ["body", "asset_path"], "msg": "field required", "type": "missing"}]})
+        raise service.KnowledgeError(
+            422,
+            {"detail": [{"loc": ["body"], "msg": "library_id and asset_id are required", "type": "missing"}]},
+        )
     download_name = body.get("download_name")
     download = str(download_name).strip() if download_name is not None else None
     return service.presign_download(asset_path, download or None)

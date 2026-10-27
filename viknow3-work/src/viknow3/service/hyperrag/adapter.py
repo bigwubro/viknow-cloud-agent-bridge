@@ -1845,15 +1845,22 @@ class HyperRAGAdapter:
             "chunk_id": chunk_id,
             "file_path": file_path,
         }
-        object_key = _catalog_object_key(
-            library_id,
-            asset_id,
-            evidence_metadata.get("asset_path"),
-            file_path,
-            evidence_metadata.get("source_uri"),
-        )
+        from viknow3.agents.runtimes.deepagents.core.knowledge.object_key import storage_uri
+        from viknow3.service.storage.gateway import storage_configured
+
+        if library_id and asset_id and storage_configured():
+            object_key = storage_uri(library_id, asset_id)
+        else:
+            object_key = _catalog_object_key(
+                library_id,
+                asset_id,
+                evidence_metadata.get("asset_path"),
+                file_path,
+                evidence_metadata.get("source_uri"),
+            )
         if object_key:
             evidence_metadata["asset_path"] = object_key
+            evidence_metadata["object_key"] = object_key
         if not is_video and evidence_metadata.get("page") is None and evidence_metadata.get("page_number") is None:
             evidence_metadata["page"] = 0
 

@@ -9,7 +9,7 @@ from uuid import uuid4
 
 from viknow3.access.knowledge import store
 from viknow3.service.hyperrag.client import HYPERAG, HyperragClientError
-from viknow3.service.hyperrag.object_gateway import ObjectFetchError, fetch_index_asset, fetch_index_object, get_object_store
+from viknow3.service.hyperrag.object_gateway import ObjectFetchError, fetch_index_asset, get_object_store
 from viknow3.service.storage.client import StorageClientError
 from viknow3.service.storage.gateway import get_storage_client, storage_configured
 from viknow3.storage import s3
@@ -79,30 +79,11 @@ def get_library(library_id: str) -> dict[str, Any]:
 
 
 def create_asset(library_id: str, body: dict[str, Any]) -> dict[str, Any]:
-    asset_id = str(body.get("asset_id") or "").strip()
-    asset_path = str(body.get("asset_path") or "").strip()
-    if not asset_id or not _ASSET_ID.match(asset_id):
-        raise KnowledgeError(422, {"detail": [{"loc": ["body", "asset_id"], "msg": "field required", "type": "missing"}]})
-    if not asset_path:
-        raise KnowledgeError(422, {"detail": [{"loc": ["body", "asset_path"], "msg": "field required", "type": "missing"}]})
-    try:
-        s3.head_object(asset_path)
-    except s3.StorageError as exc:
-        raise KnowledgeError(exc.status, {"detail": exc.detail}) from exc
-    title = body.get("title")
-    file_hint = title or asset_id or asset_path
-    modality = _modality(str(file_hint), body.get("modality"))
-    title_text = str(title).strip() if title else Path(asset_path).name
-    try:
-        row = store.create_asset(library_id, asset_id, title_text, modality, asset_path)
-    except ValueError as exc:
-        code = str(exc)
-        if code == "library_not_found":
-            raise KnowledgeError(404, {"detail": "library not found"}) from exc
-        if code == "asset_exists":
-            raise KnowledgeError(409, {"detail": "asset_exists"}) from exc
-        raise
-    return row.public()
+    del library_id, body
+    raise KnowledgeError(
+        410,
+        {"detail": "create assets in viknow-storage; viknow catalog rows are created when indexing"},
+    )
 
 
 def list_assets(library_id: str, limit: int | None, after: str | None) -> list[dict[str, Any]]:
@@ -166,7 +147,26 @@ def presign_upload(library_id: str, file_name: str, asset_id: str | None, conten
     return signed
 
 
+def asset_content_url(library_id: str, asset_id: str, *, download: bool = False) -> dict[str, Any]:
+    """Relative Playground API URL (caller sends X-App-Key)."""
+
+    library_id = str(library_id or "").strip()
+    asset_id = str(asset_id or "").strip()
+    if not library_id or not asset_id:
+        raise KnowledgeError(422, {"detail": "library_id and asset_id are required"})
+    if not storage_configured():
+        raise KnowledgeError(503, {"detail": "viknow-storage is not configured"})
+    segment = "content" if download else "preview"
+    return {
+        "url": f"/api/v1/knowledge/libraries/{library_id}/assets/{asset_id}/{segment}",
+        "library_id": library_id,
+        "asset_id": asset_id,
+    }
+
+
 def presign_download(asset_path: str, download_name: str | None) -> dict[str, Any]:
+    """Legacy S3 presign for old ``knowledge/assets/`` keys (Actio-era indexes)."""
+
     try:
         return s3.presign_get(asset_path, download_name=download_name)
     except s3.StorageError as exc:
@@ -247,9 +247,15 @@ def _catalog_asset(library_id: str, asset_id: str, *, store: Any | None = None) 
 
 
 def create_index_job(body: dict[str, Any]) -> dict[str, Any]:
+    if not storage_configured():
+        raise KnowledgeError(503, {"detail": "viknow-storage is required for index jobs"})
     library_id = str(body.get("library_id") or "").strip()
     asset_id = str(body.get("asset_id") or "").strip()
-    asset_path = str(body.get("asset_path") or "").strip()
+    if body.get("asset_path"):
+        raise KnowledgeError(
+            422,
+            {"detail": [{"loc": ["body", "asset_path"], "msg": "asset_path is no longer accepted; upload to viknow-storage", "type": "extra_forbidden"}]},
+        )
     if not library_id or not asset_id:
         raise KnowledgeError(
             422,
@@ -257,41 +263,22 @@ def create_index_job(body: dict[str, Any]) -> dict[str, Any]:
         )
     params = body.get("params") or {}
     title = params.get("title") if isinstance(params, dict) else None
-
-    if asset_path:
-        asset = _catalog_asset(library_id, asset_id)
-        if asset_path != asset.asset_path:
-            raise KnowledgeError(
-                422,
-                {"detail": [{"loc": ["body", "asset_path"], "msg": "asset_path does not match the asset", "type": "value_error"}]},
-            )
-        if asset_path.startswith("missing/") or "\x00" in asset_path:
-            raise KnowledgeError(400, {"detail": "asset_path is not an available storage object key or absolute file path"})
-        if title is None:
-            title = asset.title
-        fetch = lambda: fetch_index_object(asset_path)
-    elif storage_configured():
-        try:
-            client = get_storage_client()
-            if not client.asset_exists(library_id, asset_id):
-                raise KnowledgeError(404, {"detail": "asset not found"})
-            remote = client.get_asset(library_id, asset_id)
-        except StorageClientError as exc:
-            raise KnowledgeError(exc.status, {"detail": exc.detail}) from exc
-        store.ensure_asset_for_index(
-            library_id,
-            asset_id,
-            str(remote.get("title") or asset_id),
-            str(remote.get("modality") or "document"),
-        )
-        if title is None:
-            title = remote.get("title")
-        fetch = lambda: fetch_index_asset(library_id, asset_id)
-    else:
-        raise KnowledgeError(
-            422,
-            {"detail": [{"loc": ["body", "asset_path"], "msg": "asset_path is required when viknow-storage is not configured", "type": "missing"}]},
-        )
+    try:
+        client = get_storage_client()
+        if not client.asset_exists(library_id, asset_id):
+            raise KnowledgeError(404, {"detail": "asset not found"})
+        remote = client.get_asset(library_id, asset_id)
+    except StorageClientError as exc:
+        raise KnowledgeError(exc.status, {"detail": exc.detail}) from exc
+    store.ensure_asset_for_index(
+        library_id,
+        asset_id,
+        str(remote.get("title") or asset_id),
+        str(remote.get("modality") or "document"),
+    )
+    if title is None:
+        title = remote.get("title")
+    fetch = lambda: fetch_index_asset(library_id, asset_id)
 
     if title is not None and not str(title).strip():
         raise KnowledgeError(422, {"detail": [{"loc": ["body", "params", "title"], "msg": "title must be non-empty", "type": "value_error"}]})

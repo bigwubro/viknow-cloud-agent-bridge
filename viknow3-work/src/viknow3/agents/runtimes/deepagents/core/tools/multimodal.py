@@ -2229,10 +2229,14 @@ def _video_source_with_object_key(
     evidence: Evidence,
     source: InspectClaimSource,
 ) -> InspectClaimSource:
+    from viknow3.service.hyperrag.asset_materialize import materialize_asset_reference_str
+
+    library_id, asset_id, _ = _evidence_asset_identity(evidence)
     key = _library_asset_object_key(evidence)
     if not key:
         return source
-    return source.model_copy(update={"asset_path": key})
+    local_path = materialize_asset_reference_str(key, library_id=library_id, asset_id=asset_id)
+    return source.model_copy(update={"asset_path": local_path or key})
 
 
 def _library_asset_video_url(evidence: Evidence) -> str | None:

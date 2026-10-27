@@ -81,12 +81,10 @@ class StorageIndexJobTests(unittest.TestCase):
         self.assertIsNotNone(row)
         self.assertEqual(row.asset_path, f"storage://{library_id}/{asset_id}")
 
-    def test_missing_storage_and_asset_path_rejected(self) -> None:
-        library_id = f"lib-b-{uuid.uuid4().hex[:8]}"
-        store.create_library(library_id, "B")
-        with mock.patch("viknow3.access.knowledge.service.storage_configured", return_value=False):
+    def test_asset_path_in_body_rejected(self) -> None:
+        with mock.patch("viknow3.access.knowledge.service.storage_configured", return_value=True):
             with self.assertRaises(KnowledgeError) as caught:
-                create_index_job({"library_id": library_id, "asset_id": "x"})
+                create_index_job({"library_id": "lib-x", "asset_id": "a", "asset_path": "knowledge/assets/a"})
         self.assertEqual(caught.exception.status, 422)
 
     def test_storage_missing_asset_is_404(self) -> None:

@@ -92,71 +92,6 @@ class ObjectGatewayTests(unittest.TestCase):
         self.assertEqual(caught.exception.status, 503)
         self.assertEqual(caught.exception.body["detail"], "s3_client is incomplete")
 
-    def test_index_job_hands_the_local_file_to_hyperrag_and_keeps_the_key(self) -> None:
-        key = "knowledge/libraries/library-1/asset-1.mp4"
-        install_object_store(_MemoryStore({key: b"asset"}))
-        captured: dict[str, object] = {}
-
-        def fake_create(library_id, asset_id, asset_path, title, compile_mode=None, object_key=None):
-            captured.update(
-                library_id=library_id,
-                asset_id=asset_id,
-                asset_path=asset_path,
-                title=title,
-                compile_mode=compile_mode,
-                object_key=object_key,
-            )
-            return {
-                "job_id": "job-1",
-                "library_id": library_id,
-                "asset_id": asset_id,
-                "status": "pending",
-                "error_message": None,
-                "metadata": None,
-            }
-
-        class _Asset:
-            asset_path = key
-            title = "动作演示.mp4"
-
-        with patch("viknow3.access.knowledge.service._catalog_asset", return_value=_Asset()):
-            with patch("viknow3.access.knowledge.service.HYPERAG.create_index", side_effect=fake_create):
-                job = create_index_job(
-                    {
-                        "library_id": "library-1",
-                        "asset_id": "asset-1",
-                        "asset_path": key,
-                        "compile_mode": "fast_ingest",
-                        "params": {"title": "动作演示.mp4"},
-                    },
-                    )
-        self.assertEqual(job["job_id"], "job-1")
-        self.assertEqual(captured["object_key"], key)
-        self.assertEqual(captured["title"], "动作演示.mp4")
-        self.assertNotEqual(captured["asset_path"], key)
-        self.assertEqual(Path(str(captured["asset_path"])).read_bytes(), b"asset")
-
-    def test_index_job_rejects_a_missing_key_before_hyperrag(self) -> None:
-        key = "knowledge/assets/asset-1/upload/asset-1.mp4"
-        install_object_store(_MemoryStore({}))
-
-        class _Asset:
-            asset_path = key
-            title = "动作演示.mp4"
-
-        with patch("viknow3.access.knowledge.service._catalog_asset", return_value=_Asset()):
-            with patch("viknow3.access.knowledge.service.HYPERAG.create_index") as create:
-                with self.assertRaises(KnowledgeError) as caught:
-                    create_index_job(
-                        {
-                            "library_id": "library-1",
-                            "asset_id": "asset-1",
-                            "asset_path": key,
-                        },
-                        )
-        self.assertEqual(caught.exception.status, 400)
-        create.assert_not_called()
-
     def test_index_job_requires_the_library_and_asset_first(self) -> None:
         from viknow3.access.knowledge.service import _catalog_asset
 
@@ -182,22 +117,6 @@ class ObjectGatewayTests(unittest.TestCase):
         with self.assertRaises(KnowledgeError) as missing_asset:
             _catalog_asset("library-1", "asset-1", store=MissingAsset())
         self.assertEqual(missing_asset.exception.body["detail"], "asset not found")
-
-        key = "knowledge/assets/asset-1/upload/asset-1.mp4"
-        install_object_store(_MemoryStore({key: b"asset"}))
-
-        class OtherPath:
-            asset_path = "knowledge/assets/other/upload/other.mp4"
-            title = "其他"
-
-        with patch("viknow3.access.knowledge.service._catalog_asset", return_value=OtherPath()):
-            with patch("viknow3.access.knowledge.service.HYPERAG.create_index") as create:
-                with self.assertRaises(KnowledgeError) as mismatch:
-                    create_index_job(
-                        {"library_id": "library-1", "asset_id": "asset-1", "asset_path": key},
-                        )
-        self.assertEqual(mismatch.exception.status, 422)
-        create.assert_not_called()
 
     def test_gateway_client_uses_the_internal_endpoint(self) -> None:
         row = {

@@ -6,6 +6,11 @@ const PlaygroundLibrary = (() => {
   const storageBase = () => String(window.VIKNOW_STORAGE_URL || "").replace(/\/$/, "");
   const storageToken = () => String(window.VIKNOW_STORAGE_TOKEN || "").trim();
   const storageEnabled = () => Boolean(storageBase() && storageToken());
+  function requireStorage() {
+    if (!storageEnabled()) {
+      throw new Error("未配置 viknow-storage（检查 VIKNOW_STORAGE_URL / TOKEN 与 storage-config.js）");
+    }
+  }
   const INDEX_JOB_TERMINAL = new Set(["done", "failed", "cancelled", "completed"]);
   const INDEX_JOB_SUCCESS = new Set(["done", "completed"]);
   const INDEX_JOB_POLL_MS = 2000;
@@ -140,56 +145,27 @@ const PlaygroundLibrary = (() => {
   }
 
   async function loadLibraries() {
-    if (storageEnabled()) {
-      return storageApi("/libraries?limit=100");
-    }
-    return api(`${KNOWLEDGE}/libraries?limit=100`);
+    requireStorage();
+    return storageApi("/libraries?limit=100");
   }
 
   async function createLibrary(libraryId, title) {
-    if (storageEnabled()) {
-      return storageApi("/libraries", {
-        method: "POST",
-        body: JSON.stringify({ library_id: libraryId, title: title || libraryId }),
-      });
-    }
-    return api(`${KNOWLEDGE}/libraries`, {
+    requireStorage();
+    return storageApi("/libraries", {
       method: "POST",
-      body: JSON.stringify({ library_id: libraryId, title: title || null }),
+      body: JSON.stringify({ library_id: libraryId, title: title || libraryId }),
     });
   }
 
   async function loadAssets(libraryId) {
-    if (storageEnabled()) {
-      return storageApi(`/libraries/${encodeURIComponent(libraryId)}/assets?limit=100`);
-    }
-    return api(`${KNOWLEDGE}/libraries/${encodeURIComponent(libraryId)}/assets?limit=100`);
+    requireStorage();
+    return storageApi(`/libraries/${encodeURIComponent(libraryId)}/assets?limit=100`);
   }
 
   async function fetchLibraryAssetsIndexStatusBatch(libraryId) {
     return api(
       `${KNOWLEDGE}/libraries/${encodeURIComponent(libraryId)}/assets/index-status-batch?limit=100`,
     );
-  }
-
-  async function uploadLibraryFile(libraryId, file) {
-    const form = new FormData();
-    form.append("file", file, file.name);
-    return apiMultipart(`${KNOWLEDGE}/libraries/${encodeURIComponent(libraryId)}/uploads/direct`, form);
-  }
-
-  async function presignGet(assetPath, downloadName) {
-    return api(`${KNOWLEDGE}/downloads`, {
-      method: "POST",
-      body: JSON.stringify({ asset_path: assetPath, download_name: downloadName || null }),
-    });
-  }
-
-  async function createAsset(libraryId, body) {
-    return api(`${KNOWLEDGE}/libraries/${encodeURIComponent(libraryId)}/assets`, {
-      method: "POST",
-      body: JSON.stringify(body),
-    });
   }
 
   async function createIndexJob(libraryId, row, compileMode) {
@@ -523,9 +499,8 @@ const PlaygroundLibrary = (() => {
 
     async function refreshMeta() {
       try {
-        const lib = storageEnabled()
-          ? await storageApi(`/libraries/${encodeURIComponent(libraryId)}`)
-          : await api(`${KNOWLEDGE}/libraries/${encodeURIComponent(libraryId)}`);
+        requireStorage();
+        const lib = await storageApi(`/libraries/${encodeURIComponent(libraryId)}`);
         titleEl.textContent = lib.title || lib.library_id;
         metaEl.textContent = `创建于 ${lib.created_at}`;
       } catch (error) {
@@ -571,24 +546,14 @@ const PlaygroundLibrary = (() => {
           ensureBackgroundPoll(row.asset_id, row);
 
           btnPreview.addEventListener("click", async () => {
-            if (storageEnabled()) {
-              await openStorageBlob(
-                `/libraries/${encodeURIComponent(libraryId)}/assets/${encodeURIComponent(row.asset_id)}/preview`,
-              );
-              return;
-            }
-            const signed = await presignGet(row.asset_path, null);
-            window.open(signed.url, "_blank", "noopener");
+            await openStorageBlob(
+              `/libraries/${encodeURIComponent(libraryId)}/assets/${encodeURIComponent(row.asset_id)}/preview`,
+            );
           });
           btnDownload.addEventListener("click", async () => {
-            if (storageEnabled()) {
-              await openStorageBlob(
-                `/libraries/${encodeURIComponent(libraryId)}/assets/${encodeURIComponent(row.asset_id)}/content`,
-              );
-              return;
-            }
-            const signed = await presignGet(row.asset_path, row.title || row.asset_id);
-            window.location.href = signed.url;
+            await openStorageBlob(
+              `/libraries/${encodeURIComponent(libraryId)}/assets/${encodeURIComponent(row.asset_id)}/content`,
+            );
           });
           btnIndex.addEventListener("click", async () => {
             btnIndex.disabled = true;
@@ -625,22 +590,12 @@ const PlaygroundLibrary = (() => {
       uploadBtn.disabled = true;
       try {
         uploadStatus.hidden = false;
-        if (storageEnabled()) {
-          uploadStatus.textContent = "上传到 viknow-storage…";
-          const form = new FormData();
-          form.append("file", file, file.name);
-          form.append("title", file.name);
-          await storageMultipart(`/libraries/${encodeURIComponent(libraryId)}/assets`, form);
-        } else {
-          uploadStatus.textContent = "上传到对象网关…";
-          const stored = await uploadLibraryFile(libraryId, file);
-          uploadStatus.textContent = "创建 Asset 记录…";
-          await createAsset(libraryId, {
-            asset_id: stored.asset_id,
-            asset_path: stored.asset_path,
-            title: file.name,
-          });
-        }
+        requireStorage();
+        uploadStatus.textContent = "上传到 viknow-storage…";
+        const form = new FormData();
+        form.append("file", file, file.name);
+        form.append("title", file.name);
+        await storageMultipart(`/libraries/${encodeURIComponent(libraryId)}/assets`, form);
         uploadStatus.textContent = "完成";
         uploadInput.value = "";
         await refreshAssets();

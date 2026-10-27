@@ -1,8 +1,10 @@
-"""Catalog object keys the playground can sign. These are storage keys, not media URLs."""
+"""Logical asset references for citations and inspect (``storage://`` or legacy S3 keys)."""
 
 from __future__ import annotations
 
 from typing import Any
+
+from viknow3.service.storage.gateway import storage_configured
 
 _PREFIX = "knowledge/assets/"
 _STORAGE_PREFIX = "storage://"
@@ -78,10 +80,17 @@ def resolve_asset_object_key(
     asset_id: str | None,
     *candidates: Any,
 ) -> str | None:
-    """Prefer an object key already on the payload, then the catalog row."""
+    """Prefer ``storage://`` when configured, then legacy ``knowledge/assets/`` keys."""
 
+    library = str(library_id or "").strip()
+    asset = str(asset_id or "").strip()
     for candidate in candidates:
+        parsed = parse_storage_uri(candidate)
+        if parsed:
+            return storage_uri(parsed[0], parsed[1])
         key = knowledge_object_key(candidate)
         if key:
             return key
-    return catalog_asset_object_key(str(library_id or ""), str(asset_id or ""))
+    if library and asset and storage_configured():
+        return storage_uri(library, asset)
+    return catalog_asset_object_key(library, asset)

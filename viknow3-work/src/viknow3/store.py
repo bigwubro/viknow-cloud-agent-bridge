@@ -630,6 +630,26 @@ class Store:
         if session is not None and not session.deleted:
             session.update(updated_at=moment)
 
+    def session_turns(self, session_id: str) -> list[dict[str, str]]:
+        """User and assistant texts recorded for one session, in write order."""
+        with self.lock:
+            rows = _rows(
+                """
+                SELECT type, payload FROM run_events
+                WHERE deleted_at IS NULL
+                  AND payload->>'session_id' = %s
+                  AND type IN ('user_message', 'message_completed')
+                ORDER BY created_at, sequence
+                """,
+                (session_id,),
+            )
+        turns: list[dict[str, str]] = []
+        for event_type, payload in rows:
+            body = payload if isinstance(payload, dict) else {}
+            role = "user" if event_type == "user_message" else "assistant"
+            turns.append({"role": role, "text": str(body.get("text") or "")})
+        return turns
+
     def read_events(self, run_id: str, after_sequence: int) -> list[dict[str, Any]]:
         with self.lock:
             rows = _rows(

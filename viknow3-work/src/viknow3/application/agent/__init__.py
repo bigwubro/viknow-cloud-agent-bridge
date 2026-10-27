@@ -1,1 +1,1 @@
-"""Concrete agents. agentcore registers these on AgentOS."""
+"""Shell adapter for the shared agent runtime."""

@@ -21,8 +21,9 @@ Do not silently drop a plausible candidate. Do not select by search rank alone.
 When one or more candidates are `keep_for_inspect`:
 
 1. Inspect the strongest non-duplicate candidates before another broad search.
-2. Choose `text_inspect`, `image_inspect`, or `video_inspect_2_0` by the fact being
-   verified, not by the asset container.
+2. Choose `document_inspect`, `video_inspect`, or `visual_ground` by the
+   fact being verified, not by the asset container. Use `visual_ground` only
+   for visible-target counts or locations.
 3. Mark the slot `verified` when an eligible claim covers it.
 4. If inspection fails, returns no eligible claim, or only partially covers the
    slot, inspect the next kept candidate.
@@ -41,12 +42,13 @@ part of the requested whole, a competing scope, or a contradiction. Reject it wh
 those same cues establish that it is off-scope or duplicates the verified fact.
 Inspect the smallest set that can distinguish these possibilities.
 
-For a direct-fact question, a claim that matches the requested subject, predicate,
-period and scope closes the slot unless another candidate may contradict that same
-claim. Do not retain candidates merely because they discuss the same company,
+For a direct-fact question, a claim that matches every binding element in the
+original question closes the slot unless another candidate may contradict that
+same claim. Do not retain candidates merely because they discuss the same company,
 topic or outcome. A section-specific claim remains narrower than an unqualified
 quantity; retain other non-overlapping sections that report the same metric for
-the same period.
+the same period. A related model, page, attribute or code is not a substitute
+for the requested one.
 
 ## Relationship Check Before Synthesis
 
@@ -72,10 +74,15 @@ source establishes that exactly one applies.
 
 ## Coverage Decisions
 
-- `verified`: an eligible inspect claim covers the slot.
+- `verified`: an eligible inspect claim covers the requested fact and scope.
 - `uncovered`: candidates were absent, rejected, exhausted by inspection, or
   could not be converted into an inspectable boundary.
 - Not ready: any plausible candidate still awaits inspection or rejection.
 
+For an enumeration or total, report only a verified subset or lower bound until
+the required catalog and candidate coverage is established; do not infer a
+complete answer from a top-k result.
+
 Modality conflicts and video coverage have separate entry conditions in the root
-Skill's Reference Loading section; this audit does not require another reference read.
+Skill's Conditional references section; this audit does not require another
+reference read.

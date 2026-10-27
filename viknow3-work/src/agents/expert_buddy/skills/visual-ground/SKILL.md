@@ -5,12 +5,13 @@ description: >
   ("哪里有X", "X在哪里", "找到X", "图中X的位置"), or HOW MANY physical
   targets are simultaneously visible in one image/frame ("图中有几个X",
   "count the visible X"). Do not use it for OCR/text occurrences, repeated
-  actions, durations, or categories accumulated across a video. Call visual_ground
+  actions, mass, volume, dosage, durations, or categories accumulated across a video.
+  Choose by the fact and available evidence, not quantity keywords alone. Call visual_ground
   with query as a COMPLETE NATURAL-LANGUAGE QUESTION that QUALIFIES the target
   (e.g. "图中切好的完整黄色柠檬片有几片？"), never a bare noun like "柠檬片".
   For video counts, pick the frame AFTER the action finishes, then count with
   visual_ground; its detection count is authoritative.
-allowed-tools: visual_ground video_inspect_2_0
+allowed-tools: visual_ground video_inspect
 version: 0.9.0
 metadata:
   viknow.kind: workflow
@@ -54,7 +55,7 @@ Rules:
   |---|---|---|
   | 切出了几片柠檬 | `图中有几片柠檬？`（把青柠也数进去） | `图中切好的完整黄色柠檬片有几片？` |
   | 有几个完整的鸡蛋 | `图中有几个鸡蛋？`（把碎蛋也数进去） | `画面中完整的未破损鸡蛋有几个？` |
-  判断依据：从 `video_inspect_2_0` 的描述或 ASR 字幕（如"两个柠檬切片"）确认
+  判断依据：从 `video_inspect` 的描述或 ASR 字幕（如"两个柠檬切片"）确认
   目标种类与时间窗口，把颜色、完整度、种类等限定词放进 query。
 - **结合 ASR/字幕确定目标窗口。** 计数前先看 ASR 转写里对目标的描述
   （如"两个柠檬切片""再切一点青柠"），据此决定 query 限定的种类
@@ -125,9 +126,9 @@ The tool returns a structured result. Build the user-facing answer from it:
 - 当你持有视频证据(`evidence_id` 来自 `knowledge_search`/`list_video_segments`)
   且已确定目标在哪一帧:传 `evidence_id` + `frame_time`(秒,目标所在帧的时间点),
   工具抽取该帧并返回定位/计数结果。
-- 若你还不清楚视频内容、无法判断目标帧:先用 `video_inspect_2_0` 查看帧,
+- 若你还不清楚视频内容、无法判断目标帧:先用 `video_inspect` 查看帧,
   再根据看到的画面选定 `frame_time`。**不要凭空猜测时间点。**
-- 若你已持有目标帧的图片(用户上传的帧图、`video_inspect_2_0` 返回的帧、
+- 若你已持有目标帧的图片(用户上传的帧图、`video_inspect` 返回的帧、
   或其他工具输出的帧):直接按图片方式传入(`workspace_path` 或图片证据),
   无需 `frame_time`。
 - 返回的坐标是该帧图片的像素坐标,注意结合返回的 `image_size` 说明给用户。

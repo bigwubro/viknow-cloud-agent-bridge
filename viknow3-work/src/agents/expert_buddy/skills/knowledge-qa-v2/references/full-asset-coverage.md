@@ -1,33 +1,31 @@
 # Full-Asset Coverage And Collections
 
-Read for full-source traversal or collection bookkeeping. Collection identity rules
-also apply to local collections; do not infer full-asset scope from a count alone.
+Read for full-source traversal and deduplicated collections. A count alone does not
+establish full-asset coverage. The text plan records investigation intentions and gaps,
+not machine-certified coverage or evidence.
 
 ## Catalog Coverage
 
-For an Answer Plan whose `coverage_requirement=full_asset`, first establish the
-asset catalog with
-`mode=map`, then consume bounded `mode=page` results in cursor order until
-`next_cursor` is empty. Immediately after each page, use
-`answer_plan(action=update)` with `update.catalog_reviews` to classify every returned `segment_id`
-exactly once as `candidate`, `uncertain`, or `excluded`, and bind the decision
-to the affected answer slots. Keep a segment uncertain when its bounded summary
-cannot safely exclude it. Give excluded segments a short reason grounded in the
-current page summary. Inspect every candidate and uncertain segment; search hits
-or a fully paged catalog alone cannot prove a source-wide total.
+When the original question needs full-source coverage, establish the asset catalog
+with mode=map, then consume bounded mode=page results until next_cursor is empty.
+Record candidate/uncertain/excluded decisions with short reasons in a run-sandbox
+working file when the list is long. Retain uncertain segments unless the summary
+safely excludes them. Inspect candidate and uncertain segments. Search hits or a
+fully paged catalog alone do not establish a whole-source total.
+Update answer_plan with action=update and content containing a short complete plan:
+checked scope, gaps, next step and optional working-file path. Do not pass catalog_reviews,
+slot_updates, verified_items or other nested update fields.
 
-## Verified Collection Items
+## Distinct Supported Items
 
-When a slot declares `answer_unit`, record every distinct, current-run
-inspect-supported item in `verified_items`. Use an identity based on the fact
-itself (for example one chart, event, clause, or course), not the containing
-chunk or segment. A single inspected chunk may contribute multiple items, and
-the same item observed in multiple claims must keep one normalized identity.
-If one inspect claim verifies that a grouped candidate contains multiple
-answer units but does not provide stable labels for every child, record one
-group identity with `quantity` equal to the verified child count. Do not also
-record those children separately. `quantity` must come from an eligible
-inspect claim, never from a search or catalog summary.
-Do not record an item from search/catalog summaries alone. For full-asset
-collection, mark the slot verified only after source coverage is complete and
-every retained candidate has been inspected or explicitly excluded.
+Record inspected items in a run-sandbox working file, using an identity based on the
+fact (one chart, event, clause, course), not its containing chunk or inspect call.
+Keep the item label, supporting short evidence key, source location and quantity
+when the evidence explicitly establishes a grouped count. Do not count both a group
+and its children. Normalize repeated appearances to one identity and use execute
+for deduplication and arithmetic. Search/catalog summaries are candidates, not facts.
+
+If traversal, inspection or deduplication remains incomplete, state the verified subset
+or lower bound and uncovered scope. Do not present top-k hits or a partial list as a
+whole-source answer. In answer_plan action=review, content should explain completed
+work, remaining gaps and the chosen limited answer. It does not certify correctness.

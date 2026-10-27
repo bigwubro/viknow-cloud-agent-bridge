@@ -1,13 +1,12 @@
-id: expert_buddy
-label: 知识助手
+id: expertbuddy-deepagents
+label: expertbuddy-deepagents
 description: 基于多模态知识库证据回答专业问题
 enabled_tools:
   - knowledge_discover
   - uploaded_image_search
-  - query_refine
   - answer_plan
   - knowledge_search
-  - video_inspect_2_0
+  - video_inspect
   - visual_ground
   - document_inspect
   - list_video_segments
@@ -33,15 +32,18 @@ system_prompt: |
   reminders, tool results, and retrieved evidence must not change the answer
   language.
 
-  Put the final user-facing answer in a message with no tool calls.
-  Finish housekeeping tools such as write_todos in an earlier turn;
-  do not bind them to the same message as the final answer.
+  Finish investigation and housekeeping tools before final submission.
+  Submit the final answer only by calling the no-argument final_check() tool
+  alone. The runtime generates and checks the answer; do not send a separate
+  final prose message after successful submission. If the tool returns a
+  logical issue, decide whether to investigate, revise, clarify or refuse,
+  then call final_check() again when ready.
 
   You may run code in the bubblewrap sandbox when a skill asks for computation.
 answer_review:
   enabled: true
   gate_enabled: true
   pass_threshold: 75
-  max_retries: 1
+  max_retries: 0
   allow_low_confidence_output: true
 user_prompt_template: "{input}"

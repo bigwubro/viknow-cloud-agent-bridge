@@ -72,6 +72,7 @@ from agents.runtime.core.answer_review import (
     AnswerReviewResult,
     AnswerReviewSemanticReviewer,
     CitationPolicyClassifier,
+    CitationPolicyMode,
     LLMClaimReviewer,
     LLMPolicyClassifier,
     LLMSemanticReviewer,
@@ -142,6 +143,7 @@ from agents.runtime.core.observability.otel import (
     start_run_span,
     start_span,
 )
+from agents.qa_text_plan import apply_text_plan, empty_plan, final_check, is_text_plan_call, present_skill
 from agents.runtime.core.runtime.answer_plan import AnswerPlanUpdate, RunAnswerPlan
 from agents.runtime.core.runtime.answer_plan_tool import (
     AnswerPlanCommand,
@@ -308,6 +310,8 @@ class _RunState:
     session_evidence_ledger: RunEvidenceLedger | None = None
     answer_plan: RunAnswerPlan | None = None
     answer_plan_review: RecordedAnswerPlanReview | None = None
+    qa_text_plan: dict[str, Any] = field(default_factory=empty_plan)
+    final_check_answer: str = ""
 
 
 @dataclass
@@ -1528,7 +1532,6 @@ class DeepAgentsRuntime(AgentRuntime):
         model_providers: dict[str, ModelProviderConfig] | None = None,
         user_memory_service: UserMemoryService | None = None,
         scheduler: ResourceScheduler | None = None,
-        filesystem_manager: Any | None = None,
         precompiled_knowledge_loader: Callable[..., Awaitable[str]] | None = None,
         usage_push_config: LangfuseUsagePushConfig | None = None,
         langfuse_binding: LangfuseRunBindingConfig | None = None,
@@ -1567,7 +1570,6 @@ class DeepAgentsRuntime(AgentRuntime):
         from agents.runtime.core.memory import NoOpUserMemoryService
 
         self.user_memory_service = user_memory_service or NoOpUserMemoryService()
-        self.filesystem_manager = filesystem_manager
         self._checkpoints = build_checkpointer_provider(self.config.checkpointer)
         self._runs: dict[str, _RunState] = {}
         self._shutdown = False
@@ -1820,7 +1822,7 @@ class DeepAgentsRuntime(AgentRuntime):
                     "session_id": state.session_id,
                     "user_id": op.user_id,
                     "workspace_id": op.workspace_id,
-                    "attachments": self._user_message_attachments(op),
+                    "attachments": [],
                 },
             )
             budget_watchdog = asyncio.create_task(self._budget_watchdog(state))
@@ -1884,7 +1886,7 @@ class DeepAgentsRuntime(AgentRuntime):
                         {"text": state.streamed_reasoning, "format": "reasoning_content"},
                     )
 
-                answer = self.event_mapper.map_final_answer(result)
+                answer = state.final_check_answer or self.event_mapper.map_final_answer(result)
                 await self._review_and_publish_answer(op, state, answer, result)
                 if state.status == AgentStatusType.COMPLETED and op.memory_enabled:
                     self.user_memory_service.schedule_sync_turn(
@@ -2499,18 +2501,7 @@ class DeepAgentsRuntime(AgentRuntime):
         if state.stop_gate is None:
             state.stop_gate = StopCandidateGate(judge=self._stop_gate_judge(op))
         decision = state.stop_gate.evaluate(
-            StopGateInput(
-                question=op.input or "",
-                answer=answer,
-                citation_policy=citation_context.citation_policy,
-                resolved_citation_count=len(citation_context.review_citations),
-                citation_errors=citation_context.citation_errors,
-                eligible_claims=collect_claim_bundle(
-                    state.completed_tool_calls.values(),
-                    filter_invalid=True,
-                ),
-                completed_tool_calls=list(state.completed_tool_calls.values()),
-            )
+            self._stop_gate_input(op, state, answer, citation_context)
         )
         if not decision.passed:
             await self._emit(
@@ -2578,6 +2569,42 @@ class DeepAgentsRuntime(AgentRuntime):
             "请继续完成任务。不要复述 gate 说明；最终只输出可以发布给用户的答案。"
         )
 
+    def _stop_gate_input(
+        self,
+        op: AgentOp,
+        state: _RunState,
+        answer: str,
+        citation_context: _FinalAnswerCitationContext,
+    ) -> StopGateInput:
+        require_inspect = bool(set(self.profile.enabled_tools) & set(CLAIM_TOOL_NAMES))
+        policy = citation_context.citation_policy
+        if not require_inspect and not citation_context.review_citations:
+            policy = policy.model_copy(
+                update={
+                    "mode": CitationPolicyMode.OPTIONAL,
+                    "evidence_required": False,
+                    "reason": "chunk_text_without_inspect",
+                }
+            )
+        return StopGateInput(
+            question=op.input or "",
+            answer=answer,
+            citation_policy=policy,
+            resolved_citation_count=len(citation_context.review_citations),
+            citation_errors=citation_context.citation_errors,
+            eligible_claims=collect_claim_bundle(
+                state.completed_tool_calls.values(),
+                filter_invalid=True,
+            ),
+            completed_tool_calls=list(state.completed_tool_calls.values()),
+            answer_plan=answer_plan_judge_context(
+                state.answer_plan,
+                state.evidence_ledger,
+                state.answer_plan_review,
+            ),
+            require_inspect=require_inspect,
+        )
+
     def _stop_gate_judge(self, op: AgentOp) -> StopGateJudge | None:
         if self.stop_gate_judge is not None:
             return self.stop_gate_judge
@@ -2597,22 +2624,7 @@ class DeepAgentsRuntime(AgentRuntime):
         if state.stop_gate is None:
             state.stop_gate = StopCandidateGate(judge=self._stop_gate_judge(op))
         decision = state.stop_gate.evaluate(
-            StopGateInput(
-                question=op.input or "",
-                answer=answer,
-                citation_policy=citation_context.citation_policy,
-                resolved_citation_count=len(citation_context.review_citations),
-                citation_errors=citation_context.citation_errors,
-                eligible_claims=collect_claim_bundle(
-                    state.completed_tool_calls.values(), filter_invalid=True
-                ),
-                completed_tool_calls=list(state.completed_tool_calls.values()),
-                answer_plan=answer_plan_judge_context(
-                    state.answer_plan,
-                    state.evidence_ledger,
-                    state.answer_plan_review,
-                ),
-            )
+            self._stop_gate_input(op, state, answer, citation_context)
         )
         return decision, citation_context
 
@@ -3425,6 +3437,19 @@ class DeepAgentsRuntime(AgentRuntime):
         )
 
     def _answer_plan(self, state: _RunState, args: dict[str, Any]) -> str:
+        if is_text_plan_call(args):
+            updated, error = apply_text_plan(state.qa_text_plan, args)
+            if error:
+                return ToolResult.fail(
+                    "answer_plan",
+                    ToolErrorCode.INVALID_ARGUMENTS,
+                    error,
+                ).to_json()
+            state.qa_text_plan.clear()
+            state.qa_text_plan.update(updated)
+            view = self._answer_plan_view(state) if state.answer_plan is not None else {}
+            view["text_plan"] = updated
+            return ToolResult.ok("answer_plan", view).to_json()
         if state.answer_plan is None:
             return ToolResult.fail(
                 "answer_plan",
@@ -3754,13 +3779,14 @@ class DeepAgentsRuntime(AgentRuntime):
         ):
             run_middleware.append(ToolEfficiencyMiddleware(state, budget))
         run_middleware.append(_CountingGroundingEnforcerMiddleware(op, state=state))
-        uploads_prompt = await self._prepare_session_uploads(op)
         extra_tools: list[Any] = []
+        if "knowledge-qa-v2" in self.profile.enabled_skills:
+            extra_tools.append(_final_check_tool(state))
         if self._stop_gate_active():
             extra_tools.append(_stop_gate_check)
         if self.profile.oracle_collection:
             extra_tools.append(_evidence_oracle_gate_check)
-        async with self._workspace_runtime(state.thread_id, op=op) as workspace:
+        async with self._workspace_runtime(state.thread_id) as workspace:
             agent = await self._build_agent(
                 workspace.backend,
                 skill_source=workspace.skill_source,
@@ -3774,10 +3800,9 @@ class DeepAgentsRuntime(AgentRuntime):
             )
             prompt = self._build_prompt(
                 state.retry_instruction or _run_original_question(state) or op.input or "",
-                runtime_context=uploads_prompt,
+                runtime_context="",
                 skill_source=workspace.skill_source,
             )
-            payload = {"messages": [{"role": "user", "content": prompt}]}
             recursion_limit = self.config.recursion_limit
             if self.profile.runtime_budget.enabled:
                 recursion_limit = _runtime_graph_recursion_limit(self.profile.runtime_budget)
@@ -3785,6 +3810,13 @@ class DeepAgentsRuntime(AgentRuntime):
                 "configurable": {"thread_id": state.thread_id},
                 "recursion_limit": recursion_limit,
                 "metadata": self._trace_metadata(op, state),
+            }
+            prior_messages = await _prior_checkpoint_messages(agent, runtime_config)
+            payload = {
+                "messages": [
+                    *closing_tool_messages(prior_messages),
+                    {"role": "user", "content": prompt},
+                ]
             }
             if self.langchain_callbacks:
                 runtime_config["callbacks"] = list(self.langchain_callbacks)
@@ -4300,8 +4332,6 @@ class DeepAgentsRuntime(AgentRuntime):
     async def _workspace_runtime(
         self,
         thread_id: str,
-        *,
-        op: AgentOp | None = None,
     ) -> AsyncIterator[_WorkspaceRuntime]:
         workspace_dir = self.config.workspace.root_dir / _safe_thread_path(thread_id)
         # JuiceFS/FUSE 上的 mkdir/rmtree/copytree 是同步阻塞 I/O；必须离开事件循环，
@@ -4319,30 +4349,27 @@ class DeepAgentsRuntime(AgentRuntime):
         if self.config.workspace.backend == WorkspaceBackendType.FILESYSTEM:
             from deepagents.backends.filesystem import FilesystemBackend
 
-            try:
-                skill_source = (
-                    _FILESYSTEM_SKILL_SOURCE
-                    if has_runtime_skills and self.config.workspace.virtual_mode
-                    else str(workspace_dir / _RUNTIME_SKILLS_DIR)
-                    if has_runtime_skills
-                    else None
+            skill_source = (
+                _FILESYSTEM_SKILL_SOURCE
+                if has_runtime_skills and self.config.workspace.virtual_mode
+                else str(workspace_dir / _RUNTIME_SKILLS_DIR)
+                if has_runtime_skills
+                else None
+            )
+            backend = FilesystemBackend(
+                root_dir=workspace_dir,
+                virtual_mode=self.config.workspace.virtual_mode,
+                max_file_size_mb=self.config.workspace.max_file_size_mb,
+            )
+            with bind_workspace_artifacts(backend, root=""):
+                yield _WorkspaceRuntime(
+                    backend=backend,
+                    skill_source=skill_source,
+                    subagent_skill_sources=_subagent_skill_source_paths(
+                        skill_source,
+                        subagent_skills,
+                    ),
                 )
-                backend = FilesystemBackend(
-                    root_dir=workspace_dir,
-                    virtual_mode=self.config.workspace.virtual_mode,
-                    max_file_size_mb=self.config.workspace.max_file_size_mb,
-                )
-                with bind_workspace_artifacts(backend, root=""):
-                    yield _WorkspaceRuntime(
-                        backend=backend,
-                        skill_source=skill_source,
-                        subagent_skill_sources=_subagent_skill_source_paths(
-                            skill_source,
-                            subagent_skills,
-                        ),
-                    )
-            finally:
-                await self._finalize_filesystem_workspace(op, workspace_dir)
             return
         if self.config.workspace.backend == WorkspaceBackendType.BUBBLEWRAP:
             runtime = await asyncio.to_thread(self._create_bubblewrap_sandbox)
@@ -4374,7 +4401,6 @@ class DeepAgentsRuntime(AgentRuntime):
                         await self._capture_bubblewrap_workspace(
                             sandbox_backend,
                             workspace_dir,
-                            op=op,
                         )
                 except Exception:
                     if not has_error:
@@ -4384,27 +4410,6 @@ class DeepAgentsRuntime(AgentRuntime):
                         runtime.close()
             return
         raise ValueError(f"unsupported workspace backend: {self.config.workspace.backend}")
-
-    async def _finalize_filesystem_workspace(
-        self,
-        op: AgentOp | None,
-        workspace_dir: Path,
-    ) -> None:
-        def _capture() -> list[tuple[str, bytes]]:
-            captured: list[tuple[str, bytes]] = []
-            for prefix in _CAPTURE_WORKSPACE_PREFIXES:
-                root = workspace_dir / prefix
-                if not root.exists():
-                    continue
-                for path in sorted(root.rglob("*")):
-                    if not path.is_file() or path.is_symlink():
-                        continue
-                    relative = path.relative_to(workspace_dir).as_posix()
-                    captured.append((f"{_WORKSPACE_ROOT}/{relative}", path.read_bytes()))
-            return captured
-
-        captured = await asyncio.to_thread(_capture)
-        await self._finalize_session_workspace(op, workspace_dir, captured)
 
     def _create_bubblewrap_sandbox(self) -> _WorkspaceRuntime:
         if platform.system() != "Linux":
@@ -4441,59 +4446,6 @@ class DeepAgentsRuntime(AgentRuntime):
         sandbox = Sandbox(config=config, default_timeout=int(self.config.sandbox.timeout_seconds))
         return _WorkspaceRuntime(backend=sandbox, close=getattr(sandbox, "close", None))
 
-    def _user_message_attachments(self, op: AgentOp) -> list[dict[str, object]]:
-        manager = self.filesystem_manager
-        if manager is None or not op.session_id or not op.attachment_file_ids:
-            return []
-        return manager.user_message_attachments(
-            user_id=op.user_id,
-            session_id=op.session_id,
-            file_ids=op.attachment_file_ids,
-        )
-
-    async def _prepare_session_uploads(self, op: AgentOp) -> str:
-        manager = self.filesystem_manager
-        if manager is None or not op.session_id or not op.workspace_id:
-            return ""
-        from agents.runtime.core.filesystem.manager import format_uploads_prompt
-
-        entries = await asyncio.to_thread(
-            manager.prepare_run_workspace,
-            user_id=op.user_id,
-            workspace_id=op.workspace_id,
-            session_id=op.session_id,
-            attachment_file_ids=op.attachment_file_ids,
-        )
-        return format_uploads_prompt(entries)
-
-    async def _finalize_session_workspace(
-        self,
-        op: AgentOp | None,
-        workspace_dir: Path,
-        captured_files: list[tuple[str, bytes]],
-    ) -> None:
-        """把捕获到的沙箱文件交给 FilesystemManager 做会话级持久化收尾。
-
-        将 /workspace/... 转为 staging 相对路径，再调用 finalize_run_workspace
-        同步到 MinIO / session_files。bubblewrap capture 与 filesystem backend
-        finalize 共用此出口。
-        """
-        manager = self.filesystem_manager
-        if manager is None or op is None or not op.session_id or not op.workspace_id:
-            return
-        relative_files = [
-            (str(relative), content)
-            for sandbox_path, content in captured_files
-            if (relative := _workspace_relative_path(sandbox_path)) is not None
-        ]
-        await asyncio.to_thread(
-            manager.finalize_run_workspace,
-            user_id=op.user_id,
-            workspace_id=op.workspace_id,
-            session_id=op.session_id,
-            captured_files=relative_files,
-        )
-
     async def _restore_bubblewrap_workspace(self, backend: Any, workspace_dir: Path) -> None:
         """Run 开始前把宿主机 staging 内容灌进 bubblewrap 沙箱。
 
@@ -4528,17 +4480,8 @@ class DeepAgentsRuntime(AgentRuntime):
         self,
         backend: Any,
         workspace_dir: Path,
-        *,
-        op: AgentOp | None = None,
     ) -> None:
-        """Run 结束后从沙箱拉回产物到宿主机 staging。
-
-        1. 在沙箱里列出 outputs/、scratch/ 下的路径
-        2. 分批 download_files 读内容（过大文件跳过）
-        3. _merge_host_workspace 写回 staging
-        4. 删掉 staging 里临时的 .skills/
-        5. _finalize_session_workspace 把产物同步进 Filesystem Manager / MinIO
-        """
+        """Run 结束后从沙箱拉回产物到宿主机 staging。"""
         paths = await asyncio.to_thread(
             _list_workspace_paths,
             backend,
@@ -4573,7 +4516,6 @@ class DeepAgentsRuntime(AgentRuntime):
                 shutil.rmtree(skills_dir)
 
         await asyncio.to_thread(_cleanup_skills)
-        await self._finalize_session_workspace(op, workspace_dir, files)
 
     def _probe_bubblewrap_runtime(self, backend: Any) -> None:
         execute = getattr(backend, "execute", None)
@@ -5349,6 +5291,55 @@ def _canonicalize_historical_tool_claim_citations(
     return canonicalized if changed else messages
 
 
+def closing_tool_messages(messages: list[Any]) -> list[ToolMessage]:
+    """Close tool calls an interrupted turn left without a tool result.
+
+    The next model request rejects an assistant message in that state. The graph
+    input is only the new user message, so the missing results have to be
+    appended on this thread before that message.
+    """
+
+    answered = {
+        str(message.tool_call_id)
+        for message in messages
+        if isinstance(message, ToolMessage) and message.tool_call_id
+    }
+    closing: list[ToolMessage] = []
+    for message in messages:
+        if not isinstance(message, AIMessage):
+            continue
+        for call in message.tool_calls or []:
+            if not isinstance(call, dict):
+                continue
+            call_id = str(call.get("id") or "")
+            if not call_id or call_id in answered:
+                continue
+            answered.add(call_id)
+            closing.append(
+                ToolMessage(
+                    content="tool call did not finish (run interrupted)",
+                    tool_call_id=call_id,
+                    name=str(call.get("name") or ""),
+                )
+            )
+    return closing
+
+
+async def _prior_checkpoint_messages(agent: Any, config: dict[str, Any]) -> list[Any]:
+    getter = getattr(agent, "aget_state", None)
+    if not callable(getter):
+        return []
+    try:
+        snapshot = await getter(config)
+    except ValueError:
+        return []
+    values = getattr(snapshot, "values", None)
+    if not isinstance(values, dict):
+        return []
+    messages = values.get("messages")
+    return list(messages) if isinstance(messages, list) else []
+
+
 def _merge_checkpoint_historical_claims(state: _RunState, messages: list[Any]) -> None:
     existing_refs = {claim.claim_ref for claim in state.historical_claims}
     existing_identities = _historical_claim_identities(state.historical_claims)
@@ -6030,6 +6021,19 @@ def _qa_search_candidate_keys(result: str) -> set[str]:
             if identity:
                 keys.add(identity)
     return keys
+
+
+def _final_check_tool(state: _RunState) -> Any:
+    @tool("final_check")
+    def final_check_tool() -> str:
+        """Submit the final answer. No arguments. The runtime renders it from the current plan."""
+        payload, rendered = final_check(_run_original_question(state), state.qa_text_plan)
+        if rendered:
+            state.final_check_answer = rendered
+            state.pending_final_candidate_text = rendered
+        return json.dumps(payload, ensure_ascii=False)
+
+    return final_check_tool
 
 
 @tool(STOP_GATE_CHECK_TOOL_NAME)
@@ -10450,7 +10454,7 @@ def _remove_runtime_only_skill_metadata(skill_file: Path) -> None:
         sort_keys=False,
     ).strip()
     skill_file.write_text(
-        f"---\n{rendered_frontmatter}\n---\n{content[match.end() :]}",
+        present_skill(f"---\n{rendered_frontmatter}\n---\n{content[match.end() :]}"),
         encoding="utf-8",
     )
 

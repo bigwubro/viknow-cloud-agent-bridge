@@ -20,7 +20,7 @@ class Principal:
     app_key: AppKey | None = None
 
 
-DEV_APP_KEY = AppKey("dev-app-key", "deepagents")
+DEV_APP_KEY = AppKey("dev-app-key", "expertbuddy-deepagents")
 ADMIN_KEY = "dev-admin-key"
 
 APP_KEYS = {DEV_APP_KEY.key: DEV_APP_KEY}

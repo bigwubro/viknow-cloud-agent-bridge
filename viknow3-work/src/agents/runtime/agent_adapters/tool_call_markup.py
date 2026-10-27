@@ -14,7 +14,6 @@ import re
 from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from functools import lru_cache
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -357,20 +356,19 @@ def record_tool_call_recovery(
     return record
 
 
-@lru_cache(maxsize=1)
+_recovery_state_dir: Path | None = None
+
+
+def bind_tool_call_recovery_state_dir(state_dir: Path) -> None:
+    """Record the state directory the shell already chose for this process."""
+    global _recovery_state_dir
+    _recovery_state_dir = Path(state_dir)
+
+
 def resolve_tool_call_recovery_trace_path() -> Path:
-    """``{app.state_dir}/traces/tool-call-recovery.jsonl`` on the existing state volume."""
-    state_dir = _resolve_app_state_dir()
+    """``{state_dir}/traces/tool-call-recovery.jsonl``."""
+    state_dir = _recovery_state_dir or (Path.cwd() / ".state")
     return state_dir / "traces" / _RECOVERY_TRACE_FILENAME
-
-
-def _resolve_app_state_dir() -> Path:
-    try:
-        from agents.runtime.core.config import load_app_config
-
-        return Path(load_app_config().app.state_dir)
-    except Exception:
-        return Path.cwd() / ".state"
 
 
 def _clip_text(text: str, max_chars: int) -> dict[str, Any]:

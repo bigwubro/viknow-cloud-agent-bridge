@@ -12,7 +12,7 @@ from viknow3.clock import now, stamp
 ALLOWED_MODELS = ("siliconflow:Qwen/Qwen3.6-35B-A3B",)
 SERVER_DEFAULT_MODEL = "server-default"
 
-AGENT_DEEPAGENTS = "deepagents"
+AGENT_DEEPAGENTS = "expertbuddy-deepagents"
 
 
 @dataclass
@@ -68,7 +68,7 @@ class Registry:
                     package.label,
                     package.description,
                     created,
-                    "langgraph",
+                    package.runtime,
                     package.enabled_tools,
                 )
 

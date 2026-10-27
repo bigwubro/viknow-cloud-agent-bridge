@@ -241,7 +241,7 @@ def _seed(conn: Connection) -> None:
             """,
             (model_id, provider_id, name, label, moment, moment),
         )
-    for agent_id, model_id in (("deepagents", "private:qwen"),):
+    for agent_id, model_id in (("expertbuddy-deepagents", "private:qwen"), ("expertbuddy-adk", "private:qwen")):
         conn.execute(
             """
             INSERT INTO agent_model (agent_id, model_id, created_at, updated_at)
@@ -484,6 +484,52 @@ def plain_provider(provider_id: str) -> dict[str, Any] | None:
         "model_name": row.get("model_name"),
         "api_key": _plain_field("model_provider", "api_key", row.get("api_key")),
     }
+
+
+def plain_providers() -> dict[str, dict[str, Any]]:
+    """Every model provider, with api_key decrypted. Empty when ops is not configured."""
+    if not configured():
+        return {}
+    with _session() as conn:
+        rows = conn.execute(
+            """
+            SELECT id, base_url, model_name, api_key
+            FROM model_provider
+            WHERE deleted_at IS NULL
+            """
+        ).fetchall()
+    return {
+        str(row["id"]): {
+            "base_url": row.get("base_url"),
+            "model_name": row.get("model_name"),
+            "api_key": _plain_field("model_provider", "api_key", row.get("api_key")),
+        }
+        for row in rows
+    }
+
+
+def plain_models() -> list[dict[str, str]]:
+    """Chat models the platform exposes. Empty when ops is not configured."""
+    if not configured():
+        return []
+    with _session() as conn:
+        rows = conn.execute(
+            """
+            SELECT id, provider_id, name, label
+            FROM model
+            WHERE deleted_at IS NULL
+            ORDER BY id
+            """
+        ).fetchall()
+    return [
+        {
+            "id": str(row["id"]),
+            "provider_id": str(row["provider_id"]),
+            "name": str(row["name"]),
+            "label": str(row["label"]),
+        }
+        for row in rows
+    ]
 
 
 def _cipher() -> Fernet:

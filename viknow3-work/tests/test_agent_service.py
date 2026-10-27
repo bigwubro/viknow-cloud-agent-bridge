@@ -18,7 +18,6 @@ from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
 from viknow3.application.agentcore.client import AgentClient
 from viknow3.application.agentcore.runtime.host import session_messages
-from viknow3.application.agentcore.runtime.langgraph_runner import unanswered_tool_calls
 from viknow3.application.agentcore.runtime.loop import LOOP
 
 try:
@@ -81,7 +80,8 @@ _REAL_HYPERAG = None
 
 
 def setUpModule() -> None:
-    from viknow3.application.agentcore.runtime.checkpoint import reset_agent_tables
+    from agents.runtime.agent_adapters.checkpointer import reset_checkpoint_tables
+    from viknow3.pg import AGENT, dsn, require_test_database
     from viknow3.application.hyperrag import client as hyper_client
     from viknow3.store import STORE
 
@@ -89,9 +89,13 @@ def setUpModule() -> None:
     _REAL_HYPERAG = hyper_client.HYPERAG
     stub = _ScriptHyperrag()
     hyper_client.HYPERAG = stub
+    from hyperrag_stub import install_script_engine
+
+    install_script_engine()
     STORE.reset()
     stub.reset()
-    reset_agent_tables()
+    require_test_database(AGENT)
+    reset_checkpoint_tables(dsn(AGENT))
 
 
 def tearDownModule() -> None:
@@ -119,10 +123,21 @@ def _finish(client: AgentClient, run_id: str) -> list[dict]:
     return list(client.stream_events(run_id, 0))
 
 
+def _discover_library_ids(events: list[dict]) -> list[str]:
+    completed = [item for item in events if item["type"] == "tool_call_completed"]
+    discover = next(item for item in completed if item["payload"].get("name") == "knowledge_discover")
+    payload = json.loads(discover["payload"]["text"])
+    libraries = payload.get("libraries")
+    if not isinstance(libraries, list):
+        data = payload.get("data") if isinstance(payload.get("data"), dict) else {}
+        libraries = data.get("libraries") or []
+    return [str(item.get("library_id") or item.get("id")) for item in libraries]
+
+
 class AgentServiceTests(unittest.TestCase):
     def test_stream_events_yields_until_completed(self) -> None:
         client = AgentClient()
-        run = _submit(client, "session-stream", "user-stream", "deepagents", "流式", ["library-1"])
+        run = _submit(client, "session-stream", "user-stream", "expertbuddy-deepagents", "流式", ["library-1"])
         types = [item["type"] for item in client.stream_events(run["id"], 0)]
         self.assertEqual(types[:3], ["run_started", "user_message", "model_call_started"])
         self.assertIn("message_delta", types)
@@ -131,19 +146,18 @@ class AgentServiceTests(unittest.TestCase):
 
     def test_deepagents_runs_tools_on_the_granted_library(self) -> None:
         client = AgentClient()
-        run = _submit(client, "session-a", "user-a", "deepagents", "你好", ["library-1"])
+        run = _submit(client, "session-a", "user-a", "expertbuddy-deepagents", "你好", ["library-1"])
         events = _finish(client, run["id"])
         types = [item["type"] for item in events]
         self.assertEqual(events[0]["payload"]["library_ids"], ["library-1"])
         started = [item["payload"] for item in events if item["type"] == "tool_call_started"]
         self.assertEqual(
             [item["name"] for item in started],
-            ["read_file", "knowledge_discover", "query_refine", "knowledge_search"],
+            ["read_file", "knowledge_discover", "knowledge_search"],
         )
         completed = [item["payload"] for item in events if item["type"] == "tool_call_completed"]
         self.assertEqual([item["tool_call_id"] for item in completed], [item["tool_call_id"] for item in started])
-        discover = json.loads(completed[0]["text"])
-        self.assertEqual([item["library_id"] for item in discover["libraries"]], ["library-1"])
+        self.assertEqual(_discover_library_ids(events), ["library-1"])
         self.assertEqual(types[-1], "run_completed")
         output = client.get(run["id"])["output"]
         self.assertIn("答案", output)
@@ -152,7 +166,7 @@ class AgentServiceTests(unittest.TestCase):
     def test_consecutive_runs_share_one_loop(self) -> None:
         client = AgentClient()
         for index in range(4):
-            run = _submit(client, f"session-seq-{index}", "user-seq", "deepagents", f"第{index}问", ["library-1"])
+            run = _submit(client, f"session-seq-{index}", "user-seq", "expertbuddy-deepagents", f"第{index}问", ["library-1"])
             types = [item["type"] for item in _finish(client, run["id"])]
             self.assertEqual(types[-1], "run_completed", types)
             self.assertEqual(client.get(run["id"])["status"], "completed")
@@ -160,35 +174,35 @@ class AgentServiceTests(unittest.TestCase):
     def test_concurrent_runs_keep_their_own_libraries(self) -> None:
         client = AgentClient()
         runs = [
-            _submit(client, f"session-par-{index}", f"user-par-{index}", "deepagents", f"并发{index}", [f"library-par-{index}"])
+            _submit(client, f"session-par-{index}", f"user-par-{index}", "expertbuddy-deepagents", f"并发{index}", [f"library-par-{index}"])
             for index in range(6)
         ]
         with ThreadPoolExecutor(max_workers=6) as pool:
             results = list(pool.map(lambda run: _finish(client, run["id"]), runs))
         for index, events in enumerate(results):
             self.assertEqual(events[-1]["type"], "run_completed")
-            discover = next(item for item in events if item["type"] == "tool_call_completed")
-            libraries = [item["library_id"] for item in json.loads(discover["payload"]["text"])["libraries"]]
-            self.assertEqual(libraries, [f"library-par-{index}"])
+            self.assertEqual(_discover_library_ids(events), [f"library-par-{index}"])
             self.assertIn(f"并发{index}", client.get(runs[index]["id"])["output"])
         self.assertFalse(client.permission("user-par-0", "library-par-1", None))
 
     def test_same_session_keeps_earlier_turns(self) -> None:
         client = AgentClient()
-        first = _submit(client, "session-history", "user-history", "deepagents", "你好", ["library-1"])
+        first = _submit(client, "session-history", "user-history", "expertbuddy-deepagents", "你好", ["library-1"])
         _finish(client, first["id"])
-        second = _submit(client, "session-history", "user-history", "deepagents", "下一句", ["library-1"])
+        second = _submit(client, "session-history", "user-history", "expertbuddy-deepagents", "下一句", ["library-1"])
         _finish(client, second["id"])
-        self.assertIn("下一句", client.get(second["id"])["output"])
-        humans = [m.content for m in session_messages("deepagents", "session-history") if isinstance(m, HumanMessage)]
+        output = client.get(second["id"])["output"]
+        self.assertIn("下一句", output)
+        self.assertIn("上文：你好", output)
+        humans = [item["text"] for item in session_messages("expertbuddy-deepagents", "session-history") if item["role"] == "user"]
         self.assertEqual(humans, ["你好", "下一句"])
-        self.assertEqual(session_messages("deepagents", "session-other"), [])
+        self.assertEqual(session_messages("expertbuddy-deepagents", "session-other"), [])
 
     def test_interrupt_rejects_a_finished_run(self) -> None:
         from viknow3.application.agentcore.errors import AgentServiceError
 
         client = AgentClient()
-        run = _submit(client, "session-done", "user-done", "deepagents", "完成", ["library-1"])
+        run = _submit(client, "session-done", "user-done", "expertbuddy-deepagents", "完成", ["library-1"])
         _finish(client, run["id"])
         with self.assertRaises(AgentServiceError) as caught:
             client.interrupt(run["id"])
@@ -213,14 +227,21 @@ class AgentServiceTests(unittest.TestCase):
         self.assertEqual([item["type"] for item in sink.read("run-once", 0)], ["run_started", "user_message", "run_interrupted"])
         self.assertEqual((state.status, state.output), ("interrupted", "partial"))
 
-    def test_unanswered_tool_calls_are_closed(self) -> None:
+    def test_closing_tool_messages_fill_open_calls(self) -> None:
+        from agents.runtime.agent_adapters.deepagents import closing_tool_messages
+
         history = [
             HumanMessage(content="q"),
             AIMessage(content="", tool_calls=[{"id": "a", "name": "t", "args": {}}, {"id": "b", "name": "t", "args": {}}]),
             ToolMessage(content="ok", tool_call_id="a"),
         ]
-        closing = unanswered_tool_calls(history)
+        closing = closing_tool_messages(history)
         self.assertEqual([item.tool_call_id for item in closing], ["b"])
+        self.assertEqual(closing[0].content, "tool call did not finish (run interrupted)")
+        self.assertEqual(
+            closing_tool_messages([*history, ToolMessage(content="done", tool_call_id="b")]),
+            [],
+        )
 
     def test_unknown_runtime_fails_the_run(self) -> None:
         from viknow3.application.agentcore.registry.catalog import _profile

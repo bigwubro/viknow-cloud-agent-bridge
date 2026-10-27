@@ -13,20 +13,16 @@ from json import JSONDecodeError
 from pathlib import Path
 from time import perf_counter
 from typing import TYPE_CHECKING, Any
-from urllib.parse import quote
 
-from actio.video_frames import sample_video_frames_at_timestamps
 from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
+from agents.runtime.core.actio.client import ActioClient
 from agents.runtime.core.config import ModelProvider, ToolConfigs
 from agents.runtime.core.evidence import Evidence, EvidencePart, EvidencePartKind, EvidenceTimeRange
+from agents.runtime.core.knowledge.object_key import resolve_asset_object_key
 from agents.runtime.core.model_gateway import model_connection_options
-from agents.runtime.core.multimodal.asr import (
-    EvidenceTranscriber,
-    OpenAICompatibleASRClient,
-    TimestampedASRClient,
-)
+from agents.runtime.core.multimodal.asr import EvidenceTranscriber
 from agents.runtime.core.multimodal.document_page_renderer import (
     MAX_DOCUMENT_INSPECT_PAGES,
     SpreadsheetRenderContext,
@@ -35,22 +31,13 @@ from agents.runtime.core.multimodal.document_page_renderer import (
 )
 from agents.runtime.core.multimodal.image_inspect_claim import ImageReviewResult, ImageVisualClaim
 from agents.runtime.core.multimodal.inspect_citation import InspectClaimRender, InspectClaimSource
-from agents.runtime.core.multimodal.locate_anything import (
-    ActioLocateAnythingClient,
-    LocateAnythingClient,
-)
-from agents.runtime.core.multimodal.ocr import (
-    EvidenceOCRReader,
-    OpenAICompatibleOCRClient,
-    PaddleOCRClient,
-)
+from agents.runtime.core.multimodal.locate_anything import LocateAnythingClient
+from agents.runtime.core.multimodal.ocr import EvidenceOCRReader
 from agents.runtime.core.multimodal.review import EvidenceReviewer
 from agents.runtime.core.multimodal.video_discovery import (
-    OpenAICompatibleVideoDiscoveryClient,
     VideoDiscoveryClient,
     VideoDiscoveryService,
 )
-from agents.runtime.core.multimodal.video_inspection import OpenAICompatibleVideoInspectionClient
 from agents.runtime.core.multimodal.video_review_claim import VideoReviewResult, VideoVisualClaim
 from agents.runtime.core.scheduler.domain import Priority, extra_body_with_priority
 from agents.runtime.core.tools.base import ToolErrorCode, ToolResult, map_error_code
@@ -804,8 +791,8 @@ class MultimodalToolHandlers:
     document_inspect_extractor_factory: Callable[[], ImageEvidenceExtractor] | None = None
     video_discovery_client_factory: Callable[[], VideoDiscoveryClient] | None = None
     video_url_builder: Callable[[EvidencePart], str] | None = None
-    filesystem_manager: Any | None = None
     workspace_upload_path_resolver: Callable[[str], Path] | None = None
+    actio: ActioClient | None = None
     _video_inspector: EvidenceReviewer | None = field(default=None, init=False, repr=False)
     _video_review_extractor: VideoEvidenceExtractor | None = field(
         default=None,
@@ -842,23 +829,18 @@ class MultimodalToolHandlers:
         default=None, init=False, repr=False
     )
 
+    def _require_actio(self) -> ActioClient:
+        if self.actio is None:
+            raise RuntimeError("actio client is required")
+        return self.actio
+
     def resolved_repo_root(self) -> Path:
         return self.knowledge.resolved_repo_root()
 
     def resolve_workspace_upload_path(self, workspace_path: str) -> Path:
         if self.workspace_upload_path_resolver is not None:
             return self.workspace_upload_path_resolver(workspace_path)
-        if self.filesystem_manager is None:
-            return Path(workspace_path)
-        context = get_tool_run_context()
-        if context is None:
-            return Path(workspace_path)
-        return self.filesystem_manager.resolve_workspace_upload_path(
-            user_id=context.user_id,
-            workspace_id=context.workspace_id,
-            session_id=context.session_id,
-            workspace_path=workspace_path,
-        )
+        return Path(workspace_path)
 
     def get_video_inspector(self) -> EvidenceReviewer:
         if self.video_inspector_factory is not None:
@@ -872,7 +854,7 @@ class MultimodalToolHandlers:
             base_url = review_model.resolve_base_url()
             if not base_url:
                 raise RuntimeError("video inspect model base_url or base_url_env is required")
-            inspection_client = OpenAICompatibleVideoInspectionClient(
+            inspection_client = self._require_actio().video_inspection_client(
                 model=review_model.require_model(),
                 base_url=base_url,
                 api_key=review_model.require_api_key(),
@@ -1073,7 +1055,8 @@ class MultimodalToolHandlers:
             if not base_url:
                 raise RuntimeError("asr base_url or base_url_env is required")
             if asr_config.provider == ModelProvider.OPENAI_COMPATIBLE:
-                asr_client = OpenAICompatibleASRClient(
+                asr_client = self._require_actio().asr_client(
+                    provider=str(asr_config.provider),
                     model=asr_config.require_model(),
                     base_url=base_url,
                     api_key=asr_config.require_api_key(),
@@ -1086,11 +1069,11 @@ class MultimodalToolHandlers:
                     vad_energy_threshold=asr_config.vad_energy_threshold,
                 )
             elif asr_config.provider in {ModelProvider.GRANITE, ModelProvider.ARK}:
-                asr_client = TimestampedASRClient(
+                asr_client = self._require_actio().asr_client(
+                    provider=str(asr_config.provider),
                     model=asr_config.require_model(),
                     base_url=base_url,
                     api_key=asr_config.require_api_key(),
-                    provider=str(asr_config.provider),
                     timeout_seconds=asr_config.timeout_seconds,
                     region_mode=asr_config.region_mode,
                     transport=asr_config.transport,
@@ -1122,22 +1105,18 @@ class MultimodalToolHandlers:
             base_url = ocr_config.resolve_base_url()
             if not base_url:
                 raise RuntimeError("ocr base_url or base_url_env is required")
-            client_class = (
-                OpenAICompatibleOCRClient
-                if ocr_config.provider == ModelProvider.OPENAI_COMPATIBLE
-                else PaddleOCRClient
-            )
             ocr_kwargs: dict[str, Any] = {
+                "provider": str(ocr_config.provider),
                 "model": ocr_config.require_model(),
                 "base_url": base_url,
                 "api_key": ocr_config.require_api_key(),
                 "timeout_seconds": ocr_config.timeout_seconds,
             }
-            if client_class is OpenAICompatibleOCRClient:
+            if ocr_config.provider == ModelProvider.OPENAI_COMPATIBLE:
                 ocr_kwargs["priority"] = Priority.INTERACTIVE.vllm_priority
             self._evidence_ocr_reader = EvidenceOCRReader(
                 repo_root=self.resolved_repo_root(),
-                ocr_client=client_class(**ocr_kwargs),
+                ocr_client=self._require_actio().ocr_client(**ocr_kwargs),
             )
         return self._evidence_ocr_reader
 
@@ -1155,7 +1134,7 @@ class MultimodalToolHandlers:
             base_url = locate_config.resolve_base_url()
             if not base_url:
                 raise RuntimeError("locate_anything base_url or base_url_env is required")
-            self._locate_anything_client = ActioLocateAnythingClient(
+            self._locate_anything_client = self._require_actio().locate_anything_client(
                 base_url=base_url,
                 api_key=locate_config.require_api_key(),
                 timeout_seconds=locate_config.timeout_seconds,
@@ -1184,7 +1163,7 @@ class MultimodalToolHandlers:
                 base_url = discovery_config.resolve_base_url()
                 if not base_url:
                     raise RuntimeError("video discovery base_url or base_url_env is required")
-                discovery_client = OpenAICompatibleVideoDiscoveryClient(
+                discovery_client = self._require_actio().video_discovery_client(
                     model=discovery_config.require_model(),
                     base_url=base_url,
                     api_key=discovery_config.require_api_key(),
@@ -1194,6 +1173,7 @@ class MultimodalToolHandlers:
             self._video_discovery_service = VideoDiscoveryService(
                 repo_root=self.resolved_repo_root(),
                 discovery_client=discovery_client,
+                frames=self.actio,
             )
         return self._video_discovery_service
 
@@ -1695,7 +1675,7 @@ class MultimodalToolHandlers:
             import uuid as _uuid
 
             frame_dir = Path("/tmp/viknow-locate-frames") / _uuid.uuid4().hex
-            frame_paths = sample_video_frames_at_timestamps(
+            frame_paths = self._require_actio().sample_video_frames_at_timestamps(
                 video_path=video_path,
                 output_dir=frame_dir,
                 timestamps=[frame_time],
@@ -2210,14 +2190,13 @@ def _require_evidence_library_allowed(evidence: Evidence) -> None:
     _require_library_allowed(library_id)
 
 
-def _library_asset_video_url(evidence: Evidence) -> str | None:
-    """Build a servable original-video URL for HyperRAG evidence."""
-    library_id = evidence.metadata.get("library_id") or ""
-    video_part = next((p for p in evidence.parts if p.kind == EvidencePartKind.VIDEO), None)
+def _evidence_asset_identity(evidence: Evidence) -> tuple[str, str, EvidencePart | None]:
+    video_part = next((part for part in evidence.parts if part.kind == EvidencePartKind.VIDEO), None)
     part_meta = video_part.metadata if video_part is not None else {}
     if not isinstance(part_meta, dict):
         part_meta = {}
-    asset_id = (
+    library_id = str(evidence.metadata.get("library_id") or "").strip()
+    asset_id = str(
         part_meta.get("source_video_id")
         or part_meta.get("video_id")
         or evidence.metadata.get("source_video_id")
@@ -2226,32 +2205,53 @@ def _library_asset_video_url(evidence: Evidence) -> str | None:
         or evidence.metadata.get("asset_id")
         or evidence.metadata.get("full_doc_id")
         or ""
-    )
-    if video_part is not None:
-        asset_id = asset_id or part_meta.get("asset_id") or part_meta.get("video_id") or ""
+    ).strip()
     if not asset_id and video_part is not None and video_part.uri:
         asset_id = Path(video_part.uri).stem
-    if not library_id or not asset_id:
-        return None
+    return library_id, asset_id, video_part
 
-    url = f"/media/libraries/{library_id}/assets/{asset_id}/video"
-    if video_part is not None and video_part.time_range is not None:
-        begin = video_part.time_range.start_seconds
-        end = video_part.time_range.end_seconds
-        return f"{url}#t={begin:.1f},{end:.1f}"
-    return url
+
+def _library_asset_object_key(evidence: Evidence) -> str | None:
+    """Catalog object key for this evidence. Never a /media URL."""
+
+    library_id, asset_id, video_part = _evidence_asset_identity(evidence)
+    return resolve_asset_object_key(
+        library_id,
+        asset_id,
+        evidence.metadata.get("asset_path"),
+        evidence.metadata.get("file_path"),
+        evidence.metadata.get("source_uri"),
+        video_part.uri if video_part is not None else None,
+    )
+
+
+def _video_source_with_object_key(
+    evidence: Evidence,
+    source: InspectClaimSource,
+) -> InspectClaimSource:
+    key = _library_asset_object_key(evidence)
+    if not key:
+        return source
+    return source.model_copy(update={"asset_path": key})
+
+
+def _library_asset_video_url(evidence: Evidence) -> str | None:
+    """Object key of the original video. Playback range stays on the timestamp fields."""
+
+    return _library_asset_object_key(evidence)
 
 
 def _enrich_evidence_with_video_url(evidence: Evidence) -> Evidence:
-    """Inject a servable video_url into evidence metadata if not already present."""
+    """Record the catalog object key on evidence. Drop any /media locator."""
+
     metadata = dict(evidence.metadata)
     metadata["video_timestamps_absolute"] = True
-    if evidence.metadata.get("video_url"):
-        return evidence.model_copy(update={"metadata": metadata})
-    url = _library_asset_video_url(evidence)
-    if url is None:
-        return evidence.model_copy(update={"metadata": metadata})
-    metadata["video_url"] = url
+    key = _library_asset_object_key(evidence)
+    if key:
+        metadata["asset_path"] = key
+        metadata["video_url"] = key
+    else:
+        metadata.pop("video_url", None)
     return evidence.model_copy(update={"metadata": metadata})
 
 
@@ -2533,7 +2533,6 @@ def _inspect_claim_source(tool_name: str, claim: Any, evidence: Evidence) -> Ins
     )
     if tool_name == "visual_ground" and evidence.metadata.get("visual_ground_page") is not None:
         page_number = int(evidence.metadata["visual_ground_page"])
-        page_url = _library_asset_page_image_url(evidence, {"page": page_number - 1})
         document_url = _library_asset_document_url(evidence)
         return InspectClaimSource(
             type="image",
@@ -2543,13 +2542,12 @@ def _inspect_claim_source(tool_name: str, claim: Any, evidence: Evidence) -> Ins
             title=evidence.title,
             segment_id=evidence.id,
             source_image_id=f"page-{page_number}.png",
-            uri=page_url,
+            uri=document_url,
             anchors=[
                 _drop_empty_fields(
                     {
                         "kind": "document_page",
                         "document_url": document_url,
-                        "page_image_url": page_url,
                         "page": page_number - 1,
                         "segment_id": evidence.id,
                     }
@@ -2563,7 +2561,6 @@ def _inspect_claim_source(tool_name: str, claim: Any, evidence: Evidence) -> Ins
         )
     if tool_name == "document_inspect":
         page_number = evidence.metadata["document_inspect_page"]
-        page_url = _library_asset_page_image_url(evidence, {"page": page_number - 1})
         document_url = _library_asset_document_url(evidence)
         source_metadata = {
             **_base_source_metadata(evidence),
@@ -2578,13 +2575,12 @@ def _inspect_claim_source(tool_name: str, claim: Any, evidence: Evidence) -> Ins
             title=evidence.title,
             segment_id=evidence.id,
             source_image_id=f"page-{page_number}.png",
-            uri=page_url,
+            uri=document_url,
             anchors=[
                 _drop_empty_fields(
                     {
                         "kind": "document_page",
                         "document_url": document_url,
-                        "page_image_url": page_url,
                         "page": page_number - 1,
                         "segment_id": evidence.id,
                     }
@@ -2623,23 +2619,26 @@ def _inspect_claim_source(tool_name: str, claim: Any, evidence: Evidence) -> Ins
                 source_metadata["clip_start_seconds"] = clip_start
             if clip_end is not None:
                 source_metadata["clip_end_seconds"] = clip_end
-            return InspectClaimSource(
-                type="video",
-                library_id=library_id,
-                asset_id=asset_id,
-                evidence_id=evidence.id,
-                title=evidence.title,
-                segment_id=segment_id,
-                timestamp_start=clip_start,
-                timestamp_end=clip_end,
-                uri=video_part.uri,
-                anchors=_video_source_anchors(
-                    evidence,
+            return _video_source_with_object_key(
+                evidence,
+                InspectClaimSource(
+                    type="video",
+                    library_id=library_id,
+                    asset_id=asset_id,
+                    evidence_id=evidence.id,
+                    title=evidence.title,
+                    segment_id=segment_id,
+                    timestamp_start=clip_start,
+                    timestamp_end=clip_end,
                     uri=video_part.uri,
-                    absolute_start=clip_start,
-                    absolute_end=clip_end,
+                    anchors=_video_source_anchors(
+                        evidence,
+                        uri=video_part.uri,
+                        absolute_start=clip_start,
+                        absolute_end=clip_end,
+                    ),
+                    metadata=source_metadata,
                 ),
-                metadata=source_metadata,
             )
         image_part = _first_part(evidence, EvidencePartKind.IMAGE)
         if image_part is not None or _source_refs(evidence, kind="image"):
@@ -2721,23 +2720,26 @@ def _inspect_claim_source(tool_name: str, claim: Any, evidence: Evidence) -> Ins
     if clip_end is not None:
         metadata["relative_timestamp_end"] = ts_end - clip_start if clip_start is not None else None
     metadata.update(_base_source_metadata(evidence))
-    return InspectClaimSource(
-        type="video",
-        library_id=library_id,
-        asset_id=asset_id,
-        evidence_id=evidence.id,
-        title=evidence.title,
-        segment_id=evidence.id,
-        timestamp_start=ts_start,
-        timestamp_end=ts_end,
-        uri=video_part.uri if video_part is not None else None,
-        anchors=_video_source_anchors(
-            evidence,
+    return _video_source_with_object_key(
+        evidence,
+        InspectClaimSource(
+            type="video",
+            library_id=library_id,
+            asset_id=asset_id,
+            evidence_id=evidence.id,
+            title=evidence.title,
+            segment_id=evidence.id,
+            timestamp_start=ts_start,
+            timestamp_end=ts_end,
             uri=video_part.uri if video_part is not None else None,
-            absolute_start=ts_start,
-            absolute_end=ts_end,
+            anchors=_video_source_anchors(
+                evidence,
+                uri=video_part.uri if video_part is not None else None,
+                absolute_start=ts_start,
+                absolute_end=ts_end,
+            ),
+            metadata=metadata,
         ),
-        metadata=metadata,
     )
 
 
@@ -2989,10 +2991,7 @@ def _document_source_path(self: MultimodalToolHandlers, evidence: Evidence) -> P
     adapter = self.knowledge.knowledge_adapter
     if adapter is None or not library_id or not asset_id:
         raise ValueError("document evidence does not identify a resolvable knowledge asset")
-    resolver = getattr(adapter, "resolve_document_render_path", None)
-    if not callable(resolver):
-        raise RuntimeError("knowledge adapter does not support document page rendering")
-    source_path = resolver(library_id=library_id, asset_id=asset_id)
+    source_path = adapter.resolve_document_render_path(library_id=library_id, asset_id=asset_id)
     if source_path is None:
         raise FileNotFoundError(f"no renderable source found for document asset {asset_id}")
     return Path(source_path)
@@ -3179,6 +3178,7 @@ def _base_source_metadata(evidence: Evidence) -> dict[str, Any]:
         "source_video_id",
         "begin_ts",
         "end_ts",
+        "asset_path",
         "video_url",
     ):
         value = evidence.metadata.get(key)
@@ -3216,7 +3216,6 @@ def _text_source_anchors(evidence: Evidence, segment_ids: list[str]) -> list[dic
                             "kind": "text_span",
                             "document_path": document_path,
                             "document_url": document_url,
-                            "page_image_url": _library_asset_page_image_url(evidence, location),
                             "page": _location_page(location),
                             "bbox": _location_bbox(location),
                             "page_size": _location_page_size(location),
@@ -3264,11 +3263,6 @@ def _image_source_anchors(
                     "kind": "image_region",
                     "document_path": document_path if include_document_context else None,
                     "document_url": document_url if include_document_context else None,
-                    "page_image_url": (
-                        _library_asset_page_image_url(evidence, ref)
-                        if include_document_context
-                        else None
-                    ),
                     "page": _location_page(ref),
                     "bbox": _location_bbox(ref),
                     "page_size": _location_page_size(ref),
@@ -3309,18 +3303,21 @@ def _video_source_anchors(
     absolute_start: Any,
     absolute_end: Any,
 ) -> list[dict[str, Any]]:
-    video_url = _metadata_string(evidence.metadata, "video_url") or _library_asset_video_url(
-        evidence
-    )
+    object_key = _library_asset_object_key(evidence)
+    start = _optional_float_value(absolute_start)
+    end = _optional_float_value(absolute_end)
     return [
         _drop_empty_fields(
             {
                 "kind": "video_clip",
-                "video_url": video_url,
+                "asset_path": object_key,
+                "video_url": object_key,
                 "uri": uri,
                 "evidence_id": evidence.id,
-                "absolute_start_seconds": _optional_float_value(absolute_start),
-                "absolute_end_seconds": _optional_float_value(absolute_end),
+                "timestamp_start": start,
+                "timestamp_end": end,
+                "absolute_start_seconds": start,
+                "absolute_end_seconds": end,
             }
         )
     ]
@@ -3407,23 +3404,7 @@ def _normalize_page_size(value: Any) -> list[float] | None:
 
 
 def _library_asset_document_url(evidence: Evidence) -> str | None:
-    library_id = _metadata_string(evidence.metadata, "library_id")
-    asset_id = _metadata_string(evidence.metadata, "asset_id") or _metadata_string(
-        evidence.metadata, "full_doc_id"
-    )
-    if not library_id or not asset_id:
-        return None
-    return (
-        f"/media/libraries/{quote(library_id, safe='')}/assets/{quote(asset_id, safe='')}/document"
-    )
-
-
-def _library_asset_page_image_url(evidence: Evidence, location: dict[str, Any]) -> str | None:
-    document_url = _library_asset_document_url(evidence)
-    page = _location_page(location)
-    if document_url is None or page is None:
-        return None
-    return f"{document_url}/pages/{page}.png"
+    return _library_asset_object_key(evidence)
 
 
 def _library_asset_image_url(
@@ -3432,17 +3413,8 @@ def _library_asset_image_url(
     source_image_id: str | None,
     image_uri: str | None,
 ) -> str | None:
-    library_id = _metadata_string(evidence.metadata, "library_id")
-    asset_id = _metadata_string(evidence.metadata, "asset_id") or _metadata_string(
-        evidence.metadata, "full_doc_id"
-    )
-    image_name = Path(str(source_image_id or image_uri or "")).name
-    if not library_id or not asset_id or not image_name:
-        return None
-    return (
-        f"/media/libraries/{quote(library_id, safe='')}/assets/"
-        f"{quote(asset_id, safe='')}/images/{quote(image_name, safe='')}"
-    )
+    del source_image_id, image_uri
+    return _library_asset_object_key(evidence)
 
 
 def _image_ref_matches(ref: dict[str, Any], source_image_id: str) -> bool:

@@ -45,8 +45,8 @@ class OpsConfigTests(unittest.TestCase):
         self.assertEqual(caught.exception.status, 400)
 
     def test_agent_primary_model_is_visible_to_qa_profiles(self) -> None:
-        set_value("agent_model", "model_id", "siliconflow:Qwen/Qwen3.6-35B-A3B", "deepagents", "admin")
-        profile = Registry().profile("deepagents")
+        set_value("agent_model", "model_id", "siliconflow:Qwen/Qwen3.6-35B-A3B", "expertbuddy-deepagents", "admin")
+        profile = Registry().profile("expertbuddy-deepagents")
         assert profile is not None
         self.assertEqual(profile.public()["default_model"], "siliconflow:Qwen/Qwen3.6-35B-A3B")
         self.assertTrue(Registry().known_model("private:qwen"))

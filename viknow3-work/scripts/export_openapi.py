@@ -18,7 +18,7 @@ TAG_META = [
     {"name": "Users", "x-displayName": "用户", "description": "用户与账号"},
     {"name": "Agent", "x-displayName": "智能体", "description": "Agent 列表、Profile、模型与权限"},
     {"name": "Chat", "x-displayName": "对话", "description": "会话、轮次、SSE 事件与对话文件"},
-    {"name": "Knowledge", "x-displayName": "知识库", "description": "知识库、索引检索、媒体与运维配置"},
+    {"name": "Knowledge", "x-displayName": "知识库", "description": "知识库、索引检索与运维配置"},
 ]
 
 
@@ -28,9 +28,7 @@ def tag_for_path(path: str) -> str:
         return "Users"
     if (
         path.startswith("/api/v1/knowledge")
-        or path.startswith("/api/v1/learning")
         or path.startswith("/api/v1/om")
-        or path.startswith("/media/libraries")
         or "/online/libraries" in path
     ):
         return "Knowledge"

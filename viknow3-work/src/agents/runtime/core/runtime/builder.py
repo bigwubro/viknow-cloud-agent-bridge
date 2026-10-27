@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from agents.runtime.agent_adapters.deepagents_config import resolve_deepagents_config
+from agents.runtime.agent_adapters.tool_call_markup import bind_tool_call_recovery_state_dir
 from agents.runtime.core.config import (
     AgentKernelType,
     AppConfig,
@@ -13,7 +15,8 @@ from agents.runtime.core.config import (
     ToolConfigs,
     resolve_model_config,
 )
-from agents.runtime.core.knowledge.hyperrag_adapter import HyperRAGAdapter
+from agents.runtime.core.actio.client import ActioClient
+from agents.runtime.core.knowledge.client import KnowledgeClient
 from agents.runtime.core.memory import UserMemoryService, build_user_memory_service
 from agents.runtime.core.observability.langfuse_project_identity import LangfuseProjectIdentity
 from agents.runtime.core.runtime.behavior_snapshot import build_run_behavior_snapshot
@@ -32,17 +35,19 @@ def build_agent_runtime(
     tool_configs: ToolConfigs,
     workspace_root: Path | None = None,
     event_store: AgentEventStore | None = None,
-    knowledge_adapter: HyperRAGAdapter | None = None,
+    knowledge_adapter: KnowledgeClient | None = None,
+    actio_client: ActioClient | None = None,
     user_memory_service: UserMemoryService | None = None,
     extra_tool_specs: tuple[ToolSpec, ...] = (),
-    filesystem_manager: object | None = None,
     scheduler_pool_overrides: dict[str, int] | None = None,
     multi_agent_enabled: bool | None = None,
     langfuse_project_identity: LangfuseProjectIdentity | None = None,
+    model_factory: Callable[[Any], Any] | None = None,
 ) -> AgentRuntime:
     """Build a runtime for the explicitly selected profile and prepared tools."""
 
     root = (workspace_root or Path.cwd()).resolve()
+    bind_tool_call_recovery_state_dir(config.app.state_dir)
     if config.agent.kernel == AgentKernelType.DEEPAGENTS:
         from agents.runtime.agent_adapters.deepagents import DeepAgentsRuntime
         from agents.runtime.agent_adapters.deepagents_tools import (
@@ -67,8 +72,8 @@ def build_agent_runtime(
         tool_handlers = ViKnowToolHandlers(
             repo_root=root,
             knowledge_adapter=knowledge_adapter,
+            actio_client=actio_client,
             tool_configs=tool_configs,
-            filesystem_manager=filesystem_manager,
         )
         monitoring_tool_specs = build_monitoring_tool_specs(
             tool_configs.monitoring,
@@ -181,9 +186,9 @@ def build_agent_runtime(
             model_providers=config.model_providers,
             user_memory_service=memory_service,
             scheduler=resource_scheduler,
-            filesystem_manager=filesystem_manager,
             precompiled_knowledge_loader=tool_handlers.load_precompiled_knowledge_context,
             usage_push_config=config.observability.langfuse.usage_push,
+            model_factory=model_factory,
             behavior_snapshot_factory=lambda op: build_run_behavior_snapshot(
                 profile=profile,
                 agent_model=behavior_snapshot_model,
@@ -192,17 +197,6 @@ def build_agent_runtime(
                 op=op,
                 repo_root=root,
             ),
-        )
-    if config.agent.kernel == AgentKernelType.HERMES:
-        from agents.runtime.agent_adapters.hermes import HermesAgentRuntime
-
-        return HermesAgentRuntime(
-            workspace_root=root,
-            hermes_home=config.agent.hermes.home,
-            profile=profile,
-            model_config=config.agent.model,
-            model_providers=config.model_providers,
-            event_store=event_store,
         )
     raise ValueError(f"unsupported agent kernel: {config.agent.kernel}")
 

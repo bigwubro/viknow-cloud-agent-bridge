@@ -17,10 +17,9 @@ from viknow3.access.agent.service import AgentError
 from viknow3.access.auth import AuthError
 from viknow3.access.knowledge.routes import router as knowledge_router
 from viknow3.access.knowledge.service import KnowledgeError
-from viknow3.access.learning.routes import router as learning_router
 from viknow3.access.om.routes import router as om_router
 from viknow3.access.om.service import OmError
-from viknow3.access.rag.routes import media_router, router as rag_router
+from viknow3.access.rag.routes import router as rag_router
 from viknow3.access.rag.service import RagError
 from viknow3.access.user.routes import router as user_router
 from viknow3.access.user.service import UserError
@@ -55,8 +54,6 @@ def create_app() -> FastAPI:
     application.include_router(knowledge_router)
     application.include_router(agent_router)
     application.include_router(rag_router)
-    application.include_router(media_router)
-    application.include_router(learning_router)
     application.include_router(om_router)
     return application
 

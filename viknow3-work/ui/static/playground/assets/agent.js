@@ -3,7 +3,7 @@ const PlaygroundAgent = (() => {
   const AGENT_API = "/api/v1/agent";
   const KNOWLEDGE_API = "/api/v1/knowledge";
 
-  const AGENTS_NEED_LIBRARY = new Set(["deepagents"]);
+  const AGENTS_NEED_LIBRARY = new Set(["expertbuddy-deepagents", "expertbuddy-adk"]);
 
   function detailMessage(payload) {
     if (!payload || typeof payload !== "object") return "请求失败";
@@ -85,6 +85,554 @@ const PlaygroundAgent = (() => {
     return div;
   }
 
+  const signedUrlCache = new Map();
+  const URI_FIELDS = ["file_path", "source_uri", "asset_path", "object_key", "uri", "video_url", "image_url", "document_url", "url"];
+
+  function s3Uri(value) {
+    if (typeof value !== "string") {
+      return "";
+    }
+    const text = value.trim().split("#")[0].split("?")[0].replace(/^\/+/, "");
+    if (!text.startsWith("knowledge/assets/")) {
+      return "";
+    }
+    if (text.split("/").some((part) => part === "" || part === "." || part === "..")) {
+      return "";
+    }
+    return text;
+  }
+
+  function finite(value) {
+    return typeof value === "number" && Number.isFinite(value) ? value : null;
+  }
+
+  function fragmentRange(value) {
+    if (typeof value !== "string") {
+      return [null, null];
+    }
+    const match = value.match(/#t=([0-9.]+),([0-9.]+)/);
+    if (!match) {
+      return [null, null];
+    }
+    return [Number(match[1]), Number(match[2])];
+  }
+
+  function clock(seconds) {
+    const whole = Math.max(0, Math.floor(seconds));
+    return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, "0")}`;
+  }
+
+  function previewLabel(item) {
+    const name = item.title || item.object_key.split("/").pop();
+    if (item.begin_seconds != null && item.end_seconds != null) {
+      return `${name} ${clock(item.begin_seconds)}–${clock(item.end_seconds)}`;
+    }
+    if (item.page) {
+      return `${name} 第 ${item.page} 页`;
+    }
+    return name;
+  }
+
+  function positiveInt(value) {
+    return Number.isInteger(value) && value > 0 ? value : null;
+  }
+
+  function nearby(node) {
+    const list = [node];
+    ["source", "metadata", "render"].forEach((name) => {
+      const child = node[name];
+      if (child && typeof child === "object" && !Array.isArray(child)) {
+        list.push(child);
+      }
+    });
+    const source = node.source && typeof node.source === "object" ? node.source : null;
+    if (source && source.metadata && typeof source.metadata === "object") {
+      list.push(source.metadata);
+    }
+    [node.anchors, source && source.anchors].forEach((anchors) => {
+      if (!Array.isArray(anchors)) {
+        return;
+      }
+      anchors.forEach((anchor) => {
+        if (anchor && typeof anchor === "object") {
+          list.push(anchor);
+        }
+      });
+    });
+    return list;
+  }
+
+  function keyFrom(nodes) {
+    let found = "";
+    let raw = "";
+    nodes.forEach((node) => {
+      if (found) {
+        return;
+      }
+      URI_FIELDS.forEach((field) => {
+        if (found) {
+          return;
+        }
+        const key = s3Uri(node[field]);
+        if (key) {
+          found = key;
+          raw = String(node[field]);
+        }
+      });
+    });
+    return [found, raw];
+  }
+
+  function rangeFrom(nodes, raw) {
+    let begin = null;
+    let end = null;
+    nodes.forEach((node) => {
+      if (begin != null && end != null) {
+        return;
+      }
+      const range = node.time_range && typeof node.time_range === "object" ? node.time_range : {};
+      const start = finite(node.begin_seconds) ?? finite(node.begin_ts) ?? finite(node.timestamp_start) ?? finite(node.absolute_start_seconds) ?? finite(range.start_seconds);
+      const stop = finite(node.end_seconds) ?? finite(node.end_ts) ?? finite(node.timestamp_end) ?? finite(node.absolute_end_seconds) ?? finite(range.end_seconds);
+      if (start != null && stop != null && stop >= start) {
+        begin = start;
+        end = stop;
+      }
+    });
+    if (begin == null || end == null) {
+      return fragmentRange(raw);
+    }
+    return [begin, end];
+  }
+
+  function pageFrom(nodes) {
+    let indexed = null;
+    for (const node of nodes) {
+      const numbered = positiveInt(node.document_page)
+        ?? positiveInt(node.document_inspect_page)
+        ?? positiveInt(node.visual_ground_page)
+        ?? positiveInt(node.page_number);
+      if (numbered) {
+        return numbered;
+      }
+      if (node.page_range && positiveInt(node.page_range.start_page)) {
+        return node.page_range.start_page;
+      }
+      if ((node.kind === "document_page" || node.kind === "text_span" || node.kind === "image_region") && Number.isInteger(node.page) && node.page >= 0) {
+        indexed = node.page + 1;
+      }
+    }
+    if (indexed) {
+      return indexed;
+    }
+    for (const node of nodes) {
+      if (Number.isInteger(node.page) && node.page >= 0) {
+        return node.page === 0 ? 1 : node.page;
+      }
+    }
+    return null;
+  }
+
+  function previewFromNode(node, marker) {
+    const nodes = nearby(node);
+    const [key, raw] = keyFrom(nodes);
+    if (!key) {
+      return null;
+    }
+    const [begin, end] = rangeFrom(nodes, raw);
+    const page = pageFrom(nodes);
+    const named = node.title || (node.source && node.source.title) || "";
+    const title = String(named || ((begin == null && page == null) ? node.display_label : "") || "");
+    return {
+      object_key: key,
+      begin_seconds: begin != null && end != null && end >= begin ? begin : null,
+      end_seconds: begin != null && end != null && end >= begin ? end : null,
+      page,
+      title,
+      marker: marker || "",
+      display_label: "",
+    };
+  }
+
+  function rememberPreview(list, item) {
+    item.display_label = previewLabel(item);
+    const same = list.find((row) => row.object_key === item.object_key && row.begin_seconds === item.begin_seconds && row.end_seconds === item.end_seconds && row.page === item.page);
+    if (same) {
+      if (!same.marker && item.marker) {
+        same.marker = item.marker;
+      }
+      if (!same.title && item.title) {
+        same.title = item.title;
+        same.display_label = previewLabel(same);
+      }
+      return;
+    }
+    const bare = item.begin_seconds != null || item.page != null
+      ? list.find((row) => row.object_key === item.object_key && row.begin_seconds == null && row.page == null)
+      : null;
+    if (bare) {
+      Object.assign(bare, item);
+      bare.display_label = previewLabel(bare);
+      return;
+    }
+    if (item.begin_seconds == null && item.page == null && list.some((row) => row.object_key === item.object_key && (row.begin_seconds != null || row.page != null))) {
+      return;
+    }
+    list.push(item);
+  }
+
+  function walkPreviews(value, marker, list) {
+    if (!value || typeof value !== "object") {
+      return;
+    }
+    if (Array.isArray(value)) {
+      value.forEach((item) => walkPreviews(item, marker, list));
+      return;
+    }
+    const ownMarker = typeof value.marker === "string" && /^\d+$/.test(value.marker) ? value.marker : marker;
+    const found = previewFromNode(value, ownMarker);
+    if (found) {
+      rememberPreview(list, found);
+    }
+    Object.entries(value).forEach(([key, child]) => {
+      const next = /^\d+$/.test(key) ? key : ownMarker;
+      walkPreviews(child, next, list);
+    });
+  }
+
+  function previewsIn(value, limit) {
+    const list = [];
+    walkPreviews(value, "", list);
+    return list.slice(0, limit);
+  }
+
+  function parsePayload(value) {
+    if (value && typeof value === "object") {
+      return value;
+    }
+    if (typeof value !== "string" || !value.trim()) {
+      return null;
+    }
+    try {
+      return JSON.parse(value);
+    } catch {
+      return null;
+    }
+  }
+
+  function signedUrl(objectKey) {
+    const cached = signedUrlCache.get(objectKey);
+    if (cached) {
+      return cached;
+    }
+    const pending = api(`${KNOWLEDGE_API}/downloads`, {
+      method: "POST",
+      body: JSON.stringify({ asset_path: objectKey }),
+    }).then((body) => {
+      if (!body || typeof body.url !== "string" || !body.url) {
+        throw new Error("预签名失败");
+      }
+      return body.url;
+    });
+    signedUrlCache.set(objectKey, pending);
+    pending.catch(() => signedUrlCache.delete(objectKey));
+    return pending;
+  }
+
+  function previewBlock(citation) {
+    const block = document.createElement("div");
+    block.className = "pg-preview";
+    if (citation.marker) {
+      block.dataset.marker = String(citation.marker);
+    }
+    const head = document.createElement("button");
+    head.type = "button";
+    head.className = "pg-preview-open";
+    head.textContent = citation.display_label || citation.title || "预览";
+    const stage = document.createElement("div");
+    stage.className = "pg-preview-stage";
+    stage.hidden = true;
+    head.addEventListener("click", () => {
+      const opening = stage.hidden;
+      stage.hidden = !opening;
+      if (opening && stage.dataset.loaded !== "1") {
+        stage.dataset.loaded = "1";
+        mountPreview(stage, citation);
+      }
+    });
+    block.append(head, stage);
+    return block;
+  }
+
+  function mountPreview(host, citation) {
+    const key = citation.object_key || "";
+    if (!key) {
+      host.textContent = "没有可预览的对象";
+      return;
+    }
+    const lower = key.toLowerCase();
+    const video = citation.modality === "video" || /\.(mp4|webm|mov|mkv)$/.test(lower);
+    if (video) {
+      mountVideo(host, citation, key);
+      return;
+    }
+    if (/\.(png|jpe?g|gif|webp)$/.test(lower)) {
+      const image = document.createElement("img");
+      image.className = "pg-preview-image";
+      image.alt = citation.display_label || "预览";
+      host.append(image);
+      signedUrl(key).then((url) => {
+        image.src = url;
+      }).catch(() => {
+        host.append(previewError());
+      });
+      return;
+    }
+    const open = openOriginalButton(citation, key);
+    host.append(open);
+    if (lower.endsWith(".pdf")) {
+      const frame = document.createElement("iframe");
+      frame.className = "pg-preview-frame";
+      frame.title = citation.display_label || "文档预览";
+      host.insertBefore(frame, open);
+      signedUrl(key).then((url) => {
+        frame.src = `${url}${playbackFragment(citation)}`;
+      }).catch(() => {
+        frame.remove();
+      });
+    }
+  }
+
+  function playbackFragment(citation) {
+    const lower = String(citation.object_key || "").toLowerCase();
+    const start = citation.begin_seconds;
+    const end = citation.end_seconds;
+    if (/\.(mp4|webm|mov|mkv)$/.test(lower) && typeof start === "number") {
+      return typeof end === "number" && end >= start ? `#t=${start},${end}` : `#t=${start}`;
+    }
+    if (lower.endsWith(".pdf") && citation.page) {
+      return `#page=${citation.page}`;
+    }
+    return "";
+  }
+
+  function mountVideo(host, citation, key) {
+    const video = document.createElement("video");
+    video.className = "pg-preview-video";
+    video.controls = true;
+    video.preload = "metadata";
+    const start = typeof citation.begin_seconds === "number" ? citation.begin_seconds : null;
+    const end = typeof citation.end_seconds === "number" ? citation.end_seconds : null;
+    video.addEventListener("loadedmetadata", () => {
+      if (start != null) {
+        video.currentTime = start;
+      }
+    });
+    let stopAt = null;
+    video.addEventListener("timeupdate", () => {
+      if (stopAt !== null && video.currentTime >= stopAt) {
+        video.pause();
+        stopAt = null;
+      }
+    });
+    const play = document.createElement("button");
+    play.type = "button";
+    play.className = "pg-button pg-button-link";
+    play.textContent = "播放片段";
+    play.addEventListener("click", () => {
+      if (start != null) {
+        video.currentTime = start;
+      }
+      stopAt = end != null && start != null && end >= start ? end : null;
+      video.play().catch(() => {});
+    });
+    host.append(video, play);
+    signedUrl(key).then((url) => {
+      video.src = `${url}${playbackFragment(citation)}`;
+    }).catch(() => {
+      host.append(previewError());
+    });
+  }
+
+  function openOriginalButton(citation, key) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "pg-button pg-button-link";
+    button.textContent = citation.page ? `打开原文 · 第 ${citation.page} 页` : "打开原文";
+    button.addEventListener("click", async () => {
+      try {
+        const url = await signedUrl(key);
+        window.open(`${url}${playbackFragment(citation)}`, "_blank", "noopener");
+      } catch {
+        button.textContent = "打开失败";
+      }
+    });
+    return button;
+  }
+
+  function previewError() {
+    const note = document.createElement("div");
+    note.className = "pg-preview-error";
+    note.textContent = "预览地址签名失败";
+    return note;
+  }
+
+  function markerFrom(node) {
+    const raw = String((node && (node.agent_citation || node.marker)) || "");
+    const match = raw.match(/(\d+)/);
+    return match ? match[1] : "";
+  }
+
+  function claimPreview(node) {
+    if (!node || typeof node !== "object") {
+      return null;
+    }
+    const preview = previewFromNode(node, markerFrom(node));
+    if (!preview) {
+      return null;
+    }
+    const label = String(node.display_label || (node.render && node.render.label) || "");
+    preview.display_label = label || previewLabel(preview);
+    preview.claim = String(node.claim || "");
+    return preview;
+  }
+
+  function claimsIn(value) {
+    const payload = parsePayload(value);
+    if (!payload || typeof payload !== "object") {
+      return [];
+    }
+    const lists = [];
+    if (Array.isArray(payload.claims)) {
+      lists.push(payload.claims);
+    }
+    if (payload.result && typeof payload.result === "object" && Array.isArray(payload.result.claims)) {
+      lists.push(payload.result.claims);
+    }
+    return lists.flat().filter((item) => item && typeof item === "object");
+  }
+
+  function isInspectTool(name) {
+    const tool = String(name || "");
+    return tool.includes("inspect") || tool === "visual_ground" || tool === "video_review";
+  }
+
+  function renderToolReview(el) {
+    const panel = el.querySelector(".pg-tool-review");
+    if (!panel) {
+      return;
+    }
+    panel.replaceChildren();
+    const claims = Array.isArray(el._claims) ? el._claims : [];
+    if (!claims.length) {
+      const empty = document.createElement("div");
+      empty.className = "pg-citation-empty";
+      empty.textContent = "该引用暂无可预览内容。";
+      panel.append(empty);
+      return;
+    }
+    claims.forEach((claim) => {
+      const entry = document.createElement("div");
+      entry.className = "pg-citation-entry";
+      const meta = document.createElement("div");
+      meta.className = "pg-citation-meta";
+      meta.textContent = String(claim.display_label || (claim.render && claim.render.label) || "引用");
+      entry.append(meta);
+      if (claim.claim) {
+        const text = document.createElement("div");
+        text.className = "pg-citation-claim";
+        text.textContent = String(claim.claim);
+        entry.append(text);
+      }
+      const preview = claimPreview(claim);
+      if (preview) {
+        mountPreview(entry, preview);
+      } else {
+        const empty = document.createElement("div");
+        empty.className = "pg-citation-empty";
+        empty.textContent = "该引用暂无可预览内容。";
+        entry.append(empty);
+      }
+      panel.append(entry);
+    });
+  }
+
+  function citationButton(marker, citation) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "pg-answer-citation";
+    button.dataset.marker = String(marker);
+    button.textContent = `[${marker}]`;
+    const tip = [citation.display_label, citation.claim].filter(Boolean).join("\n");
+    button.title = tip || `[${marker}]`;
+    button.addEventListener("click", () => {
+      openCitationPreview(button, marker, citation);
+    });
+    return button;
+  }
+
+  function openCitationPreview(anchor, marker, citation) {
+    const parent = anchor.parentElement;
+    const current = parent && parent.querySelector(":scope > .pg-citation-panel");
+    if (current && current.dataset.marker === String(marker)) {
+      current.remove();
+      return;
+    }
+    if (current) {
+      current.remove();
+    }
+    const panel = document.createElement("div");
+    panel.className = "pg-citation-panel";
+    panel.dataset.marker = String(marker);
+    const head = document.createElement("div");
+    head.className = "pg-citation-panel-head";
+    const title = document.createElement("div");
+    title.className = "pg-citation-panel-title";
+    const label = String((citation && citation.display_label) || "");
+    title.textContent = label ? `[${marker}] ${label}` : `[${marker}]`;
+    const close = document.createElement("button");
+    close.type = "button";
+    close.className = "pg-citation-panel-close";
+    close.textContent = "关闭";
+    close.addEventListener("click", () => panel.remove());
+    head.append(title, close);
+    panel.append(head);
+    if (citation && citation.claim) {
+      const claim = document.createElement("div");
+      claim.className = "pg-citation-claim";
+      claim.textContent = String(citation.claim);
+      panel.append(claim);
+    }
+    const preview = claimPreview(citation);
+    if (preview) {
+      mountPreview(panel, preview);
+    } else {
+      const empty = document.createElement("div");
+      empty.className = "pg-citation-empty";
+      empty.textContent = "该引用暂无可预览内容。";
+      panel.append(empty);
+    }
+    anchor.after(panel);
+  }
+
+  function decorateAnswer(node, citations) {
+    const value = node.textContent || "";
+    const pattern = /\[(\d+)\]/g;
+    if (!pattern.test(value)) {
+      return;
+    }
+    pattern.lastIndex = 0;
+    const fragment = document.createDocumentFragment();
+    let last = 0;
+    for (const match of value.matchAll(pattern)) {
+      fragment.append(document.createTextNode(value.slice(last, match.index)));
+      const marker = match[1];
+      fragment.append(citations[marker] ? citationButton(marker, citations[marker]) : document.createTextNode(match[0]));
+      last = match.index + match[0].length;
+    }
+    fragment.append(document.createTextNode(value.slice(last)));
+    node.replaceChildren(fragment);
+  }
+
   function pretty(value) {
     if (value == null || value === "") {
       return "";
@@ -143,6 +691,7 @@ const PlaygroundAgent = (() => {
     let statusEl = null;
     let completedText = "";
     let usage = null;
+    let answerCitations = {};
 
     function scroll() {
       const scroller = container.closest(".pg-chat-scroll") || container;
@@ -203,7 +752,7 @@ const PlaygroundAgent = (() => {
       clearStatus();
       const el = document.createElement("div");
       el.className = "pg-tool pg-tool-running";
-      el.innerHTML = `<button type="button" class="pg-tool-head"><span class="pg-tool-mark" aria-hidden="true"></span><span class="pg-tool-name"></span><span class="pg-tool-summary"></span><span class="pg-tool-state">运行中</span><span class="pg-tool-chevron" aria-hidden="true"></span></button><div class="pg-tool-detail" hidden><div class="pg-tool-block"><div class="pg-tool-block-label">参数</div><pre class="pg-tool-pre pg-tool-args"></pre></div><div class="pg-tool-block pg-tool-result-block" hidden><div class="pg-tool-block-label">结果</div><pre class="pg-tool-pre pg-tool-result"></pre></div></div>`;
+      el.innerHTML = `<div class="pg-tool-row"><button type="button" class="pg-tool-head"><span class="pg-tool-mark" aria-hidden="true"></span><span class="pg-tool-name"></span><span class="pg-tool-summary"></span><span class="pg-tool-state">运行中</span><span class="pg-tool-chevron" aria-hidden="true"></span></button><button type="button" class="pg-tool-cite" hidden title="展开引用" aria-label="展开引用" aria-expanded="false">▶</button></div><div class="pg-tool-review" hidden></div><div class="pg-tool-detail" hidden><div class="pg-tool-block"><div class="pg-tool-block-label">参数</div><pre class="pg-tool-pre pg-tool-args"></pre></div><div class="pg-tool-block pg-tool-result-block" hidden><div class="pg-tool-block-label">结果</div><pre class="pg-tool-pre pg-tool-result"></pre></div></div>`;
       el.querySelector(".pg-tool-name").textContent = payload.name || "tool";
       el.querySelector(".pg-tool-head").addEventListener("click", () => {
         const detail = el.querySelector(".pg-tool-detail");
@@ -211,6 +760,23 @@ const PlaygroundAgent = (() => {
         detail.hidden = !open;
         el.classList.toggle("pg-tool-open", open);
       });
+      if (isInspectTool(payload.name)) {
+        const cite = el.querySelector(".pg-tool-cite");
+        cite.hidden = false;
+        cite.classList.add("pg-tool-cite-running");
+        cite.addEventListener("click", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          const review = el.querySelector(".pg-tool-review");
+          const opening = review.hidden;
+          review.hidden = !opening;
+          cite.classList.toggle("active", opening);
+          cite.setAttribute("aria-expanded", String(opening));
+          if (opening) {
+            renderToolReview(el);
+          }
+        });
+      }
       body.appendChild(el);
       tools.set(key, el);
       scroll();
@@ -276,6 +842,7 @@ const PlaygroundAgent = (() => {
         } else if (type === "message_completed") {
           completedText = String(bodyPayload.text || "");
           usage = bodyPayload.token_usage || null;
+          answerCitations = bodyPayload.citations && typeof bodyPayload.citations === "object" ? bodyPayload.citations : {};
         } else if (type === "tool_call_started") {
           const el = toolRow(bodyPayload);
           el.dataset.started = String(moment);
@@ -295,6 +862,23 @@ const PlaygroundAgent = (() => {
           const block = el.querySelector(".pg-tool-result-block");
           block.hidden = false;
           el.querySelector(".pg-tool-result").textContent = pretty(result) || "（无结果）";
+          const cite = el.querySelector(".pg-tool-cite");
+          if (cite && !cite.hidden) {
+            cite.classList.remove("pg-tool-cite-running");
+            el._claims = claimsIn(result);
+            const review = el.querySelector(".pg-tool-review");
+            if (review && !review.hidden) {
+              renderToolReview(el);
+            }
+          } else {
+            const found = previewsIn(parsePayload(result), 6);
+            if (found.length) {
+              const list = document.createElement("div");
+              list.className = "pg-preview-list";
+              found.forEach((item) => list.append(previewBlock(item)));
+              el.querySelector(".pg-tool-detail").append(list);
+            }
+          }
           scroll();
         } else if (type === "answer_review_started") {
           showStatus(`检查回答 ${bodyPayload.attempt || 1}/${bodyPayload.max_attempts || ""}`.replace(/\/$/, ""));
@@ -319,7 +903,16 @@ const PlaygroundAgent = (() => {
         });
         closeText();
         clearStatus();
-        if (!full && completedText) {
+        if (completedText && Object.keys(answerCitations).length) {
+          let text = body.querySelector(".pg-turn-text");
+          if (!text) {
+            text = document.createElement("div");
+            text.className = "pg-turn-text";
+            body.appendChild(text);
+          }
+          text.textContent = completedText;
+          decorateAnswer(text, answerCitations);
+        } else if (!full && completedText) {
           const el = document.createElement("div");
           el.className = "pg-turn-text";
           el.textContent = completedText;

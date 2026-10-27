@@ -6,8 +6,8 @@ import json
 from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
-from urllib.parse import quote
 
+from agents.runtime.core.knowledge.object_key import resolve_asset_object_key
 from agents.runtime.core.runtime.domain import ToolCallRecord
 
 VIDEO_INSPECT_TOOL_NAMES = frozenset({"video_inspect", "video_inspect_2_0"})
@@ -276,14 +276,13 @@ def _citation_source_payload(value: Any) -> dict[str, Any]:
 
 
 def _citation_image_url(source: dict[str, Any]) -> str | None:
-    library_id = str(source.get("library_id") or "").strip()
-    asset_id = str(source.get("asset_id") or "").strip()
-    image_name = Path(str(source.get("source_image_id") or source.get("uri") or "")).name
-    if not library_id or not asset_id or not image_name:
-        return None
-    return (
-        f"/media/libraries/{quote(library_id, safe='')}/assets/"
-        f"{quote(asset_id, safe='')}/images/{quote(image_name, safe='')}"
+    return resolve_asset_object_key(
+        str(source.get("library_id") or ""),
+        str(source.get("asset_id") or ""),
+        source.get("asset_path"),
+        source.get("image_url"),
+        source.get("document_url"),
+        source.get("uri"),
     )
 
 

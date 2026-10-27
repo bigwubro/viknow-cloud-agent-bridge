@@ -72,6 +72,7 @@ class StopGateInput(BaseModel):
     eligible_claims: list[dict[str, Any]] = Field(default_factory=list)
     completed_tool_calls: list[ToolCallRecord] = Field(default_factory=list)
     answer_plan: dict[str, Any] | None = None
+    require_inspect: bool = True
 
 
 class StopGateJudge(Protocol):
@@ -171,7 +172,11 @@ def _rule_decision(request: StopGateInput) -> StopGateDecision | None:
             StopGateNextAction.REWRITE_WITH_CITATIONS,
             "回答中包含裸内部证据标识，请仅使用可解析的 citation token",
         )
-    if _has_uninspected_search_evidence(request) and not _is_no_evidence_refusal(answer):
+    if (
+        request.require_inspect
+        and _has_uninspected_search_evidence(request)
+        and not _is_no_evidence_refusal(answer)
+    ):
         return _blocked(
             request,
             StopGateReasonCode.UNINSPECTED_KNOWLEDGE_EVIDENCE,

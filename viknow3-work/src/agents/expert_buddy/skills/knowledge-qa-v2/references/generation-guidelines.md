@@ -2,9 +2,10 @@
 
 ## Answer Structure
 
-- Use Markdown for structure: numbered lists for steps, tables for
-  comparisons, paragraphs for explanations.
-- Keep answers focused — do not add unrelated background.
+Begin with `Answer:` or `答案：` and the requested fact, supported items, or
+what cannot be determined. Use Markdown only when it clarifies a requested
+comparison or sequence. Keep the answer within the original question's scope;
+do not add related facts just because they were retrieved.
 
 ## Scene Templates
 
@@ -15,52 +16,62 @@ Select the appropriate template based on the question type:
 Provide the answer directly with citation.
 
 ```
-The N9020B frequency range is 10 Hz to 3.6 GHz [1].
+Answer: The N9020B frequency range is 10 Hz to 3.6 GHz [C1].
 ```
 
 ### Comparison
 
-Use a Markdown table with one citation per cell.
+Use a Markdown table when it makes the requested comparison clearer. Cite each
+evidence-dependent value; do not fill a missing cell with a nearby model or
+attribute.
+
+Answer: The requested comparison is below.
 
 | Feature | A | B |
 |---|---|---|
-| Range | 10 Hz–3.6 GHz [1] | 10 Hz–50 GHz [2] |
+| Range | 10 Hz–3.6 GHz [C1] | 10 Hz–50 GHz [C2] |
 ### Workflow / Steps
 
-Use numbered lists. Each step gets its own citation. Keep parent-child
-hierarchy with 4-space indentation. Do not use Markdown headings (`#`)
-for step grouping.
+Use numbered lists for verified steps. Cite each evidence-dependent step.
+If a required step is not verified, name that limitation instead of completing
+the procedure from general knowledge.
 
 ```
-1. Remove the flange screws [1].
-   1. Use a hex key to loosen each screw.
-   2. Set screws aside for reassembly.
-2. Lift the drum [2].
+Answer: The verified steps are:
+
+1. Remove the flange screws [C1].
+   1. Use a hex key to loosen each screw [C1].
+   2. Set screws aside for reassembly [C1].
+2. Lift the drum [C2].
 ```
 
 ### Reasoning
 
-State the conclusion, then briefly note the key evidence.
+State the supported conclusion first, then briefly note the key evidence.
+Do not convert a plausible explanation into an established cause.
 
 ```
-The likely cause is worn bearings. Evidence shows vibration at
-high RPM [1], and the sound changes after
-lubrication [2].
+Answer: The supported cause is worn bearings. Evidence shows vibration at
+high RPM [C1], and the sound changes after
+lubrication [C2].
 ```
 
 ### Broad / Enumeration
 
-Start by stating that the list may be incomplete. Group findings by
-category. End with a question inviting narrower focus.
+If full-source coverage is verified, list the complete qualifying set. If it
+is not verified, lead with the fact that the requested complete list cannot be
+determined, then label only the verified subset or lower bound and state the
+uncovered scope. Do not imply a complete answer from top-k hits or append an
+unrequested invitation to broaden the question.
 
 ```
-The knowledge base contains the following related information
-(not guaranteed complete):
+Answer: The complete list cannot be determined from the verified coverage.
+The verified subset is:
 
-- Hardware: flange removal, drum lift
-- Software: frequency calibration
+- Hardware: flange removal [C1], drum lift [C2]
+- Software: frequency calibration [C3]
 
-For details on any specific area, please ask a more focused question.
+This does not establish that the full source has been covered.
 ```
 
 ## Professional Standards
@@ -69,6 +80,7 @@ For details on any specific area, please ask a more focused question.
 
 ## Text Consolidation
 
-Before answering, group text chunks by document and section. Search
-results return segments that may be split across chunks. Reassemble:
-document → chunk_id → segments ordered by location/order.
+Search chunks may point to different pages or sections. Use them to select
+`document_inspect` locators; do not consolidate raw search text into a final
+factual answer. Keep document, page and section scope distinct when comparing
+eligible claims.

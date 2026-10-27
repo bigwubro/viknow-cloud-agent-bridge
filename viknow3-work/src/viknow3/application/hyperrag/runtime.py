@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -12,6 +13,8 @@ from viknow3.ops.config.store import configured
 if TYPE_CHECKING:
     from viknow3.application.hyperrag.adapter import HyperRAGAdapter
 
+
+log = logging.getLogger(__name__)
 
 _adapter: HyperRAGAdapter | None = None
 _hyperrag_started: bool = False
@@ -51,6 +54,15 @@ def _prepare_hyperrag_process_env() -> None:
     os.environ["HYPERRAG_JOB_LOG_DIR"] = resolved
 
 
+def install_actio_port() -> None:
+    """Give the HyperRAG engine the Actio client. The engine does not import actio."""
+
+    from hyperrag.actio_port import install
+    from viknow3.application.actio.client import indexing_bindings
+
+    install(**indexing_bindings())
+
+
 def get_engine_adapter() -> HyperRAGAdapter:
     if _adapter is None:
         raise RuntimeError(_NOT_INITIALIZED)
@@ -79,6 +91,10 @@ async def init_hyperrag() -> None:
         return
 
     _prepare_hyperrag_process_env()
+    try:
+        install_actio_port()
+    except Exception:
+        log.warning("Actio client was not installed; video indexing stays unavailable", exc_info=True)
     _bootstrap_engine_adapter()
     from viknow3.application.hyperrag.client import init_hyperrag_client
 

@@ -2,48 +2,15 @@
 
 from __future__ import annotations
 
-import importlib
-import sys
 import tempfile
 from pathlib import Path
 from time import perf_counter
 from typing import Any, Protocol
 
-import httpx
 from pydantic import BaseModel, Field
 
 from agents.runtime.core.evidence import Evidence, EvidencePart, EvidencePartKind, EvidenceTimeRange
-from agents.runtime.core.model_gateway import ModelGatewayRoute, gateway_chat_json
 from agents.runtime.core.multimodal.evidence_utils import first_video_part, resolve_media_path
-
-
-def _load_actio_video_frames():
-    try:
-        return importlib.import_module("actio.video_frames")
-    except ModuleNotFoundError:
-        repo_root = Path(__file__).resolve().parents[4]
-        actio_src = repo_root / "external" / "actio" / "src"
-        if actio_src.exists() and str(actio_src) not in sys.path:
-            sys.path.insert(0, str(actio_src))
-        return importlib.import_module("actio.video_frames")
-
-
-def _load_actio_video_discovery():
-    try:
-        return importlib.import_module("actio.video_discovery")
-    except ModuleNotFoundError:
-        repo_root = Path(__file__).resolve().parents[4]
-        actio_src = repo_root / "external" / "actio" / "src"
-        if actio_src.exists() and str(actio_src) not in sys.path:
-            sys.path.insert(0, str(actio_src))
-        return importlib.import_module("actio.video_discovery")
-
-
-_actio_video_frames = _load_actio_video_frames()
-_actio_video_discovery = _load_actio_video_discovery()
-_ActioOpenAICompatibleVideoDiscoveryClient = (
-    _actio_video_discovery.OpenAICompatibleVideoDiscoveryClient
-)
 
 
 class GlobalBrowseResult(BaseModel):
@@ -82,70 +49,35 @@ class VideoDiscoveryClient(Protocol):
     ) -> FrameInspectResult: ...
 
 
-class OpenAICompatibleVideoDiscoveryClient(_ActioOpenAICompatibleVideoDiscoveryClient):
-    """ViKnow-compatible wrapper for actio OpenAI-compatible discovery client."""
+class VideoFrameOps(Protocol):
+    """Frame sampling the shell's Actio client provides."""
 
-    def __init__(self, *, gateway: ModelGatewayRoute | None = None, **kwargs: Any) -> None:
-        super().__init__(**kwargs)
-        self.gateway = gateway
-
-    def _chat(self, payload: dict[str, Any]) -> dict[str, Any]:
-        if self.gateway is None:
-            return super()._chat(payload)
-        _actio_video_discovery.apply_vllm_priority(payload, self.priority)
-        self.last_request_payload_bytes = None
-        started = perf_counter()
-        try:
-            return gateway_chat_json(
-                route=self.gateway,
-                base_url=self.base_url,
-                api_key=self.api_key,
-                payload=payload,
-                timeout_seconds=self.timeout_seconds,
-                request_size_callback=lambda size: setattr(
-                    self, "last_request_payload_bytes", size
-                ),
-            )
-        except httpx.HTTPStatusError as exc:
-            raise RuntimeError(
-                f"video discovery request failed: {exc.response.status_code}. {exc.response.text}"
-            ) from exc
-        finally:
-            self.last_http_elapsed_seconds = round(perf_counter() - started, 3)
-
-    def answer_from_clips(
+    def validate_crop_time_range(
         self,
         *,
-        question: str,
-        clips: list[Evidence],
-        instruction: str | None = None,
-    ) -> GlobalBrowseResult:
-        result = super().answer_from_clip_contexts(
-            question=question,
-            clip_contexts=[_clip_context(item) for item in clips],
-            instruction=instruction,
-        )
-        return GlobalBrowseResult(answer=result.answer, metadata=result.metadata)
+        source_time_range: tuple[float, float],
+        crop_time_range: tuple[float, float] | None,
+    ) -> tuple[float, float]: ...
 
-    def inspect_frames(
+    def effective_sample_count(
         self,
         *,
+        requested_sample_count: int,
+        sampling_strategy: str,
         question: str,
-        frame_paths: list[Path],
-        source_time_ranges: list[EvidenceTimeRange],
+        instruction: str | None,
+    ) -> int: ...
+
+    def sample_video_frames(
+        self,
+        *,
+        video_path: Path,
+        output_dir: Path,
+        time_range: tuple[float, float],
+        sample_count: int,
+        sampling_strategy: str = "uniform",
         number_frames: bool = False,
-        instruction: str | None = None,
-    ) -> FrameInspectResult:
-        result = super().inspect_frames(
-            question=question,
-            frame_paths=frame_paths,
-            source_time_ranges=[
-                (item.start_seconds, item.end_seconds) for item in source_time_ranges
-            ],
-            number_frames=number_frames,
-            instruction=instruction,
-        )
-        return FrameInspectResult(answer=result.answer, metadata=result.metadata)
+    ) -> list[Path]: ...
 
 
 class VideoDiscoveryService:
@@ -157,10 +89,12 @@ class VideoDiscoveryService:
         repo_root: Path | None = None,
         index: Any | None = None,
         discovery_client: VideoDiscoveryClient,
+        frames: VideoFrameOps | None = None,
     ) -> None:
         self.repo_root = (repo_root or Path(__file__).resolve().parents[4]).resolve()
         self.index = index
         self.discovery_client = discovery_client
+        self.frames = frames
 
     def clip_search(self, query: str, *, top_k: int = 5) -> list[Evidence]:
         normalized_query = query.strip()
@@ -259,12 +193,14 @@ class VideoDiscoveryService:
         )
         if video_part.time_range is None:
             raise ValueError("frame_inspect requires a video evidence time_range")
-        effective_time_range_tuple = _actio_video_frames.validate_crop_time_range(
+        if self.frames is None:
+            raise RuntimeError("actio client is required")
+        effective_time_range_tuple = self.frames.validate_crop_time_range(
             source_time_range=_time_range_tuple(video_part.time_range),
             crop_time_range=_time_range_tuple(crop_time_range) if crop_time_range else None,
         )
         effective_time_range = _evidence_time_range(effective_time_range_tuple)
-        effective_sample_count = _actio_video_frames.effective_sample_count(
+        effective_sample_count = self.frames.effective_sample_count(
             requested_sample_count=sample_count,
             sampling_strategy=sampling_strategy,
             question=normalized_question,
@@ -273,10 +209,10 @@ class VideoDiscoveryService:
         video_path = resolve_media_path(self.repo_root, video_part.uri or "")
         started = perf_counter()
         with tempfile.TemporaryDirectory(prefix="viknow-frame-inspect-") as temp_dir:
-            frame_paths = sample_video_frames(
+            frame_paths = self.frames.sample_video_frames(
                 video_path=video_path,
                 output_dir=Path(temp_dir),
-                time_range=effective_time_range,
+                time_range=_time_range_tuple(effective_time_range),
                 sample_count=effective_sample_count,
                 sampling_strategy=sampling_strategy,
                 number_frames=number_frames,
@@ -336,25 +272,6 @@ class VideoDiscoveryService:
             ],
             metadata=metadata,
         )
-
-
-def sample_video_frames(
-    *,
-    video_path: Path,
-    output_dir: Path,
-    time_range: EvidenceTimeRange,
-    sample_count: int,
-    sampling_strategy: str = "uniform",
-    number_frames: bool = False,
-) -> list[Path]:
-    return _actio_video_frames.sample_video_frames(
-        video_path=video_path,
-        output_dir=output_dir,
-        time_range=_time_range_tuple(time_range),
-        sample_count=sample_count,
-        sampling_strategy=sampling_strategy,
-        number_frames=number_frames,
-    )
 
 
 def _time_range_tuple(time_range: EvidenceTimeRange) -> tuple[float, float]:

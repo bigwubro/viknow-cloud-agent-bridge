@@ -83,12 +83,12 @@ class AccessTests(unittest.TestCase):
         self.assertEqual(status, 401)
 
         status, profiles = self.request("GET", "/api/v1/agent/profiles")
-        self.assertEqual(profiles["default_profile"], "deepagents")
+        self.assertEqual(profiles["default_profile"], "expertbuddy-deepagents")
         from agents.layout import discover_agents
 
         expected_ids = [public for package in discover_agents() for public in package.public_ids()]
         self.assertEqual([item["id"] for item in profiles["profiles"]], expected_ids)
-        self.assertIn("deepagents", expected_ids)
+        self.assertIn("expertbuddy-deepagents", expected_ids)
 
         status, agents = self.request("GET", "/api/v1/agent/agents")
         self.assertEqual(status, 200)
@@ -100,7 +100,7 @@ class AccessTests(unittest.TestCase):
         status, no_lib = self.request(
             "POST",
             "/api/v1/agent/runs",
-            {"user_id": user["id"], "message": "你好", "profile_id": "deepagents"},
+            {"user_id": user["id"], "message": "你好", "profile_id": "expertbuddy-deepagents"},
         )
         self.assertEqual(status, 422)
 

@@ -16,7 +16,7 @@ from agents.adk_buddy.session_url import async_postgres_url
 class AdkProfileTests(unittest.TestCase):
     def test_profile_is_separate_and_names_its_own_runtime(self) -> None:
         data = load_profile()
-        self.assertEqual(data["id"], "adk")
+        self.assertEqual(data["id"], "expertbuddy-adk")
         self.assertEqual(data["runtime"], "adk")
         self.assertEqual(
             data["enabled_tools"],
@@ -102,8 +102,8 @@ class AdkProfileTests(unittest.TestCase):
         from viknow3.application.agentcore.registry.catalog import Registry
 
         registry = Registry()
-        adk = registry.profile("adk")
-        deepagents = registry.profile("deepagents")
+        adk = registry.profile("expertbuddy-adk")
+        deepagents = registry.profile("expertbuddy-deepagents")
         assert adk is not None and deepagents is not None
         self.assertEqual(adk.runtime, "adk")
         self.assertEqual(deepagents.runtime, "langgraph")
@@ -133,8 +133,8 @@ class AdkProfileTests(unittest.TestCase):
         from viknow3.application.agentcore.runtime.host import turn_runtime
 
         registry = Registry()
-        adk = registry.profile("adk")
-        deepagents = registry.profile("deepagents")
+        adk = registry.profile("expertbuddy-adk")
+        deepagents = registry.profile("expertbuddy-deepagents")
         assert adk is not None and deepagents is not None
         self.assertIsInstance(turn_runtime(adk), AdkTurnRuntime)
         self.assertIsInstance(turn_runtime(deepagents), DeepAgentsTurnRuntime)

@@ -127,7 +127,7 @@ sequenceDiagram
   end
 ```
 
-ADK 的对外 id 是 `adk`，目录是 `adk_buddy`。它的技能允许直接引用检索片段。`expert_buddy` 的 `knowledge-qa-v2` 要求 inspect 声明，不拿来给 ADK 用。
+ADK 的对外 id 是 `expertbuddy-adk`，目录是 `adk_buddy`。它的技能允许直接引用 `chunk_text`。`expertbuddy-deepagents` 的 `knowledge-qa-v2` 要求 inspect 声明，不拿来给 ADK 用。
 
 ## 下一步
 

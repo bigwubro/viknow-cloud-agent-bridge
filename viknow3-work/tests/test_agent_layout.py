@@ -3,9 +3,6 @@
 from __future__ import annotations
 
 import unittest
-from pathlib import Path
-
-import yaml
 
 from agents.layout import discover_agents, package_for_public_id
 
@@ -16,36 +13,17 @@ class AgentLayoutTests(unittest.TestCase):
         self.assertEqual(
             ids,
             [
-                "adk",
-                "mmlongbench-doc-eval",
-                "mmlongbench-doc-extract",
-                "evidence-oracle",
-                "deepagents",
-                "ops",
-                "viknow-v2-advanced-video",
+                "expertbuddy-adk",
+                "expertbuddy-deepagents",
             ],
         )
-        self.assertEqual(package_for_public_id("deepagents").directory, "expert_buddy")
-        self.assertEqual(package_for_public_id("adk").directory, "adk_buddy")
-        self.assertEqual(package_for_public_id("adk").runtime, "adk")
-        self.assertEqual(package_for_public_id("deepagents").runtime, "langgraph")
+        self.assertEqual(package_for_public_id("expertbuddy-deepagents").directory, "expert_buddy")
+        self.assertEqual(package_for_public_id("expertbuddy-adk").directory, "adk_buddy")
+        self.assertEqual(package_for_public_id("expertbuddy-adk").runtime, "adk")
+        self.assertEqual(package_for_public_id("expertbuddy-deepagents").runtime, "langgraph")
         self.assertIsNone(package_for_public_id("missing"))
-
-    def test_evidence_oracle_uses_a_profile_flag(self) -> None:
-        path = (
-            Path(__file__).resolve().parents[1]
-            / "src"
-            / "agents"
-            / "evidence_oracle"
-            / "profile"
-            / "evidence-oracle.yaml"
-        )
-        data = yaml.safe_load(path.read_text(encoding="utf-8"))
-        self.assertTrue(data["oracle_collection"])
-        self.assertTrue(data["multi_agent_enabled"])
-        sidecar = path.parents[1] / "subagents" / "evidence-oracle.yaml"
-        subagents = yaml.safe_load(sidecar.read_text(encoding="utf-8"))["subagents"]
-        self.assertEqual([item["name"] for item in subagents], ["evidence-scout", "evidence-inspector"])
+        self.assertIsNone(package_for_public_id("deepagents"))
+        self.assertIsNone(package_for_public_id("adk"))
 
 
 if __name__ == "__main__":

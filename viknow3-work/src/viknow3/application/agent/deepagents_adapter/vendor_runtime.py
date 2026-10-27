@@ -24,7 +24,7 @@ class DeepAgentsTurnRuntime:
         state: RunState,
         events: RunEvents,
     ) -> AgentTurnResult:
-        public_id = state.ctx.profile_id or "deepagents"
+        public_id = state.ctx.profile_id or "expertbuddy-deepagents"
         runtime = await get_deepagents_runtime(public_id)
         library_ids = list(turn.library_ids)
         op = AgentOp(

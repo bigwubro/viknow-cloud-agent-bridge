@@ -60,7 +60,7 @@ flowchart TB
 
 ## 鉴权
 
-业务接口要求 `Authorization: Bearer <app_key>`。代码里登记的开发 key 是 `dev-app-key`，它的默认 agent 是 `deepagents`。无效 key 返回 401，`code` 为 `invalid_app_key`。
+业务接口要求 `Authorization: Bearer <app_key>`。代码里登记的开发 key 是 `dev-app-key`，它的默认 agent 是 `expertbuddy-deepagents`。无效 key 返回 401，`code` 为 `invalid_app_key`。
 
 `/api/v1/om` 使用另一套管理员凭证，缺省比对 `dev-admin-key`。失败时 `code` 为 `invalid_admin_key`。
 

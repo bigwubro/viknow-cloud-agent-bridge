@@ -1,9 +1,9 @@
 """Discover agent packages.
 
 Each agent is a directory under ``src/agents`` with ``profile/*.yaml``.
-``runtime`` is the DeepAgents loop and is not an agent. ``expert_buddy`` stays
-reachable as the playground id ``deepagents``. A profile may name its own
-``runtime``; the default is ``langgraph``.
+``runtime`` is the DeepAgents loop and is not an agent. The public id is the
+profile ``id``. A profile may name its own ``runtime``; the default is
+``langgraph``.
 """
 
 from __future__ import annotations
@@ -15,7 +15,6 @@ from pathlib import Path
 import yaml
 
 _SKIP = {"runtime", "__pycache__"}
-_PLAYGROUND_ALIAS = {"expert_buddy": "deepagents"}
 
 
 @dataclass(frozen=True)
@@ -30,9 +29,6 @@ class AgentPackage:
     enabled_tools: tuple[str, ...]
 
     def public_ids(self) -> tuple[str, ...]:
-        alias = _PLAYGROUND_ALIAS.get(self.directory)
-        if alias and alias != self.profile_id:
-            return (alias,)
         return (self.profile_id,)
 
 

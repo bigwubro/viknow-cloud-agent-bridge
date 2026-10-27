@@ -38,7 +38,7 @@ def wait_run(base: str, auth: str, session_id: str, run_id: str) -> dict[str, An
             base,
             auth,
             "GET",
-            f"/api/v1/agent/agents/deepagents/sessions/{session_id}/runs/{run_id}",
+            f"/api/v1/agent/agents/expertbuddy-deepagents/sessions/{session_id}/runs/{run_id}",
         )
         if run.get("status") in ("completed", "failed", "interrupted"):
             return run
@@ -57,7 +57,7 @@ def main() -> int:
         base,
         auth,
         "POST",
-        "/api/v1/agent/agents/deepagents/sessions",
+        "/api/v1/agent/agents/expertbuddy-deepagents/sessions",
         {"user_id": user_id, "message": TURN1, "library_ids": [library]},
     )
     session_id = first["session_id"]
@@ -67,7 +67,7 @@ def main() -> int:
         base,
         auth,
         "POST",
-        f"/api/v1/agent/agents/deepagents/sessions/{session_id}/runs",
+        f"/api/v1/agent/agents/expertbuddy-deepagents/sessions/{session_id}/runs",
         {"user_id": user_id, "message": TURN2},
     )
     run2 = wait_run(base, auth, session_id, second["run_id"])

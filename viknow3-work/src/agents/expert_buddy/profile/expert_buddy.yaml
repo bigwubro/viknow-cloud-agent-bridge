@@ -1,5 +1,5 @@
-id: expert_buddy
-label: 知识助手
+id: expertbuddy-deepagents
+label: expertbuddy-deepagents
 description: 基于多模态知识库证据回答专业问题
 enabled_tools:
   - knowledge_discover

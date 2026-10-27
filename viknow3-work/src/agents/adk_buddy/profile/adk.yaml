@@ -1,5 +1,5 @@
-id: adk
-label: 知识助手（ADK）
+id: expertbuddy-adk
+label: expertbuddy-adk
 description: 用 ADK 回合，根据检索到的知识库片段回答问题
 runtime: adk
 enabled_tools:

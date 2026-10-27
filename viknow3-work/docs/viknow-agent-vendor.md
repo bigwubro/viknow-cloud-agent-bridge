@@ -18,12 +18,8 @@
 |------|------|
 | `src/agents/runtime/runtime.yaml` | 共用回合参数：图步数、沙箱、workspace、采样默认值。不含模型地址和密钥 |
 | `src/agents/runtime/` | 共享回合、harness、tools、沙箱 |
-| `src/agents/expert_buddy/profile/`、`skills/` | 知识助手。Playground 对外 id 仍是 `deepagents` |
-| `src/agents/adk_buddy/` | 知识助手（ADK）。对外 id 是 `adk`，回合不经过 DeepAgents |
-| `src/agents/video_buddy/` | 进阶视频 profile 和 `advanced-video-qa` |
-| `src/agents/evidence_oracle/` | Evidence Oracle profile 和 `evidence-oracle-*` skills |
-| `src/agents/doc_eval/` | MMLongBench 的 eval / extract 两个 profile |
-| `src/agents/ops/` | 运维 profile 和监控工具配置 |
+| `src/agents/expert_buddy/profile/`、`skills/` | 对外 id `expertbuddy-deepagents` |
+| `src/agents/adk_buddy/` | 对外 id `expertbuddy-adk`。回合不经过 DeepAgents |
 | `src/viknow3/application/agent/deepagents_adapter/` | 外壳把一次 run 交给 DeepAgents，并把输出写成 events |
 | `src/viknow3/application/agent/adk_adapter/` | 外壳把 `runtime: adk` 的 run 交给 ADK，并把输出写成同一组 events |
 
@@ -35,6 +31,6 @@
 
 ## 接线目标
 
-外壳 `run_turn` 按 profile 的 `runtime` 选择适配器。`adk` 走 `adk_buddy`，其他已登记 profile 走 DeepAgents。同一个 DeepAgents profile 在进程里只建一份 runtime。
+外壳 `run_turn` 按 profile 的 `runtime` 选择适配器。`expertbuddy-adk` 走 `adk_buddy`，`expertbuddy-deepagents` 走 DeepAgents。同一个 DeepAgents profile 在进程里只建一份 runtime。
 
-当前状态：Playground 的 `deepagents` 走 expert_buddy，`adk` 走 adk_buddy。Registry 同时列出 video_buddy、evidence_oracle、doc_eval 的两个 profile，以及 ops。DeepAgents 用 agent 库连接自己维护 checkpoint。ADK 用同一条 `VIKNOW_AGENT_DSN` 写自己的 session，不读 LangGraph 的 checkpoint 表。expert_buddy 不启用回合预算。
+当前状态：Playground 只登记这两个 agent。DeepAgents 用 agent 库连接自己维护 checkpoint。ADK 用同一条 `VIKNOW_AGENT_DSN` 写自己的 session，不读 LangGraph 的 checkpoint 表。`expertbuddy-deepagents` 不启用回合预算。

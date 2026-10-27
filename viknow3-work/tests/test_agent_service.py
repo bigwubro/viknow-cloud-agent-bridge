@@ -137,7 +137,7 @@ def _discover_library_ids(events: list[dict]) -> list[str]:
 class AgentServiceTests(unittest.TestCase):
     def test_stream_events_yields_until_completed(self) -> None:
         client = AgentClient()
-        run = _submit(client, "session-stream", "user-stream", "deepagents", "流式", ["library-1"])
+        run = _submit(client, "session-stream", "user-stream", "expertbuddy-deepagents", "流式", ["library-1"])
         types = [item["type"] for item in client.stream_events(run["id"], 0)]
         self.assertEqual(types[:3], ["run_started", "user_message", "model_call_started"])
         self.assertIn("message_delta", types)
@@ -146,7 +146,7 @@ class AgentServiceTests(unittest.TestCase):
 
     def test_deepagents_runs_tools_on_the_granted_library(self) -> None:
         client = AgentClient()
-        run = _submit(client, "session-a", "user-a", "deepagents", "你好", ["library-1"])
+        run = _submit(client, "session-a", "user-a", "expertbuddy-deepagents", "你好", ["library-1"])
         events = _finish(client, run["id"])
         types = [item["type"] for item in events]
         self.assertEqual(events[0]["payload"]["library_ids"], ["library-1"])
@@ -166,7 +166,7 @@ class AgentServiceTests(unittest.TestCase):
     def test_consecutive_runs_share_one_loop(self) -> None:
         client = AgentClient()
         for index in range(4):
-            run = _submit(client, f"session-seq-{index}", "user-seq", "deepagents", f"第{index}问", ["library-1"])
+            run = _submit(client, f"session-seq-{index}", "user-seq", "expertbuddy-deepagents", f"第{index}问", ["library-1"])
             types = [item["type"] for item in _finish(client, run["id"])]
             self.assertEqual(types[-1], "run_completed", types)
             self.assertEqual(client.get(run["id"])["status"], "completed")
@@ -174,7 +174,7 @@ class AgentServiceTests(unittest.TestCase):
     def test_concurrent_runs_keep_their_own_libraries(self) -> None:
         client = AgentClient()
         runs = [
-            _submit(client, f"session-par-{index}", f"user-par-{index}", "deepagents", f"并发{index}", [f"library-par-{index}"])
+            _submit(client, f"session-par-{index}", f"user-par-{index}", "expertbuddy-deepagents", f"并发{index}", [f"library-par-{index}"])
             for index in range(6)
         ]
         with ThreadPoolExecutor(max_workers=6) as pool:
@@ -187,22 +187,22 @@ class AgentServiceTests(unittest.TestCase):
 
     def test_same_session_keeps_earlier_turns(self) -> None:
         client = AgentClient()
-        first = _submit(client, "session-history", "user-history", "deepagents", "你好", ["library-1"])
+        first = _submit(client, "session-history", "user-history", "expertbuddy-deepagents", "你好", ["library-1"])
         _finish(client, first["id"])
-        second = _submit(client, "session-history", "user-history", "deepagents", "下一句", ["library-1"])
+        second = _submit(client, "session-history", "user-history", "expertbuddy-deepagents", "下一句", ["library-1"])
         _finish(client, second["id"])
         output = client.get(second["id"])["output"]
         self.assertIn("下一句", output)
         self.assertIn("上文：你好", output)
-        humans = [item["text"] for item in session_messages("deepagents", "session-history") if item["role"] == "user"]
+        humans = [item["text"] for item in session_messages("expertbuddy-deepagents", "session-history") if item["role"] == "user"]
         self.assertEqual(humans, ["你好", "下一句"])
-        self.assertEqual(session_messages("deepagents", "session-other"), [])
+        self.assertEqual(session_messages("expertbuddy-deepagents", "session-other"), [])
 
     def test_interrupt_rejects_a_finished_run(self) -> None:
         from viknow3.application.agentcore.errors import AgentServiceError
 
         client = AgentClient()
-        run = _submit(client, "session-done", "user-done", "deepagents", "完成", ["library-1"])
+        run = _submit(client, "session-done", "user-done", "expertbuddy-deepagents", "完成", ["library-1"])
         _finish(client, run["id"])
         with self.assertRaises(AgentServiceError) as caught:
             client.interrupt(run["id"])

@@ -2,7 +2,7 @@
 
 对照时间：2026-10-27 00:38–00:40（Asia/Shanghai）。Playground `http://127.0.0.1:5198`，进程 pid `35671`，启动于 00:29:28（Asia/Shanghai）。`VIKNOW_USE_SCRIPT_MODEL` 未设置。
 
-两份 profile 各自维护。DeepAgents 用目录 `expert_buddy`，对外 id `deepagents`，技能 `knowledge-qa-v2` 要求最终事实来自 inspect。ADK 用目录 `adk_buddy`，对外 id `adk`，技能 `knowledge-qa` 允许直接引用检索片段。对照使用同一知识库 `e2e-artifacts-20261022` 和同一组问题，两份 YAML 并不相同。
+两份 profile 各自维护。DeepAgents 用目录 `expert_buddy`，对外 id 现为 `expertbuddy-deepagents`。ADK 用目录 `adk_buddy`，对外 id 现为 `expertbuddy-adk`。下表记录的是当时的对外 id。技能仍分别是 `knowledge-qa-v2` 和 `knowledge-qa`。对照使用同一知识库 `e2e-artifacts-20261022` 和同一组问题，两份 YAML 并不相同。
 
 ## 结果
 

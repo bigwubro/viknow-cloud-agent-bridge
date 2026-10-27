@@ -157,7 +157,7 @@ def main() -> int:
     user_id = _req_json(args.base, auth, "POST", "/api/v1/users", {"display_name": "agent-compare"})["id"]
 
     results: list[TurnResult] = []
-    for agent in ("deepagents", "adk"):
+    for agent in ("expertbuddy-deepagents", "expertbuddy-adk"):
         for qid, text in default_questions():
             try:
                 tr = _run_turn(args.base, auth, agent, user_id, args.library, qid, text)
@@ -217,7 +217,7 @@ def main() -> int:
             "",
         ]
     )
-    for agent in ("deepagents", "adk"):
+    for agent in ("expertbuddy-deepagents", "expertbuddy-adk"):
         subset = [r for r in results if r.agent == agent]
         ok = sum(1 for r in subset if r.status == "completed")
         md_lines.append(

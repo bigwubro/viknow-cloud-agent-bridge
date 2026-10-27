@@ -10,7 +10,7 @@
 
 ## 核心概念
 
-**Profile。** 一份 YAML。`id` 是 profile id。Playground 使用的对外 id 可能不同。`expert_buddy` 的 profile id 是 `expert_buddy`，`layout.py` 把它的对外 id 写成 `deepagents`。
+**Profile。** 一份 YAML。`id` 就是对外 id。现在登记的是 `expertbuddy-deepagents` 和 `expertbuddy-adk`。
 
 **Agent 包。** `src/agents` 下的一个目录，里面有 `profile/*.yaml`。目录名 `runtime` 会被跳过，它是共用回合，不是 agent。
 
@@ -28,17 +28,12 @@ Registry 把 profile 里的 `runtime` 原样记下来。`host.turn_runtime` 读�
 
 | 目录 | 对外 id | profile id | 名称 |
 | --- | --- | --- | --- |
-| `adk_buddy` | `adk` | `adk` | 知识助手（ADK） |
-| `expert_buddy` | `deepagents` | `expert_buddy` | 知识助手 |
-| `evidence_oracle` | `evidence-oracle` | `evidence-oracle` | 证据采集器 |
-| `doc_eval` | `mmlongbench-doc-eval` | `mmlongbench-doc-eval` | MMLongBench-Doc 评测助手 |
-| `doc_eval` | `mmlongbench-doc-extract` | `mmlongbench-doc-extract` | MMLongBench-Doc 答案抽取器 |
-| `ops` | `ops` | `ops` | 运维助手 |
-| `video_buddy` | `viknow-v2-advanced-video` | `viknow-v2-advanced-video` | 知识助手（高级视频实验） |
+| `expert_buddy` | `expertbuddy-deepagents` | `expertbuddy-deepagents` | expertbuddy-deepagents |
+| `adk_buddy` | `expertbuddy-adk` | `expertbuddy-adk` | expertbuddy-adk |
 
-工具和技能以各 profile 的 `enabled_tools`、`enabled_skills` 为准。知识助手（DeepAgents）启用 `knowledge_discover`、`knowledge_search`、`query_refine`、`answer_plan`、`uploaded_image_search`、`video_inspect_2_0`、`visual_ground`、`document_inspect`、`list_video_segments`、`list_doc_segments`，技能是 `knowledge-qa-v2` 和 `visual-ground`。它的 `answer_review.max_retries` 是 0：检查仍会跑，未通过时发布当前答案。
+工具和技能以各 profile 的 `enabled_tools`、`enabled_skills` 为准。`expertbuddy-deepagents` 启用 `knowledge_discover`、`knowledge_search`、`query_refine`、`answer_plan`、`uploaded_image_search`、`video_inspect_2_0`、`visual_ground`、`document_inspect`、`list_video_segments`、`list_doc_segments`，技能是 `knowledge-qa-v2` 和 `visual-ground`。它的 `answer_review.max_retries` 是 0：检查仍会跑，未通过时发布当前答案。
 
-知识助手（ADK）单独维护 profile 和技能 `knowledge-qa`。工具只有 `knowledge_discover`、`knowledge_search`、`list_doc_segments`、`list_video_segments`。回答只引用工具返回的 `chunk_text`。索引器生成的 context 不会交给模型。没有 inspect 和回答检查。
+`expertbuddy-adk` 单独维护 profile 和技能 `knowledge-qa`。工具只有 `knowledge_discover`、`knowledge_search`、`list_doc_segments`、`list_video_segments`。回答只引用工具返回的 `chunk_text`。索引器生成的 context 不会交给模型。没有 inspect 和回答检查。
 
 ## 外壳里的对象
 

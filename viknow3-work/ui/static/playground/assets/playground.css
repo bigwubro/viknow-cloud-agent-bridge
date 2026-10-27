@@ -842,6 +842,11 @@ body.pg-chat-page {
   transform: rotate(180deg);
 }
 
+.pg-tool-cite[hidden],
+.pg-tool-review[hidden] {
+  display: none !important;
+}
+
 .pg-tool-cite {
   display: inline-grid;
   place-items: center;

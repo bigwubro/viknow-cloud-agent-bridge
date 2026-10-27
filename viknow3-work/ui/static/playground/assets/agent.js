@@ -493,7 +493,16 @@ const PlaygroundAgent = (() => {
     const label = String(node.display_label || (node.render && node.render.label) || "");
     preview.display_label = label || previewLabel(preview);
     preview.claim = String(node.claim || "");
+    const kind = node.render && node.render.kind;
+    const sourceType = node.source && node.source.type;
+    if (kind === "video_clip" || sourceType === "video") {
+      preview.modality = "video";
+    }
     return preview;
+  }
+
+  function claimArray(node) {
+    return node && typeof node === "object" && Array.isArray(node.claims) ? node.claims : null;
   }
 
   function claimsIn(value) {
@@ -501,19 +510,22 @@ const PlaygroundAgent = (() => {
     if (!payload || typeof payload !== "object") {
       return [];
     }
-    const lists = [];
-    if (Array.isArray(payload.claims)) {
-      lists.push(payload.claims);
-    }
-    if (payload.result && typeof payload.result === "object" && Array.isArray(payload.result.claims)) {
-      lists.push(payload.result.claims);
-    }
-    return lists.flat().filter((item) => item && typeof item === "object");
+    const data = payload.data && typeof payload.data === "object" ? payload.data : null;
+    const result = data && data.result && typeof data.result === "object" ? data.result : null;
+    const lists = [
+      claimArray(payload),
+      claimArray(payload.result),
+      claimArray(data),
+      claimArray(result),
+    ].filter(Boolean);
+    const claims = lists.find((list) => list.length) || [];
+    return claims.filter((item) => item && typeof item === "object");
   }
 
-  function isInspectTool(name) {
-    const tool = String(name || "");
-    return tool.includes("inspect") || tool === "visual_ground" || tool === "video_review";
+  const PREVIEW_TOOLS = new Set(["document_inspect", "video_inspect", "video_inspect_2_0"]);
+
+  function isPreviewTool(name) {
+    return PREVIEW_TOOLS.has(String(name || ""));
   }
 
   function renderToolReview(el) {
@@ -760,7 +772,7 @@ const PlaygroundAgent = (() => {
         detail.hidden = !open;
         el.classList.toggle("pg-tool-open", open);
       });
-      if (isInspectTool(payload.name)) {
+      if (isPreviewTool(payload.name)) {
         const cite = el.querySelector(".pg-tool-cite");
         cite.hidden = false;
         cite.classList.add("pg-tool-cite-running");

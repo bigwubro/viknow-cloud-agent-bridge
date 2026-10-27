@@ -1,7 +1,7 @@
 # Video Candidate Audit
 
 Use this reference when selecting video
-chunks for `video_inspect_2_0`, expanding temporal coverage, or deciding whether to
+chunks for `video_inspect`, expanding temporal coverage, or deciding whether to
 call `list_video_segments`.
 
 ## Build The Candidate Set
@@ -12,7 +12,7 @@ chunk `keep_for_inspect` only when it may directly verify the answer slot:
 - Does it contain the observable event/action in the answer slot?
 - Does it contain the target object/person/location?
 - Does it satisfy the temporal or state condition?
-- Does it match the `query_refine` context?
+- Does it match the current `answer_plan` goal and context?
 - Is it a distinct plausible event instance from already kept chunks?
 
 Do not choose by result order alone. Deduplicate candidates from the same asset
@@ -23,7 +23,7 @@ candidate when inspecting it.
 ## First Audit Round
 
 - Inspect every kept VIDEO candidate, up to 5 VIDEO chunks per answer slot.
-- If search yields only one semantically valid candidate, one `video_inspect_2_0` is
+- If search yields only one semantically valid candidate, one `video_inspect` is
   acceptable.
 - Inspect kept search candidates before calling `list_video_segments` or
   issuing another broad search.
@@ -42,12 +42,12 @@ Use `list_video_segments` when:
 
 Do not call `list_video_segments` merely because the candidate is a video. A
 clear search result with a valid evidence boundary should go directly to
-`video_inspect_2_0`.
+`video_inspect`.
 
 After `list_video_segments`, select new candidates semantically:
 
-- 5 or fewer new VIDEO chunks need `video_inspect_2_0`: inspect directly.
-- More than 5 need `video_inspect_2_0`: warn the user that this may take significant
+- 5 or fewer new VIDEO chunks need `video_inspect`: inspect directly.
+- More than 5 need `video_inspect`: warn the user that this may take significant
   time and ask whether to proceed or narrow the scope.
 
 ## Example

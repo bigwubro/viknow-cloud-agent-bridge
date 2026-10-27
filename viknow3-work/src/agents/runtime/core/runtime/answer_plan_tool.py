@@ -108,28 +108,64 @@ def _action_payload_schema(schema: dict) -> None:
     # Omission expresses an unused action payload. Advertising object|null caused
     # tested providers to emit JSON strings instead of objects. Keep the object
     # schema derived from its model and action-dependent validation at runtime.
-    for action in ("update", "review"):
-        schema["properties"][action].pop("default", None)
+    for action in ("update", "review", "content", "findings", "template_id"):
+        schema["properties"].get(action, {}).pop("default", None)
+
+
+class AnswerPlanTextFinding(BaseModel):
+    """One conclusion in the knowledge-qa-v2 text plan."""
+
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    text: str = Field(min_length=1, max_length=2000)
+    claim_refs: list[str] = Field(
+        default_factory=list,
+        description="Returned citation aliases for this conclusion only, such as [C1].",
+    )
 
 
 class AnswerPlanCommand(BaseModel):
     model_config = ConfigDict(extra="forbid", json_schema_extra=_action_payload_schema)
 
     action: Literal["view", "update", "review", "start"]
+    content: str | SkipJsonSchema[None] = Field(
+        default=None,
+        max_length=6000,
+        description=(
+            "Complete current plan text for knowledge-qa-v2. "
+            "Do not put citation aliases in content."
+        ),
+    )
+    findings: list[AnswerPlanTextFinding] | SkipJsonSchema[None] = Field(
+        default=None,
+        description=(
+            "Conclusions for knowledge-qa-v2. text stays clean; claim_refs hold the "
+            "returned aliases. On update, omit to clear. On review, omit to keep."
+        ),
+    )
+    template_id: Literal["generic", "comparison"] | SkipJsonSchema[None] = Field(
+        default=None,
+        description="Optional knowledge-qa-v2 template. Omit to keep the current choice.",
+    )
     update: AnswerPlanUpdate | SkipJsonSchema[None] = Field(
-        default=None, description="Required JSON object for action=update; not a JSON string."
+        default=None, description="Legacy slot update object. Do not combine with content."
     )
     review: AnswerPlanAssessment | SkipJsonSchema[None] = Field(
         default=None,
-        description=(
-            "Required JSON object for action=review: an assessment "
-            "for each slot, original_question_check, and uncertainties. This records your own "
-            "assessment."
-        ),
+        description="Legacy slot review object. Do not combine with content.",
     )
 
     @model_validator(mode="after")
     def validate_action(self):
+        text_mode = (
+            self.content is not None or self.findings is not None or self.template_id is not None
+        )
+        if text_mode and (self.update is not None or self.review is not None):
+            raise ValueError("Do not combine content or findings with update or review objects.")
+        if text_mode:
+            if self.action == "view":
+                raise ValueError("view omits content, findings, and template_id.")
+            return self
         if (self.update is not None) != (self.action == "update"):
             raise ValueError("Only action=update requires an update payload.")
         if (self.review is not None) != (self.action == "review"):
@@ -214,15 +250,13 @@ def answer_plan_error_result(error: Exception, *, current_plan: dict) -> "ToolRe
 
 ANSWER_PLAN_SCHEMA = {
     "description": (
-        "View, explicitly update, or review your QA answer plan. query_refine only suggests; "
-        "you decide which goals to adopt. view returns current goals and readable evidence; "
-        "update records your decisions; review records your assessment against the original "
-        "question before answering, without verifying goals or granting publication. "
-        "No additional model is called. Use update.slot_definitions to revise goals. "
-        "Each run starts with its own plan for the current user's input. Use conversation "
-        "history to interpret follow-ups, then revise this run's goals as needed. "
-        "Use action=start without a payload only to restart the current run's plan from "
-        "the current user's input supplied by the runtime, not a rewritten question."
+        "Maintain the knowledge-qa-v2 answer plan. action is view, start, update, or review. "
+        "Pass content as the complete current plan and findings as a JSON array of "
+        "{text, claim_refs}. Do not pass update objects, slot_updates, slot_definitions, "
+        "or status enums. view omits content and findings. start creates the plan. "
+        "update replaces content and findings; omitted findings clears them. "
+        "review records why investigation can end and does not generate the answer. "
+        "Submit the answer afterward with final_check()."
     ),
     "parameters": AnswerPlanCommand.model_json_schema(),
 }

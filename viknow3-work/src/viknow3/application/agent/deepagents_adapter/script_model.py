@@ -14,7 +14,7 @@ from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import AIMessage, AIMessageChunk, BaseMessage, ToolMessage
 from langchain_core.outputs import ChatGeneration, ChatGenerationChunk, ChatResult
 
-_SKILL_PATH = "/workspace/.skills/knowledge-qa/SKILL.md"
+_SKILL_PATH = "/workspace/.skills/knowledge-qa-v2/SKILL.md"
 
 
 def script_model_enabled() -> bool:

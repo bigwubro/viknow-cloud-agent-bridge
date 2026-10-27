@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any
+
+from agents.qa_text_plan import apply_text_plan, empty_plan, final_check as submit_final_check, present_skill
 
 _SNIPPET_LIMIT = 1200
 _HIT_LIMIT = 8
@@ -15,6 +19,8 @@ _CONTEXT_MARK = "### context"
 class CitationLog:
     def __init__(self) -> None:
         self.rows: list[dict[str, Any]] = []
+        self.plan: dict[str, Any] = empty_plan()
+        self.submitted_answer: str = ""
 
     def add(self, row: dict[str, Any]) -> None:
         self.rows.append(row)
@@ -24,6 +30,8 @@ def build_knowledge_tools(
     client: Any,
     library_ids: tuple[str, ...],
     citations: CitationLog,
+    question: str = "",
+    inspect: Callable[[str, dict[str, Any]], str] | None = None,
 ) -> list[Callable[..., Any]]:
     allowed = tuple(dict.fromkeys(library_id for library_id in library_ids if library_id))
     enabled = set(load_enabled_tools())
@@ -67,20 +75,208 @@ def build_knowledge_tools(
         """List video segments for one asset. Copy both ids from discovery or search."""
         return await _segments(client, library_id, asset_id, allowed, citations, video=True)
 
+    async def answer_plan(
+        action: str,
+        content: str = "",
+        findings: list[dict[str, Any]] | None = None,
+        template_id: str = "",
+    ) -> str:
+        """Record the knowledge-qa-v2 plan. Use content and findings, not update objects."""
+        args: dict[str, Any] = {"action": action}
+        if content:
+            args["content"] = content
+        if findings is not None:
+            args["findings"] = findings
+        if template_id:
+            args["template_id"] = template_id
+        updated, error = apply_text_plan(citations.plan, args)
+        if error:
+            return json.dumps({"tool": "answer_plan", "error": error}, ensure_ascii=False)
+        citations.plan = updated
+        return json.dumps({"tool": "answer_plan", "text_plan": updated}, ensure_ascii=False)
+
+    async def final_check() -> str:
+        """Submit the final answer. No arguments. The runtime renders it from the plan."""
+        payload, rendered = submit_final_check(question, citations.plan)
+        if rendered:
+            citations.submitted_answer = rendered
+        return json.dumps(payload, ensure_ascii=False)
+
+    async def read_file(file_path: str) -> str:
+        """Read one skill or reference file. Pass the path under the skill directory."""
+        try:
+            return _read_skill_file(file_path)
+        except FileNotFoundError:
+            return json.dumps({"error": f"file not found: {file_path}"}, ensure_ascii=False)
+
+    async def uploaded_image_search(workspace_path: str, query: str, library_id: str = "") -> str:
+        """Analyze one uploaded image before search or inspection."""
+        refused = _refused("uploaded_image_search", library_id, allowed)
+        if refused:
+            return refused
+        return await _inspect(
+            inspect,
+            "uploaded_image_search",
+            _present(workspace_path=workspace_path, query=query, library_id=library_id),
+        )
+
+    async def video_inspect(
+        library_id: str,
+        asset_id: str,
+        time_range: dict[str, Any],
+        question: str,
+        evidence_id: str = "",
+        title: str = "",
+    ) -> str:
+        """Inspect one video range copied from search evidence."""
+        refused = _refused("video_inspect", library_id, allowed)
+        if refused:
+            return refused
+        return await _inspect(
+            inspect,
+            "video_inspect",
+            _present(
+                library_id=library_id,
+                asset_id=asset_id,
+                time_range=time_range,
+                question=question,
+                evidence_id=evidence_id,
+                title=title,
+            ),
+        )
+
+    async def visual_ground(
+        query: str,
+        workspace_path: str = "",
+        library_id: str = "",
+        asset_id: str = "",
+        evidence_id: str = "",
+        mode: str = "",
+        max_results: int = 0,
+        generation_mode: str = "",
+        page_number: int = 0,
+        frame_time: float = -1,
+    ) -> str:
+        """Locate or count a visible target in one image, page, or video frame."""
+        refused = _refused("visual_ground", library_id, allowed)
+        if refused:
+            return refused
+        fields = _present(
+            query=query,
+            workspace_path=workspace_path,
+            library_id=library_id,
+            asset_id=asset_id,
+            evidence_id=evidence_id,
+            mode=mode,
+            generation_mode=generation_mode,
+        )
+        if max_results > 0:
+            fields["max_results"] = max_results
+        if page_number > 0:
+            fields["page_number"] = page_number
+        if frame_time >= 0:
+            fields["frame_time"] = frame_time
+        return await _inspect(inspect, "visual_ground", fields)
+
+    async def document_inspect(
+        library_id: str,
+        asset_id: str,
+        evidence_id: str,
+        question: str,
+        title: str = "",
+        page_indices: list[int] | None = None,
+    ) -> str:
+        """Inspect the original document pages for one selected evidence item."""
+        refused = _refused("document_inspect", library_id, allowed)
+        if refused:
+            return refused
+        return await _inspect(
+            inspect,
+            "document_inspect",
+            _present(
+                library_id=library_id,
+                asset_id=asset_id,
+                evidence_id=evidence_id,
+                question=question,
+                title=title,
+                page_indices=page_indices,
+            ),
+        )
+
     tools = {
         "knowledge_discover": knowledge_discover,
         "knowledge_search": knowledge_search,
         "list_doc_segments": list_doc_segments,
         "list_video_segments": list_video_segments,
+        "answer_plan": answer_plan,
+        "uploaded_image_search": uploaded_image_search,
+        "video_inspect": video_inspect,
+        "visual_ground": visual_ground,
+        "document_inspect": document_inspect,
+        "read_file": read_file,
     }
-    order = ("knowledge_discover", "knowledge_search", "list_doc_segments", "list_video_segments")
-    return [tools[name] for name in order if name in enabled]
+    selected = [tools[name] for name in load_enabled_tools() if name in tools]
+    if "knowledge-qa-v2" in _enabled_skills():
+        selected.append(final_check)
+        if read_file not in selected:
+            selected.append(read_file)
+    return selected
 
 
 def load_enabled_tools() -> tuple[str, ...]:
     from agents.adk_buddy.instruction import load_profile
 
     return tuple(str(item) for item in load_profile().get("enabled_tools") or ())
+
+
+def _enabled_skills() -> tuple[str, ...]:
+    from agents.adk_buddy.instruction import load_profile
+
+    return tuple(str(item) for item in load_profile().get("enabled_skills") or ())
+
+
+def _refused(name: str, library_id: str, allowed: tuple[str, ...]) -> str:
+    chosen = library_id.strip()
+    if chosen and chosen not in allowed:
+        return json.dumps(
+            {"tool": name, "error": f"library {chosen} is not granted for this turn"},
+            ensure_ascii=False,
+        )
+    return ""
+
+
+def _present(**fields: Any) -> dict[str, Any]:
+    return {key: value for key, value in fields.items() if value not in ("", None)}
+
+
+async def _inspect(
+    inspect: Callable[[str, dict[str, Any]], str] | None,
+    name: str,
+    args: dict[str, Any],
+) -> str:
+    if inspect is None:
+        return json.dumps(
+            {"tool": name, "error": f"{name} is not attached to this ADK turn"},
+            ensure_ascii=False,
+        )
+    try:
+        return await asyncio.to_thread(inspect, name, args)
+    except Exception as exc:
+        return _error(exc)
+
+
+def _read_skill_file(file_path: str) -> str:
+    root = Path(__file__).resolve().parent / "skills"
+    raw = file_path.strip().replace("\\", "/").lstrip("/")
+    matches = [
+        path
+        for path in root.rglob("*")
+        if path.is_file() and (raw == path.relative_to(root).as_posix() or raw.endswith(path.relative_to(root).as_posix()))
+    ]
+    if not matches:
+        raise FileNotFoundError(file_path)
+    chosen = max(matches, key=lambda path: len(path.relative_to(root).as_posix()))
+    return present_skill(chosen.read_text(encoding="utf-8"))
 
 
 def _targets(library_id: str, allowed: tuple[str, ...]) -> tuple[tuple[str, ...], str]:

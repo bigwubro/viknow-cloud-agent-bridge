@@ -143,6 +143,7 @@ from agents.runtime.core.observability.otel import (
     start_run_span,
     start_span,
 )
+from agents.qa_text_plan import apply_text_plan, empty_plan, final_check, is_text_plan_call, present_skill
 from agents.runtime.core.runtime.answer_plan import AnswerPlanUpdate, RunAnswerPlan
 from agents.runtime.core.runtime.answer_plan_tool import (
     AnswerPlanCommand,
@@ -309,6 +310,8 @@ class _RunState:
     session_evidence_ledger: RunEvidenceLedger | None = None
     answer_plan: RunAnswerPlan | None = None
     answer_plan_review: RecordedAnswerPlanReview | None = None
+    qa_text_plan: dict[str, Any] = field(default_factory=empty_plan)
+    final_check_answer: str = ""
 
 
 @dataclass
@@ -1883,7 +1886,7 @@ class DeepAgentsRuntime(AgentRuntime):
                         {"text": state.streamed_reasoning, "format": "reasoning_content"},
                     )
 
-                answer = self.event_mapper.map_final_answer(result)
+                answer = state.final_check_answer or self.event_mapper.map_final_answer(result)
                 await self._review_and_publish_answer(op, state, answer, result)
                 if state.status == AgentStatusType.COMPLETED and op.memory_enabled:
                     self.user_memory_service.schedule_sync_turn(
@@ -3434,6 +3437,19 @@ class DeepAgentsRuntime(AgentRuntime):
         )
 
     def _answer_plan(self, state: _RunState, args: dict[str, Any]) -> str:
+        if is_text_plan_call(args):
+            updated, error = apply_text_plan(state.qa_text_plan, args)
+            if error:
+                return ToolResult.fail(
+                    "answer_plan",
+                    ToolErrorCode.INVALID_ARGUMENTS,
+                    error,
+                ).to_json()
+            state.qa_text_plan.clear()
+            state.qa_text_plan.update(updated)
+            view = self._answer_plan_view(state) if state.answer_plan is not None else {}
+            view["text_plan"] = updated
+            return ToolResult.ok("answer_plan", view).to_json()
         if state.answer_plan is None:
             return ToolResult.fail(
                 "answer_plan",
@@ -3764,6 +3780,8 @@ class DeepAgentsRuntime(AgentRuntime):
             run_middleware.append(ToolEfficiencyMiddleware(state, budget))
         run_middleware.append(_CountingGroundingEnforcerMiddleware(op, state=state))
         extra_tools: list[Any] = []
+        if "knowledge-qa-v2" in self.profile.enabled_skills:
+            extra_tools.append(_final_check_tool(state))
         if self._stop_gate_active():
             extra_tools.append(_stop_gate_check)
         if self.profile.oracle_collection:
@@ -6003,6 +6021,19 @@ def _qa_search_candidate_keys(result: str) -> set[str]:
             if identity:
                 keys.add(identity)
     return keys
+
+
+def _final_check_tool(state: _RunState) -> Any:
+    @tool("final_check")
+    def final_check_tool() -> str:
+        """Submit the final answer. No arguments. The runtime renders it from the current plan."""
+        payload, rendered = final_check(_run_original_question(state), state.qa_text_plan)
+        if rendered:
+            state.final_check_answer = rendered
+            state.pending_final_candidate_text = rendered
+        return json.dumps(payload, ensure_ascii=False)
+
+    return final_check_tool
 
 
 @tool(STOP_GATE_CHECK_TOOL_NAME)
@@ -10423,7 +10454,7 @@ def _remove_runtime_only_skill_metadata(skill_file: Path) -> None:
         sort_keys=False,
     ).strip()
     skill_file.write_text(
-        f"---\n{rendered_frontmatter}\n---\n{content[match.end() :]}",
+        present_skill(f"---\n{rendered_frontmatter}\n---\n{content[match.end() :]}"),
         encoding="utf-8",
     )
 

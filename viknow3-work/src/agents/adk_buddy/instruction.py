@@ -20,10 +20,12 @@ def load_profile() -> dict:
 
 
 def skill_body(name: str) -> str:
+    from agents.qa_text_plan import present_skill
+
     path = _ROOT / "skills" / name / "SKILL.md"
     if not path.is_file():
         return ""
-    return _strip_frontmatter(path.read_text(encoding="utf-8")).strip()
+    return present_skill(_strip_frontmatter(path.read_text(encoding="utf-8")).strip())
 
 
 def build_instruction(library_ids: tuple[str, ...]) -> str:

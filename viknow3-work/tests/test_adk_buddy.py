@@ -20,14 +20,25 @@ class AdkProfileTests(unittest.TestCase):
         self.assertEqual(data["runtime"], "adk")
         self.assertEqual(
             data["enabled_tools"],
-            ["knowledge_discover", "knowledge_search", "list_doc_segments", "list_video_segments"],
+            [
+                "knowledge_discover",
+                "uploaded_image_search",
+                "answer_plan",
+                "knowledge_search",
+                "video_inspect",
+                "visual_ground",
+                "document_inspect",
+                "list_video_segments",
+                "list_doc_segments",
+            ],
         )
+        self.assertEqual(data["enabled_skills"], ["knowledge-qa-v2", "visual-ground"])
         instruction = build_instruction(("e2e-artifacts-20261022",))
-        self.assertIn("chunk_text", instruction)
-        self.assertNotIn("index_note", instruction)
+        self.assertIn("ViKnow Knowledge QA v2", instruction)
+        self.assertIn("final_check()", instruction)
+        self.assertNotIn("只引用 chunk_text", instruction)
+        self.assertNotIn("{{qa_final_answer_format_examples}}", instruction)
         self.assertIn("e2e-artifacts-20261022", instruction)
-        self.assertNotIn("read_file", instruction)
-        self.assertNotIn("visual_ground", instruction)
 
     def test_postgres_url_uses_the_async_driver(self) -> None:
         self.assertEqual(
@@ -78,6 +89,60 @@ class AdkProfileTests(unittest.TestCase):
         self.assertNotIn("index_note", asset)
         self.assertNotIn("summary", asset)
         self.assertNotIn("稳定性", json.dumps(asset, ensure_ascii=False))
+
+    def test_inspect_tools_call_the_adk_backend_inside_the_grant(self) -> None:
+        calls: list[tuple[str, dict]] = []
+
+        def inspect(name: str, args: dict) -> str:
+            calls.append((name, args))
+            return json.dumps({"tool": name, "result": {"claims": [{"text": "走"}]}}, ensure_ascii=False)
+
+        tools = {
+            tool.__name__: tool
+            for tool in build_knowledge_tools(
+                _FakeKnowledge(),
+                ("lib-a",),
+                CitationLog(),
+                question="视频第三秒的内容是什么",
+                inspect=inspect,
+            )
+        }
+        video = json.loads(
+            asyncio.run(
+                tools["video_inspect"](
+                    "lib-a",
+                    "asset-1",
+                    {"start_seconds": 2, "end_seconds": 4},
+                    "第三秒有什么",
+                    "ev-1",
+                )
+            )
+        )
+        self.assertEqual(video["result"]["claims"][0]["text"], "走")
+        self.assertEqual(calls[0][0], "video_inspect")
+        self.assertEqual(calls[0][1]["time_range"], {"start_seconds": 2, "end_seconds": 4})
+        refused = asyncio.run(
+            tools["video_inspect"]("lib-b", "asset-1", {"start_seconds": 2, "end_seconds": 4}, "第三秒有什么")
+        )
+        self.assertIn("not granted", refused)
+        asyncio.run(
+            tools["visual_ground"](
+                "图中有几个人？",
+                library_id="lib-a",
+                asset_id="asset-1",
+                frame_time=3,
+            )
+        )
+        asyncio.run(
+            tools["document_inspect"]("lib-a", "asset-doc", "ev-doc", "这一页写了什么")
+        )
+        asyncio.run(tools["uploaded_image_search"]("uploads/a.png", "图里有什么", "lib-a"))
+        self.assertEqual(
+            [name for name, _args in calls],
+            ["video_inspect", "visual_ground", "document_inspect", "uploaded_image_search"],
+        )
+        self.assertEqual(calls[1][1]["frame_time"], 3)
+        self.assertEqual(len(calls), 4)
 
     def test_event_notice_keeps_the_tool_name(self) -> None:
         event = SimpleNamespace(

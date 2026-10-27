@@ -38,7 +38,8 @@ Use `execute` only when exact computation materially improves correctness:
 - lightweight relational analysis with `sqlite3`
 - formula or small algorithm verification
 
-For simple mental arithmetic, answer directly unless uncertainty is meaningful.
+Use execute for calculations requested by the question, including simple arithmetic;
+do not substitute a plan note for an actual computation.
 
 ## Python Standard Library Only
 
@@ -104,11 +105,11 @@ python3 /workspace/scratch/compute.py
 
 ## Answer Plan Inputs And Counts
 
-For a numeric calculation, attach each numeric `verified_value` to its input
-slot together with the supporting inspect claim ref. Once every input is
-verified, use DeepAgents
-`execute` for the calculation. Cite the verified input claims in the final
-answer. Do not calculate from values that exist only in search or catalog
-output.
-For `count`, use `execute` to sum deduplicated `verified_items` quantities,
-not chunks, search hits, citations, or inspect calls.
+For a numeric calculation, retain inspected inputs, units, periods and supporting
+short evidence keys in a concise note or run-sandbox working file. Use execute to
+calculate and check the result. Cite supporting input evidence in the final answer.
+Do not calculate from values available only in search/catalog output.
+For counts, use execute to deduplicate source-supported items and sum their quantities,
+not chunks, search hits, citations or inspect calls. The answer_plan content contains
+only a short progress summary and file location when useful; no verified_value,
+verified_items or other structured plan updates are required.

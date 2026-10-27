@@ -127,7 +127,7 @@ sequenceDiagram
   end
 ```
 
-两边的对外 id 分别是 `expertbuddy-deepagents` 和 `expertbuddy-adk`。技能正文是同一份 `knowledge-qa`，都只引用 `chunk_text`。DeepAgents 用 `read_file` 读取它，ADK 把它附在指令里。
+两边的对外 id 分别是 `expertbuddy-deepagents` 和 `expertbuddy-adk`。技能正文是同一份 `knowledge-qa-v2`，与 viknow2 线上技能一致。DeepAgents 用 `read_file` 读取它，ADK 把它附在指令里。最终答案通过 `final_check()` 提交。
 
 ## 下一步
 

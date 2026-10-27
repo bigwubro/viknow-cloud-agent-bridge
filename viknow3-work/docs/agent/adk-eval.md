@@ -2,7 +2,7 @@
 
 对照时间：2026-10-27 00:38–00:40（Asia/Shanghai）。Playground `http://127.0.0.1:5198`，进程 pid `35671`，启动于 00:29:28（Asia/Shanghai）。`VIKNOW_USE_SCRIPT_MODEL` 未设置。
 
-下表记录的是当时的对外 id 和当时的技能。DeepAgents 用的是 `knowledge-qa-v2`，ADK 用的是另一份 `knowledge-qa`。现在两边的技能正文已经改成同一份 `knowledge-qa`。对照使用同一知识库 `e2e-artifacts-20261022` 和同一组问题。
+下表记录的是当时的对外 id 和当时的技能。现在两边的技能正文都是 viknow2 线上的 `knowledge-qa-v2`。对照使用同一知识库 `e2e-artifacts-20261022` 和同一组问题。
 
 ## 结果
 

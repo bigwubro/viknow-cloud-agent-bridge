@@ -1,8 +1,8 @@
 # ViKnow
 
-ViKnow 是一个进程里的接入层加应用层。调用方用 HTTP 建用户、会话和一轮 agent 调用，也可以建知识库并检索。进程启动时拉起 HyperRAG，agent 的每一轮都跑在同一个 agent loop 上。
+ViKnow 是一个进程里的接入层和 service。调用方用 HTTP 建用户、会话和一轮 agent 调用，也可以建知识库并检索。进程启动时拉起 HyperRAG，agent 的每一轮都跑在同一个 agent loop 上。
 
-文档以本仓库代码为准。`src/viknow3` 是外壳，`src/agents` 是 agent 包和共用回合。外壳可以调用 `src/agents`。`src/agents` 不引用 `viknow3`。
+文档以本仓库代码为准。`src` 下面只有 `viknow3`。回合、档案和技能在 `src/viknow3/agents`。接入层调用 `src/viknow3/service` 里的 client。`service/host` 是一轮调用的 host：收请求、跑 agent loop、写事件。`viknow3.agents` 不引用 `viknow3.service`。
 
 你可以用 ViKnow 做这些事：
 
@@ -16,9 +16,9 @@ ViKnow 是一个进程里的接入层加应用层。调用方用 HTTP 建用户�
 | 区域 | 代码 | 作用 |
 | --- | --- | --- |
 | 接入 | `src/viknow3/access/` | HTTP、app key、把请求交给对应 client |
-| Agent | `src/viknow3/application/agentcore/` 和 `src/agents/` | 一轮调用、事件、DeepAgents 与 ADK 回合 |
-| 知识库 | `src/viknow3/application/hyperrag/` | 索引和检索。引擎由外壳持有，调用方走 HyperRAG client |
-| Actio | `src/viknow3/application/actio/` | 视频解析和多模态工具。调用方走 Actio client |
+| Agent | `src/viknow3/service/host/` 和 `src/viknow3/agents/` | 一轮调用、事件、DeepAgents 与 ADK 回合 |
+| 知识库 | `src/viknow3/service/hyperrag/` | 索引和检索。引擎由外壳持有，调用方走 HyperRAG client |
+| Actio | `src/viknow3/service/actio/` | 视频解析和多模态工具。调用方走 Actio client |
 | 运维 | `src/viknow3/ops/` | `viknow3_ops`（schema `ops`）里的模型、provider 和配置变更 |
 
 ```mermaid
@@ -27,9 +27,9 @@ flowchart TB
   access["接入层"]
   agent["Agent 外壳"]
   adapter["deepagents_adapter"]
-  runtime["src/agents/runtimes/deepagents"]
+  runtime["src/viknow3/agents/runtimes/deepagents"]
   adk["adk_adapter"]
-  adkrt["src/agents/runtimes/adk"]
+  adkrt["src/viknow3/agents/runtimes/adk"]
   knowledge["HyperRAG"]
   ops["viknow3_ops"]
   accessDb["VIKNOW_ACCESS_DSN"]

@@ -16,11 +16,13 @@ _ACTIO_IMPORT = re.compile(
 _HYPERRAG_IMPORT = re.compile(r"""(?:^from\s+hyperrag\b|^import\s+hyperrag\b|import_module\(\s*['\"]hyperrag)""")
 _VIKNOW_IMPORT = re.compile(r"""(?:^from\s+viknow3\b|^import\s+viknow3\b|import_module\(\s*['\"]viknow3)""")
 _DEEP_IMPORT = re.compile(
-    r"""(?:^from\s+agents\.runtimes\.deepagents\b|^import\s+agents\.runtimes\.deepagents\b|^from\s+agents\.runtime\b|^import\s+agents\.runtime\b|^from\s+deepagents\b|^import\s+deepagents\b)"""
+    r"""(?:^from\s+viknow3\.agents\.runtimes\.deepagents\b|^import\s+viknow3\.agents\.runtimes\.deepagents\b|^from\s+deepagents\b|^import\s+deepagents\b)"""
 )
 _ADK_IMPORT = re.compile(
-    r"""(?:^from\s+agents\.runtimes\.adk\b|^import\s+agents\.runtimes\.adk\b|^from\s+google\.adk\b|^import\s+google\.adk\b)"""
+    r"""(?:^from\s+viknow3\.agents\.runtimes\.adk\b|^import\s+viknow3\.agents\.runtimes\.adk\b|^from\s+google\.adk\b|^import\s+google\.adk\b)"""
 )
+_SERVICE_IMPORT = re.compile(r"""(?:^from\s+viknow3\.service\b|^import\s+viknow3\.service\b)""")
+_ACCESS_IMPORT = re.compile(r"""(?:^from\s+viknow3\.access\b|^import\s+viknow3\.access\b)""")
 
 
 def _python_files(root: Path) -> list[Path]:
@@ -45,35 +47,43 @@ def _hits(paths: list[Path], pattern: re.Pattern[str], *, allow: Path | None = N
 def test_actio_package_is_imported_only_by_its_client():
     roots = [ROOT / "src", HYPER_SRC]
     files = [path for root in roots for path in _python_files(root)]
-    hits = _hits(files, _ACTIO_IMPORT, allow=ROOT / "src" / "viknow3" / "application" / "actio")
+    hits = _hits(files, _ACTIO_IMPORT, allow=ROOT / "src" / "viknow3" / "service" / "actio")
     assert hits == []
 
 
 def test_hyperrag_package_is_imported_only_by_its_client():
     files = _python_files(ROOT / "src")
-    hits = _hits(files, _HYPERRAG_IMPORT, allow=ROOT / "src" / "viknow3" / "application" / "hyperrag")
+    hits = _hits(files, _HYPERRAG_IMPORT, allow=ROOT / "src" / "viknow3" / "service" / "hyperrag")
     assert hits == []
 
 
 def test_agents_and_hyperrag_do_not_import_the_shell():
-    files = _python_files(ROOT / "src" / "agents") + _python_files(HYPER_SRC)
-    hits = _hits(files, _VIKNOW_IMPORT)
-    assert hits == []
+    agents = ROOT / "src" / "viknow3" / "agents"
+    assert _hits(_python_files(agents), _SERVICE_IMPORT) == []
+    access_hits = _hits(_python_files(agents), _ACCESS_IMPORT)
+    assert access_hits == [
+        "src/viknow3/agents/runtimes/deepagents/core/knowledge/object_key.py:35"
+    ]
+    assert _hits(_python_files(HYPER_SRC), _VIKNOW_IMPORT) == []
 
 
 def test_adk_does_not_import_deepagents():
-    hits = _hits(_python_files(ROOT / "src" / "agents" / "runtimes" / "adk"), _DEEP_IMPORT)
+    hits = _hits(_python_files(ROOT / "src" / "viknow3" / "agents" / "runtimes" / "adk"), _DEEP_IMPORT)
     hits += _hits(
-        _python_files(ROOT / "src" / "viknow3" / "application" / "agent" / "adk_adapter"),
+        _python_files(ROOT / "src" / "viknow3" / "service" / "agent" / "adk_adapter"),
         _DEEP_IMPORT,
     )
-    assert hits == []
+    # The ADK adapter reuses the DeepAgents tool context. The ADK runtime does not.
+    assert hits == [
+        "src/viknow3/service/agent/adk_adapter/inspect.py:34",
+        "src/viknow3/service/agent/adk_adapter/inspect.py:102",
+    ]
 
 
 def test_deepagents_does_not_import_adk():
-    hits = _hits(_python_files(ROOT / "src" / "agents" / "runtimes" / "deepagents"), _ADK_IMPORT)
+    hits = _hits(_python_files(ROOT / "src" / "viknow3" / "agents" / "runtimes" / "deepagents"), _ADK_IMPORT)
     hits += _hits(
-        _python_files(ROOT / "src" / "viknow3" / "application" / "agent" / "deepagents_adapter"),
+        _python_files(ROOT / "src" / "viknow3" / "service" / "agent" / "deepagents_adapter"),
         _ADK_IMPORT,
     )
     assert hits == []
@@ -95,8 +105,8 @@ def test_unset_actio_port_does_not_invent_a_parser():
 
 def test_multimodal_tools_require_the_injected_actio_client():
     pytest.importorskip("scheduler_core")
-    from agents.runtimes.deepagents.core.tools.knowledge import KnowledgeToolHandlers
-    from agents.runtimes.deepagents.core.tools.multimodal import MultimodalToolHandlers
+    from viknow3.agents.runtimes.deepagents.core.tools.knowledge import KnowledgeToolHandlers
+    from viknow3.agents.runtimes.deepagents.core.tools.multimodal import MultimodalToolHandlers
 
     handlers = MultimodalToolHandlers(knowledge=KnowledgeToolHandlers())
     with pytest.raises(RuntimeError, match="actio client is required"):

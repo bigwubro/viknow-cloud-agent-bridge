@@ -25,7 +25,7 @@ from viknow3.access.user.service import UserError
 
 @asynccontextmanager
 async def _lifespan(application: FastAPI):
-    from viknow3.application.hyperrag.runtime import (
+    from viknow3.service.hyperrag.runtime import (
         init_hyperrag,
         shutdown_background_runtime,
     )

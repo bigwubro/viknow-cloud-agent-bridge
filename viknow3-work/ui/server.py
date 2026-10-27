@@ -18,7 +18,7 @@ PLAYGROUND = STATIC / "playground"
 
 @asynccontextmanager
 async def _playground_lifespan(application: FastAPI):
-    from viknow3.application.hyperrag.runtime import init_hyperrag, shutdown_background_runtime
+    from viknow3.service.hyperrag.runtime import init_hyperrag, shutdown_background_runtime
 
     await init_hyperrag()
     try:

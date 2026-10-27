@@ -20,7 +20,7 @@ AGENT = "/api/v1/agent/agents/expertbuddy-deepagents"
 
 
 def setUpModule() -> None:
-    from agents.runtimes.deepagents.agent_adapters.checkpointer import reset_checkpoint_tables
+    from viknow3.agents.runtimes.deepagents.agent_adapters.checkpointer import reset_checkpoint_tables
     from viknow3.pg import AGENT, dsn, require_test_database
 
     STORE.reset()

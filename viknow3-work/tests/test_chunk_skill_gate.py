@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import unittest
 
-from agents.runtimes.deepagents.core.answer_review import AnswerReviewCitationPolicy, CitationPolicyMode
-from agents.runtimes.deepagents.core.runtime.domain import ToolCallRecord
-from agents.runtimes.deepagents.core.runtime.stop_gate import StopCandidateGate, StopGateInput, StopGateReasonCode
+from viknow3.agents.runtimes.deepagents.core.answer_review import AnswerReviewCitationPolicy, CitationPolicyMode
+from viknow3.agents.runtimes.deepagents.core.runtime.domain import ToolCallRecord
+from viknow3.agents.runtimes.deepagents.core.runtime.stop_gate import StopCandidateGate, StopGateInput, StopGateReasonCode
 
 
 class ChunkSkillGateTests(unittest.TestCase):

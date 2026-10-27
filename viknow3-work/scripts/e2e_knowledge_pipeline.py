@@ -183,13 +183,13 @@ def main() -> int:
     _ensure_mineru_on_path()
 
     from viknow3.access.knowledge.service import create_index_job, upload_object
-    from viknow3.application.hyperrag.client import HYPERAG
-    from viknow3.application.hyperrag.object_gateway import install_object_store
-    from viknow3.application.hyperrag.object_gateway import gateway_from_ops
+    from viknow3.service.hyperrag.client import HYPERAG
+    from viknow3.service.hyperrag.object_gateway import install_object_store
+    from viknow3.service.hyperrag.object_gateway import gateway_from_ops
 
     install_object_store(gateway_from_ops())
 
-    from viknow3.application.hyperrag.runtime import init_hyperrag, start_background_runtime
+    from viknow3.service.hyperrag.runtime import init_hyperrag, start_background_runtime
 
     async def _boot_runtime() -> None:
         await init_hyperrag()

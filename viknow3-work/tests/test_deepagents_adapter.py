@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import unittest
 
-from viknow3.application.agent.deepagents_adapter import AgentTurnInput, get_runtime
-from viknow3.application.agent.deepagents_adapter.vendor_runtime import DeepAgentsTurnRuntime
+from viknow3.service.agent.deepagents_adapter import AgentTurnInput, get_runtime
+from viknow3.service.agent.deepagents_adapter.vendor_runtime import DeepAgentsTurnRuntime
 
 
 class DeepAgentsAdapterTests(unittest.TestCase):

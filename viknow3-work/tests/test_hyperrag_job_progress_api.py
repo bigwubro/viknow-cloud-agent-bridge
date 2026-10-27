@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 
 from viknow3.access.knowledge.service import KnowledgeError, get_index_job_tasks
-from viknow3.application.hyperrag.job_progress import (
+from viknow3.service.hyperrag.job_progress import (
     JobProgress,
     JobStageProgress,
     index_job_from_progress,

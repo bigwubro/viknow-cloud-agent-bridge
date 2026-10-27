@@ -8,12 +8,12 @@ from viknow3.ops.config.runtime_env import load_agent_runtime_env
 
 load_agent_runtime_env()
 
-from viknow3.application.agent.deepagents_adapter.types import AgentTurnInput
-from viknow3.application.agent.deepagents_adapter.vendor_runtime import DeepAgentsTurnRuntime
-from viknow3.application.agentcore.environment.context import RunContext, RunState
-from viknow3.application.agentcore.events.sink import EventSink
-from viknow3.application.agentcore.runtime.events import RunEvents
-from viknow3.application.agentcore.runtime.loop import LOOP
+from viknow3.service.agent.deepagents_adapter.types import AgentTurnInput
+from viknow3.service.agent.deepagents_adapter.vendor_runtime import DeepAgentsTurnRuntime
+from viknow3.service.host.environment.context import RunContext, RunState
+from viknow3.service.host.events.sink import EventSink
+from viknow3.service.host.runtime.events import RunEvents
+from viknow3.service.host.runtime.loop import LOOP
 from viknow3.clock import now
 
 

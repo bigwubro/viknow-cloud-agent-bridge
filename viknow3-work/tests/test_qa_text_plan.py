@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import unittest
 
-from agents.qa_text_plan import apply_text_plan, empty_plan, final_check, present_skill
+from viknow3.agents.qa_text_plan import apply_text_plan, empty_plan, final_check, present_skill
 
 
 class QaTextPlanTests(unittest.TestCase):

@@ -210,7 +210,7 @@ def main() -> int:
     md_lines.extend(
         [
             "",
-            "两份 profile 在 `src/agents/profiles/`，技能正文共用 `src/agents/skills/`。",
+            "两份 profile 在 `src/viknow3/agents/profiles/`，技能正文共用 `src/viknow3/agents/skills/`。",
             "对比的是同一知识库、同一组问题，不是同一份 YAML。",
             "",
             "## 叙述",

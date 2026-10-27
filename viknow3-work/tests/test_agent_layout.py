@@ -5,7 +5,7 @@ from __future__ import annotations
 import unittest
 from pathlib import Path
 
-from agents.layout import discover_agents, package_for_public_id, skills_root
+from viknow3.agents.layout import discover_agents, package_for_public_id, skills_root
 
 
 def root_skills() -> Path:

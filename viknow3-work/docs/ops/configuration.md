@@ -1,6 +1,6 @@
 # 配置
 
-平台配置和某一轮的循环参数是分开的。模型名、provider 地址和密钥的环境变量名在 `viknow3_ops`（schema `ops`）。多个 agent 共用的循环参数在 `src/agents/runtimes/deepagents/runtime.yaml`。某个 agent 的工具、技能和提示词在 `src/agents/profiles/*.yaml`，技能正文在 `src/agents/skills/`。
+平台配置和某一轮的循环参数是分开的。模型名、provider 地址和密钥的环境变量名在 `viknow3_ops`（schema `ops`）。多个 agent 共用的循环参数在 `src/viknow3/agents/runtimes/deepagents/runtime.yaml`。某个 agent 的工具、技能和提示词在 `src/viknow3/agents/profiles/*.yaml`，技能正文在 `src/viknow3/agents/skills/`。
 
 agent runtime 不读 `app.yaml`。
 

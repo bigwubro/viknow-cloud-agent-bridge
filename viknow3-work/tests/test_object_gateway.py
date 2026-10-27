@@ -9,8 +9,8 @@ from pathlib import Path
 from unittest.mock import patch
 
 from viknow3.access.knowledge.service import KnowledgeError, create_index_job
-from viknow3.application.hyperrag.client import HyperragClient
-from viknow3.application.hyperrag.object_gateway import (
+from viknow3.service.hyperrag.client import HyperragClient
+from viknow3.service.hyperrag.object_gateway import (
     ObjectFetchError,
     fetch_index_object,
     gateway_from_ops,
@@ -84,7 +84,7 @@ class ObjectGatewayTests(unittest.TestCase):
 
     def test_incomplete_s3_client_is_unavailable(self) -> None:
         with patch(
-            "viknow3.application.hyperrag.object_gateway.plain_singleton",
+            "viknow3.service.hyperrag.object_gateway.plain_singleton",
             return_value={"endpoint": "", "bucket": "", "region": "us-east-1", "access_key": None, "secret_key": None},
         ):
             with self.assertRaises(ObjectFetchError) as caught:
@@ -209,7 +209,7 @@ class ObjectGatewayTests(unittest.TestCase):
             "access_key": "reader",
             "secret_key": "secret",
         }
-        with patch("viknow3.application.hyperrag.object_gateway.plain_singleton", return_value=row):
+        with patch("viknow3.service.hyperrag.object_gateway.plain_singleton", return_value=row):
             with patch("minio.Minio") as minio:
                 store = gateway_from_ops()
         args, kwargs = minio.call_args

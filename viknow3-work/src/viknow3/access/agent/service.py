@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from viknow3.access.auth import AppKey
-from viknow3.application.agentcore.client import AGENT, AgentClientError
+from viknow3.service.host.client import AGENT, AgentClientError
 from viknow3.clock import new_id, now
 from viknow3.store import MAX_FILE_BYTES, STORE, FileRec, RunRef, Session, Workspace
 
@@ -180,7 +180,7 @@ def _submit_rows(
 
 
 def _first_run_libraries(profile_id: str, value: Any) -> list[str]:
-    from agents.layout import package_for_public_id
+    from viknow3.agents.layout import package_for_public_id
 
     library_ids = _library_ids(value)
     package = package_for_public_id(profile_id)

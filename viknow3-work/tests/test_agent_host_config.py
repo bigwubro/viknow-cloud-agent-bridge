@@ -7,7 +7,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from agents.runtimes.deepagents.runtime_config import (
+from viknow3.agents.runtimes.deepagents.runtime_config import (
     RUNTIME_CONFIG_PATH,
     load_model_defaults,
     load_runtime_document,
@@ -23,7 +23,7 @@ def _host_config():
         return None
     path = (
         Path(__file__).resolve().parents[1]
-        / "src/viknow3/application/agent/deepagents_adapter/vendor/host_config.py"
+        / "src/viknow3/service/agent/deepagents_adapter/vendor/host_config.py"
     )
     spec = importlib.util.spec_from_file_location("agent_host_config_under_test", path)
     if spec is None or spec.loader is None:
@@ -57,7 +57,7 @@ def _catalog() -> PlatformCatalog:
 
 class AgentHostConfigTests(unittest.TestCase):
     def test_reset_checkpoint_tables_refuses_a_non_test_database(self) -> None:
-        from agents.runtimes.deepagents.agent_adapters.checkpointer import reset_checkpoint_tables
+        from viknow3.agents.runtimes.deepagents.agent_adapters.checkpointer import reset_checkpoint_tables
 
         with self.assertRaises(RuntimeError):
             reset_checkpoint_tables("postgresql://example/agent")

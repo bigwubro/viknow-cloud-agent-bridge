@@ -20,7 +20,7 @@ if _env.is_file():
     if _vals.get("VIKNOW_OPS_SECRET"):
         os.environ["VIKNOW_OPS_SECRET"] = _vals["VIKNOW_OPS_SECRET"]
 
-from viknow3.application.agentcore.registry.catalog import Registry
+from viknow3.service.host.registry.catalog import Registry
 from viknow3.ops.config.store import ConfigError, reset_for_tests, set_value, snapshot
 
 

@@ -7,10 +7,10 @@ import json
 import unittest
 from types import SimpleNamespace
 
-from agents.runtimes.adk.instruction import build_instruction, load_profile
-from agents.runtimes.adk.knowledge_tools import CitationLog, build_knowledge_tools
-from agents.runtimes.adk.notices import AdkNotice, notices_from_adk_event
-from agents.runtimes.adk.session_url import async_postgres_url
+from viknow3.agents.runtimes.adk.instruction import build_instruction, load_profile
+from viknow3.agents.runtimes.adk.knowledge_tools import CitationLog, build_knowledge_tools
+from viknow3.agents.runtimes.adk.notices import AdkNotice, notices_from_adk_event
+from viknow3.agents.runtimes.adk.session_url import async_postgres_url
 
 
 class AdkProfileTests(unittest.TestCase):
@@ -164,7 +164,7 @@ class AdkProfileTests(unittest.TestCase):
         self.assertEqual(notices[0].name, "knowledge_search")
 
     def test_registry_records_the_adk_runtime(self) -> None:
-        from viknow3.application.agentcore.registry.catalog import Registry
+        from viknow3.service.host.registry.catalog import Registry
 
         registry = Registry()
         adk = registry.profile("expertbuddy-adk")
@@ -175,7 +175,7 @@ class AdkProfileTests(unittest.TestCase):
         self.assertNotIn("video_inspect_2_0", adk.tools)
 
     def test_shell_emits_the_tool_name(self) -> None:
-        from viknow3.application.agent.adk_adapter.runtime import _emit
+        from viknow3.service.agent.adk_adapter.runtime import _emit
 
         events = _Events()
         state = SimpleNamespace(citations={})
@@ -192,10 +192,10 @@ class AdkProfileTests(unittest.TestCase):
 
         if not os.environ.get("VIKNOW_ACCESS_DSN"):
             self.skipTest("host import opens the access database")
-        from viknow3.application.agent.adk_adapter.runtime import AdkTurnRuntime
-        from viknow3.application.agent.deepagents_adapter.vendor_runtime import DeepAgentsTurnRuntime
-        from viknow3.application.agentcore.registry.catalog import Registry
-        from viknow3.application.agentcore.runtime.host import turn_runtime
+        from viknow3.service.agent.adk_adapter.runtime import AdkTurnRuntime
+        from viknow3.service.agent.deepagents_adapter.vendor_runtime import DeepAgentsTurnRuntime
+        from viknow3.service.host.registry.catalog import Registry
+        from viknow3.service.host.runtime.host import turn_runtime
 
         registry = Registry()
         adk = registry.profile("expertbuddy-adk")

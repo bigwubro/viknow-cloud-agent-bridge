@@ -8,8 +8,8 @@ from typing import Any
 from uuid import uuid4
 
 from viknow3.access.knowledge import store
-from viknow3.application.hyperrag.client import HYPERAG, HyperragClientError
-from viknow3.application.hyperrag.object_gateway import ObjectFetchError, fetch_index_object, get_object_store
+from viknow3.service.hyperrag.client import HYPERAG, HyperragClientError
+from viknow3.service.hyperrag.object_gateway import ObjectFetchError, fetch_index_object, get_object_store
 from viknow3.storage import s3
 
 _LIBRARY_ID = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$")

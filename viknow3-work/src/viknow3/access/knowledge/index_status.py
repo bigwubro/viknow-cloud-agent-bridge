@@ -20,8 +20,8 @@ _HYPERRAG_RUNNING = frozenset(
 
 def _redis_job_snapshot(library_id: str, asset_id: str) -> dict[str, Any] | None:
     try:
-        from viknow3.application.hyperrag.config import load_app_config
-        from viknow3.application.hyperrag.job_progress import (
+        from viknow3.service.hyperrag.config import load_app_config
+        from viknow3.service.hyperrag.job_progress import (
             JOB_STATUS_CANCELLED,
             JOB_STATUS_COMPLETED,
             JOB_STATUS_FAILED,

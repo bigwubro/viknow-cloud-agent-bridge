@@ -7,18 +7,18 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from agents.runtimes.deepagents.core.answer_review.claim_bundle import citation_payload
-from agents.runtimes.deepagents.core.evidence import Evidence, EvidencePart, EvidencePartKind, EvidenceTimeRange
-from agents.runtimes.deepagents.core.knowledge.object_key import knowledge_object_key, resolve_asset_object_key
-from agents.runtimes.deepagents.core.tools.knowledge import _segment_preview_payload
-from agents.runtimes.deepagents.core.tools.multimodal import (
+from viknow3.agents.runtimes.deepagents.core.answer_review.claim_bundle import citation_payload
+from viknow3.agents.runtimes.deepagents.core.evidence import Evidence, EvidencePart, EvidencePartKind, EvidenceTimeRange
+from viknow3.agents.runtimes.deepagents.core.knowledge.object_key import knowledge_object_key, resolve_asset_object_key
+from viknow3.agents.runtimes.deepagents.core.tools.knowledge import _segment_preview_payload
+from viknow3.agents.runtimes.deepagents.core.tools.multimodal import (
     _enrich_evidence_with_video_url,
     _inspect_claim_render,
     _inspect_claim_source,
     _library_asset_document_url,
     _library_asset_video_url,
 )
-from agents.runtimes.deepagents.core.tools.segment_catalog import SegmentRecord
+from viknow3.agents.runtimes.deepagents.core.tools.segment_catalog import SegmentRecord
 
 KEY = "knowledge/assets/asset-1/upload/asset-1.normalized.mp4"
 PDF = "knowledge/assets/asset-1/upload/asset-1.pdf"
@@ -81,7 +81,7 @@ class ObjectKeyTests(unittest.TestCase):
     def test_catalog_lookup_supplies_the_key(self) -> None:
         evidence = _video_evidence(asset_path=None)
         with patch(
-            "agents.runtimes.deepagents.core.knowledge.object_key.catalog_asset_object_key",
+            "viknow3.agents.runtimes.deepagents.core.knowledge.object_key.catalog_asset_object_key",
             return_value=KEY,
         ):
             self.assertEqual(_library_asset_video_url(evidence), KEY)
@@ -92,7 +92,7 @@ class ObjectKeyTests(unittest.TestCase):
             video_url="/media/libraries/video-lib/assets/asset-1/video",
         )
         with patch(
-            "agents.runtimes.deepagents.core.knowledge.object_key.catalog_asset_object_key",
+            "viknow3.agents.runtimes.deepagents.core.knowledge.object_key.catalog_asset_object_key",
             return_value=None,
         ):
             enriched = _enrich_evidence_with_video_url(evidence)
@@ -102,7 +102,7 @@ class ObjectKeyTests(unittest.TestCase):
     def test_missing_key_does_not_invent_a_media_url(self) -> None:
         evidence = _video_evidence(asset_path=None)
         with patch(
-            "agents.runtimes.deepagents.core.knowledge.object_key.catalog_asset_object_key",
+            "viknow3.agents.runtimes.deepagents.core.knowledge.object_key.catalog_asset_object_key",
             return_value=None,
         ):
             self.assertIsNone(_library_asset_video_url(evidence))
@@ -132,7 +132,7 @@ class ObjectKeyTests(unittest.TestCase):
 
     def test_image_citation_uses_the_catalog_key(self) -> None:
         with patch(
-            "agents.runtimes.deepagents.core.knowledge.object_key.catalog_asset_object_key",
+            "viknow3.agents.runtimes.deepagents.core.knowledge.object_key.catalog_asset_object_key",
             return_value="knowledge/assets/asset-1/upload/asset-1.png",
         ):
             payload = citation_payload(

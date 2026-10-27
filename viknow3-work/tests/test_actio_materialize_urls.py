@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 from viknow3.ops.config.runtime_env import load_agent_runtime_env
 
-from viknow3.application.hyperrag.actio_materialize import (
+from viknow3.service.hyperrag.actio_materialize import (
     _materialize_embedding_base_url,
     _materialize_private_llm_base_url,
 )

@@ -40,7 +40,7 @@ class ScriptKnowledgeAdapter:
 
 def install_script_engine() -> None:
     """Tests do not boot HyperRAG. The runtime still wants a non-empty adapter."""
-    from viknow3.application.hyperrag import runtime as hyper_runtime
+    from viknow3.service.hyperrag import runtime as hyper_runtime
 
     adapter = ScriptKnowledgeAdapter()
     hyper_runtime.get_engine_adapter = lambda: adapter
@@ -129,7 +129,7 @@ class ScriptHyperrag:
     def get_index(self, job_id: str) -> dict[str, Any]:
         record = self._jobs.get(job_id)
         if record is None:
-            from viknow3.application.hyperrag.client import HyperragClientError
+            from viknow3.service.hyperrag.client import HyperragClientError
 
             raise HyperragClientError(404, {"detail": "index job not found"})
         return {
@@ -154,7 +154,7 @@ class ScriptHyperrag:
 
     def get_index_job_tasks(self, job_id: str) -> list[dict[str, Any]]:
         if job_id not in self._jobs:
-            from viknow3.application.hyperrag.client import HyperragClientError
+            from viknow3.service.hyperrag.client import HyperragClientError
 
             raise HyperragClientError(404, {"detail": "index job not found"})
         return []

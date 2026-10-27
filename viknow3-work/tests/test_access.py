@@ -30,9 +30,9 @@ def setUpModule() -> None:
     scratch.mkdir(parents=True, exist_ok=True)
     os.environ.setdefault("VIKNOW_SCRATCH_DIR", str(scratch))
 
-    from agents.runtimes.deepagents.agent_adapters.checkpointer import reset_checkpoint_tables
+    from viknow3.agents.runtimes.deepagents.agent_adapters.checkpointer import reset_checkpoint_tables
     from viknow3.pg import AGENT, dsn, require_test_database
-    from viknow3.application.hyperrag import client as hyper_client
+    from viknow3.service.hyperrag import client as hyper_client
     from viknow3.store import STORE
 
     from hyperrag_stub import ScriptHyperrag
@@ -51,7 +51,7 @@ def setUpModule() -> None:
 
 
 def tearDownModule() -> None:
-    from viknow3.application.hyperrag import client as hyper_client
+    from viknow3.service.hyperrag import client as hyper_client
     import viknow3.access.knowledge.service as rag_service
 
     global _REAL_HYPERAG
@@ -84,7 +84,7 @@ class AccessTests(unittest.TestCase):
 
         status, profiles = self.request("GET", "/api/v1/agent/profiles")
         self.assertEqual(profiles["default_profile"], "expertbuddy-deepagents")
-        from agents.layout import discover_agents
+        from viknow3.agents.layout import discover_agents
 
         expected_ids = [public for package in discover_agents() for public in package.public_ids()]
         self.assertEqual([item["id"] for item in profiles["profiles"]], expected_ids)
@@ -177,7 +177,7 @@ class AccessTests(unittest.TestCase):
         self.assertIn(status, (201, 409), asset)
         from pathlib import Path
 
-        from viknow3.application.hyperrag.object_gateway import install_object_store, reset_object_store
+        from viknow3.service.hyperrag.object_gateway import install_object_store, reset_object_store
 
         class _Objects:
             def exists(self, key: str) -> bool:

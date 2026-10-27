@@ -1,6 +1,6 @@
 # Agent
 
-一个 agent 是 `src/agents/profiles/*.yaml` 里的一份 profile，加上共用的 `src/agents/skills/`。它不是单独的进程，也不是容器。回合在 `src/agents/runtimes/`：`langgraph` 用 DeepAgents，`adk` 用 ADK。外壳按 profile 的 `runtime` 字段选择适配器。
+一个 agent 是 `src/viknow3/agents/profiles/*.yaml` 里的一份 profile，加上共用的 `src/viknow3/agents/skills/`。它不是单独的进程，也不是容器。回合在 `src/viknow3/agents/runtimes/`：`langgraph` 用 DeepAgents，`adk` 用 ADK。外壳按 profile 的 `runtime` 字段选择适配器。
 
 你用 Agent 做这些事：
 
@@ -12,7 +12,7 @@
 
 **Profile。** 一份 YAML。`id` 就是对外 id。现在登记的是 `expertbuddy-deepagents` 和 `expertbuddy-adk`。
 
-**Agent 档案。** `src/agents/profiles/*.yaml`。技能正文在 `src/agents/skills/`，两份 profile 指向同一棵目录。
+**Agent 档案。** `src/viknow3/agents/profiles/*.yaml`。技能正文在 `src/viknow3/agents/skills/`，两份 profile 指向同一棵目录。
 
 **Run。** 一轮调用。外壳生成 `run_id`，把 `host.run` 提交到进程内唯一的 agent loop。一个会话同时只能有一个 `running` 的 run。
 
@@ -24,7 +24,7 @@ Registry 把 profile 里的 `runtime` 原样记下来。`host.turn_runtime` 读�
 
 ## 已登记的 agent
 
-`layout.discover_agents` 扫描 `src/agents/profiles/*.yaml`。Registry 用 `public()` 对外只暴露 `id`、`label`、`description` 和时间戳。
+`layout.discover_agents` 扫描 `src/viknow3/agents/profiles/*.yaml`。Registry 用 `public()` 对外只暴露 `id`、`label`、`description` 和时间戳。
 
 | profile 文件 | 对外 id | runtime 字段 | 回合 |
 | --- | --- | --- | --- |
@@ -39,12 +39,12 @@ Registry 把 profile 里的 `runtime` 原样记下来。`host.turn_runtime` 读�
 
 | 对象 | 代码 | 作用 |
 | --- | --- | --- |
-| 入站 | `application/agentcore/inbound/gateway.py` | 按 profile 找到 agent，拒绝未知 profile |
-| 编排 | `application/agentcore/environment/orchestrator.py` | 建 `RunContext`，把任务交给 agent loop，处理中断 |
-| Host | `application/agentcore/runtime/host.py` | 滤库、写开头事件、调用适配器 |
-| 出站 | `application/agentcore/outbound/gateway.py` | 这个用户是否被授予某个库 |
-| 事件 | `application/agentcore/runtime/events.py` | 把过程写成 `run_events` |
-| 适配器 | `application/agent/deepagents_adapter/`、`application/agent/adk_adapter/` | 外壳类型和对应 runtime 之间的翻译 |
+| 入站 | `service/host/inbound/gateway.py` | 按 profile 找到 agent，拒绝未知 profile |
+| 编排 | `service/host/environment/orchestrator.py` | 建 `RunContext`，把任务交给 agent loop，处理中断 |
+| Host | `service/host/runtime/host.py` | 滤库、写开头事件、调用适配器 |
+| 出站 | `service/host/outbound/gateway.py` | 这个用户是否被授予某个库 |
+| 事件 | `service/host/runtime/events.py` | 把过程写成 `run_events` |
+| 适配器 | `service/agent/deepagents_adapter/`、`service/agent/adk_adapter/` | 外壳类型和对应 runtime 之间的翻译 |
 
 出站网关的授权是进程内集合：本轮提交时 `grant` 把这次的 `library_ids` 记到该用户名下。`host` 只把用户被授予、且本次请求里点名的库放进 `AgentTurnInput`。
 

@@ -7,7 +7,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from viknow3.access.knowledge.service import KnowledgeError, upload_object
-from viknow3.application.hyperrag.object_gateway import install_object_store, reset_object_store
+from viknow3.service.hyperrag.object_gateway import install_object_store, reset_object_store
 
 
 class _Store:

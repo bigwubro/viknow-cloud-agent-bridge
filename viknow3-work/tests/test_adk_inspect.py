@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import unittest
 
-from viknow3.application.agent.adk_adapter.inspect import dispatch_inspect
+from viknow3.service.agent.adk_adapter.inspect import dispatch_inspect
 
 
 class _Handlers:

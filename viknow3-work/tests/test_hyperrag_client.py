@@ -5,9 +5,9 @@ from __future__ import annotations
 import unittest
 from typing import Any
 
-from viknow3.application.hyperrag.client import HyperragClient, HyperragClientError
-from viknow3.application.hyperrag.evidence import Evidence, EvidencePart, EvidencePartKind, EvidenceTimeRange
-from viknow3.application.hyperrag.knowledge_provider import (
+from viknow3.service.hyperrag.client import HyperragClient, HyperragClientError
+from viknow3.service.hyperrag.evidence import Evidence, EvidencePart, EvidencePartKind, EvidenceTimeRange
+from viknow3.service.hyperrag.knowledge_provider import (
     KnowledgeAssetDiscovery,
     KnowledgeLibrary,
     KnowledgeLibrarySearchResult,

@@ -31,7 +31,7 @@ class IndexStatusApiIntegrationTests(unittest.TestCase):
         scratch.mkdir(parents=True, exist_ok=True)
         os.environ.setdefault("VIKNOW_SCRATCH_DIR", str(scratch))
 
-        from viknow3.application.hyperrag import client as hyper_client
+        from viknow3.service.hyperrag import client as hyper_client
         from hyperrag_stub import ScriptHyperrag
 
         import viknow3.access.knowledge.service as rag_service
@@ -45,7 +45,7 @@ class IndexStatusApiIntegrationTests(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls) -> None:
-        from viknow3.application.hyperrag import client as hyper_client
+        from viknow3.service.hyperrag import client as hyper_client
         import viknow3.access.knowledge.service as rag_service
 
         hyper_client.HYPERAG = cls._real_hyperag
@@ -78,7 +78,7 @@ class IndexStatusApiIntegrationTests(unittest.TestCase):
         self.assertIsNotNone(existing, assets)
         asset_path = existing["asset_path"]
 
-        from viknow3.application.hyperrag.object_gateway import install_object_store, reset_object_store
+        from viknow3.service.hyperrag.object_gateway import install_object_store, reset_object_store
 
         class _Objects:
             def exists(self, key: str) -> bool:
@@ -157,7 +157,7 @@ class IndexStatusApiIntegrationTests(unittest.TestCase):
         self.assertIsNotNone(existing, assets)
         asset_path = existing["asset_path"]
 
-        from viknow3.application.hyperrag.object_gateway import install_object_store, reset_object_store
+        from viknow3.service.hyperrag.object_gateway import install_object_store, reset_object_store
 
         class _Objects:
             def exists(self, key: str) -> bool:

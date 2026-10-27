@@ -16,9 +16,9 @@ os.environ.setdefault("VIKNOW_USE_SCRIPT_MODEL", "1")
 
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
-from viknow3.application.agentcore.client import AgentClient
-from viknow3.application.agentcore.runtime.host import session_messages
-from viknow3.application.agentcore.runtime.loop import LOOP
+from viknow3.service.host.client import AgentClient
+from viknow3.service.host.runtime.host import session_messages
+from viknow3.service.host.runtime.loop import LOOP
 
 try:
     import jieba  # noqa: F401
@@ -80,9 +80,9 @@ _REAL_HYPERAG = None
 
 
 def setUpModule() -> None:
-    from agents.runtimes.deepagents.agent_adapters.checkpointer import reset_checkpoint_tables
+    from viknow3.agents.runtimes.deepagents.agent_adapters.checkpointer import reset_checkpoint_tables
     from viknow3.pg import AGENT, dsn, require_test_database
-    from viknow3.application.hyperrag import client as hyper_client
+    from viknow3.service.hyperrag import client as hyper_client
     from viknow3.store import STORE
 
     global _REAL_HYPERAG
@@ -99,7 +99,7 @@ def setUpModule() -> None:
 
 
 def tearDownModule() -> None:
-    from viknow3.application.hyperrag import client as hyper_client
+    from viknow3.service.hyperrag import client as hyper_client
 
     global _REAL_HYPERAG
     if _REAL_HYPERAG is not None:
@@ -199,7 +199,7 @@ class AgentServiceTests(unittest.TestCase):
         self.assertEqual(session_messages("expertbuddy-deepagents", "session-other"), [])
 
     def test_interrupt_rejects_a_finished_run(self) -> None:
-        from viknow3.application.agentcore.errors import AgentServiceError
+        from viknow3.service.host.errors import AgentServiceError
 
         client = AgentClient()
         run = _submit(client, "session-done", "user-done", "expertbuddy-deepagents", "完成", ["library-1"])
@@ -209,9 +209,9 @@ class AgentServiceTests(unittest.TestCase):
         self.assertEqual(caught.exception.status, 409)
 
     def test_a_run_closes_only_once(self) -> None:
-        from viknow3.application.agentcore.environment.context import RunContext, RunState
-        from viknow3.application.agentcore.events.sink import EventSink
-        from viknow3.application.agentcore.runtime.events import RunEvents
+        from viknow3.service.host.environment.context import RunContext, RunState
+        from viknow3.service.host.events.sink import EventSink
+        from viknow3.service.host.runtime.events import RunEvents
         from viknow3.clock import now
 
         moment = now()
@@ -228,7 +228,7 @@ class AgentServiceTests(unittest.TestCase):
         self.assertEqual((state.status, state.output), ("interrupted", "partial"))
 
     def test_closing_tool_messages_fill_open_calls(self) -> None:
-        from agents.runtimes.deepagents.agent_adapters.deepagents import closing_tool_messages
+        from viknow3.agents.runtimes.deepagents.agent_adapters.deepagents import closing_tool_messages
 
         history = [
             HumanMessage(content="q"),
@@ -244,7 +244,7 @@ class AgentServiceTests(unittest.TestCase):
         )
 
     def test_unknown_runtime_fails_the_run(self) -> None:
-        from viknow3.application.agentcore.registry.catalog import _profile
+        from viknow3.service.host.registry.catalog import _profile
         from viknow3.clock import now
 
         client = AgentClient()

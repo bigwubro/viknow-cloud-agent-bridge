@@ -2250,7 +2250,7 @@ def _enrich_evidence_with_video_url(evidence: Evidence) -> Evidence:
     if key:
         metadata["asset_path"] = key
         metadata["video_url"] = key
-    elif str(metadata.get("video_url") or "").startswith("/media/"):
+    else:
         metadata.pop("video_url", None)
     return evidence.model_copy(update={"metadata": metadata})
 
@@ -2533,7 +2533,6 @@ def _inspect_claim_source(tool_name: str, claim: Any, evidence: Evidence) -> Ins
     )
     if tool_name == "visual_ground" and evidence.metadata.get("visual_ground_page") is not None:
         page_number = int(evidence.metadata["visual_ground_page"])
-        page_url = _library_asset_page_image_url(evidence, {"page": page_number - 1})
         document_url = _library_asset_document_url(evidence)
         return InspectClaimSource(
             type="image",
@@ -2543,13 +2542,12 @@ def _inspect_claim_source(tool_name: str, claim: Any, evidence: Evidence) -> Ins
             title=evidence.title,
             segment_id=evidence.id,
             source_image_id=f"page-{page_number}.png",
-            uri=page_url,
+            uri=document_url,
             anchors=[
                 _drop_empty_fields(
                     {
                         "kind": "document_page",
                         "document_url": document_url,
-                        "page_image_url": page_url,
                         "page": page_number - 1,
                         "segment_id": evidence.id,
                     }
@@ -2563,7 +2561,6 @@ def _inspect_claim_source(tool_name: str, claim: Any, evidence: Evidence) -> Ins
         )
     if tool_name == "document_inspect":
         page_number = evidence.metadata["document_inspect_page"]
-        page_url = _library_asset_page_image_url(evidence, {"page": page_number - 1})
         document_url = _library_asset_document_url(evidence)
         source_metadata = {
             **_base_source_metadata(evidence),
@@ -2578,13 +2575,12 @@ def _inspect_claim_source(tool_name: str, claim: Any, evidence: Evidence) -> Ins
             title=evidence.title,
             segment_id=evidence.id,
             source_image_id=f"page-{page_number}.png",
-            uri=page_url,
+            uri=document_url,
             anchors=[
                 _drop_empty_fields(
                     {
                         "kind": "document_page",
                         "document_url": document_url,
-                        "page_image_url": page_url,
                         "page": page_number - 1,
                         "segment_id": evidence.id,
                     }
@@ -3220,7 +3216,6 @@ def _text_source_anchors(evidence: Evidence, segment_ids: list[str]) -> list[dic
                             "kind": "text_span",
                             "document_path": document_path,
                             "document_url": document_url,
-                            "page_image_url": _library_asset_page_image_url(evidence, location),
                             "page": _location_page(location),
                             "bbox": _location_bbox(location),
                             "page_size": _location_page_size(location),
@@ -3268,11 +3263,6 @@ def _image_source_anchors(
                     "kind": "image_region",
                     "document_path": document_path if include_document_context else None,
                     "document_url": document_url if include_document_context else None,
-                    "page_image_url": (
-                        _library_asset_page_image_url(evidence, ref)
-                        if include_document_context
-                        else None
-                    ),
                     "page": _location_page(ref),
                     "bbox": _location_bbox(ref),
                     "page_size": _location_page_size(ref),
@@ -3415,13 +3405,6 @@ def _normalize_page_size(value: Any) -> list[float] | None:
 
 def _library_asset_document_url(evidence: Evidence) -> str | None:
     return _library_asset_object_key(evidence)
-
-
-def _library_asset_page_image_url(evidence: Evidence, location: dict[str, Any]) -> str | None:
-    """Page rasters are not catalog objects. Preview the original document instead."""
-
-    del evidence, location
-    return None
 
 
 def _library_asset_image_url(

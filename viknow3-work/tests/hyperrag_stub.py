@@ -170,8 +170,3 @@ class ScriptHyperrag:
 
     def asset_index(self, library_id: str, asset_id: str) -> dict[str, Any]:
         return {"library_id": library_id, "asset_id": asset_id, "status": "indexed"}
-
-    def media(self, library_id: str, asset_id: str, kind: str) -> tuple[str, bytes]:
-        del library_id, asset_id
-        mime = "video/mp4" if kind == "video" else "application/octet-stream"
-        return mime, b"stub"

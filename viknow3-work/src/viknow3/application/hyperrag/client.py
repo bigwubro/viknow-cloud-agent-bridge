@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any, Literal
 
 from viknow3.application.hyperrag.config import load_app_config
@@ -273,26 +272,6 @@ class HyperragClient:
             "index_status": "completed",
             "items": items,
         }
-
-    def media(self, library_id: str, asset_id: str, kind: str) -> tuple[str, bytes]:
-        path = self._adapter.resolve_asset_file_path(library_id=library_id, asset_id=asset_id)
-        if not path:
-            detail = {
-                "video": "asset video not found",
-                "document": "document render source not found",
-                "image": "asset image not found",
-            }[kind]
-            raise HyperragClientError(404, {"detail": detail})
-        file_path = Path(path)
-        if not file_path.is_file():
-            raise HyperragClientError(404, {"detail": "asset file not found on disk"})
-        data = file_path.read_bytes()
-        suffix = file_path.suffix.lower()
-        if kind == "video" or suffix in {".mp4", ".mov", ".webm"}:
-            return "video/mp4", data
-        if kind == "document" or suffix in {".pdf"}:
-            return "application/pdf", data
-        return "image/png", data
 
     def _map_job_status(self, raw: str) -> str:
         normalized = str(raw or "").strip().lower()
@@ -610,9 +589,6 @@ class _HyperragModule:
 
     def asset_index(self, library_id: str, asset_id: str) -> dict[str, Any]:
         return _require_client().asset_index(library_id, asset_id)
-
-    def media(self, library_id: str, asset_id: str, kind: str) -> tuple[str, bytes]:
-        return _require_client().media(library_id, asset_id, kind)
 
 
 HYPERAG = _HyperragModule()

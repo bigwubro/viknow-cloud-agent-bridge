@@ -185,10 +185,6 @@ def asset_index(library_id: str, asset_id: str) -> dict[str, Any]:
     return _call(lambda: HYPERAG.asset_index(library_id, asset_id))
 
 
-def media(library_id: str, asset_id: str, kind: str) -> tuple[str, bytes]:
-    return _call(lambda: HYPERAG.media(library_id, asset_id, kind))
-
-
 def _call(action):
     try:
         return action()

@@ -58,7 +58,7 @@ Actio 和 HyperRAG 用同一种接法。索引和多模态工具调用外壳注�
 | POST | `/api/v1/knowledge/search` |
 | GET | `/api/v1/online/libraries/{library_id}/assets/{asset_id}/index` |
 
-媒体字节在 `/media/libraries`。
+预览和下载走 `POST /api/v1/knowledge/downloads`，请求体里的 `asset_path` 是 `knowledge/assets/` 对象键。
 
 agent 第一轮如果启用了 `knowledge_search` 或 `knowledge_discover`，必须在请求里给出恰好一个库。这个限制在接入层，不在引擎里。
 

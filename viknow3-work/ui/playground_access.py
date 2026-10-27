@@ -27,7 +27,7 @@ def mount_access_api(app: FastAPI) -> None:
     from viknow3.access.auth import APP_KEYS, AppKey, require_app
     from viknow3.access.knowledge.routes import router as knowledge_router
     from viknow3.access.knowledge.service import KnowledgeError
-    from viknow3.access.rag.routes import media_router, router as rag_router
+    from viknow3.access.rag.routes import router as rag_router
     from viknow3.access.rag.service import RagError
     from viknow3.access.user.routes import router as user_router
     from viknow3.access.user.service import UserError
@@ -59,7 +59,6 @@ def mount_access_api(app: FastAPI) -> None:
     app.include_router(user_router)
     app.include_router(knowledge_router)
     app.include_router(rag_router)
-    app.include_router(media_router)
     app.include_router(agent_router)
     close_lost_runs()
 

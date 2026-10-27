@@ -16,7 +16,6 @@ from agents.runtime.core.tools.multimodal import (
     _inspect_claim_render,
     _inspect_claim_source,
     _library_asset_document_url,
-    _library_asset_page_image_url,
     _library_asset_video_url,
 )
 from agents.runtime.core.tools.segment_catalog import SegmentRecord
@@ -125,7 +124,6 @@ class ObjectKeyTests(unittest.TestCase):
             },
         )
         self.assertEqual(_library_asset_document_url(evidence), PDF)
-        self.assertIsNone(_library_asset_page_image_url(evidence, {"page": 2}))
         source = _inspect_claim_source("document_inspect", SimpleNamespace(claim="表格"), evidence)
         dumped = json.dumps(source.model_dump(mode="json"), ensure_ascii=False)
         self.assertNotIn("/media/", dumped)
@@ -158,6 +156,14 @@ class ObjectKeyTests(unittest.TestCase):
             payload["source"]["anchors"][0]["image_url"],
             "knowledge/assets/asset-1/upload/asset-1.png",
         )
+
+    def test_media_byte_routes_are_not_mounted(self) -> None:
+        from viknow3.access.rag import routes
+        from viknow3.server import create_app
+
+        self.assertFalse(hasattr(routes, "media_router"))
+        paths = {getattr(route, "path", "") for route in create_app().routes}
+        self.assertFalse(any(str(path).startswith("/media/") for path in paths))
 
     def test_segment_payload_carries_the_object_key(self) -> None:
         record = SegmentRecord(

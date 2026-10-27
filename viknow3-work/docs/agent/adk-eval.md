@@ -48,3 +48,13 @@ DeepAgents 检索并做了 `document_inspect`，结论是库里没有「文档�
 ## 怎么读这张表
 
 关键词两列只说明答案里出现了 `ViKnow` 和 `20261022`。文档题上，页面检视比检索 context 更紧。视频题上，两边都说到了左上角的两段文字；ADK 直接用片段，DeepAgents 的技能要求 inspect，这一轮没有走到 `video_inspect_2_0`。
+
+## 复测
+
+2026-10-27 09:03（Asia/Shanghai）重启 Playground，pid `700731`。ADK 的工具把 `### context` 从原文里拆掉，结果里只留 `chunk_text`。
+
+文档题不再写稳定性、上线标准或冒烟测试。答案给出的文档内容是标题行 `Index smokeViKnow 索引验收 20261022 文档`。同一轮检索还带回了视频片段，答案末尾多写了该片段里的画面描述。session `5e94b5f8-e09f-4df0-b04c-592d4127b6d7`，run `5711ab84-8485-4a7f-9031-03e019773b1c`。
+
+视频题仍是左上角白色 `ViKnow` 和 `20261022`。session `c52e0a57-aeb0-4d92-a7d0-44603f7a5113`，run `b2a100d0-5e87-420b-b894-505ad096fbe2`。
+
+短语题给出标题行 `ViKnow 索引验收 20261022 文档`。session `cff59f70-1a7b-4726-a5d8-fe05cedac560`，run `7841a4fc-9215-44c5-a430-10671e1f68ff`。

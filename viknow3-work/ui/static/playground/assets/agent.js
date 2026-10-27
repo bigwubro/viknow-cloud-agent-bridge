@@ -85,6 +85,344 @@ const PlaygroundAgent = (() => {
     return div;
   }
 
+  const signedUrlCache = new Map();
+  const URI_FIELDS = ["file_path", "source_uri", "asset_path", "object_key", "uri", "video_url", "image_url", "document_url", "url"];
+
+  function s3Uri(value) {
+    if (typeof value !== "string") {
+      return "";
+    }
+    const text = value.trim().split("#")[0].split("?")[0].replace(/^\/+/, "");
+    if (!text.startsWith("knowledge/assets/")) {
+      return "";
+    }
+    if (text.split("/").some((part) => part === "" || part === "." || part === "..")) {
+      return "";
+    }
+    return text;
+  }
+
+  function finite(value) {
+    return typeof value === "number" && Number.isFinite(value) ? value : null;
+  }
+
+  function fragmentRange(value) {
+    if (typeof value !== "string") {
+      return [null, null];
+    }
+    const match = value.match(/#t=([0-9.]+),([0-9.]+)/);
+    if (!match) {
+      return [null, null];
+    }
+    return [Number(match[1]), Number(match[2])];
+  }
+
+  function clock(seconds) {
+    const whole = Math.max(0, Math.floor(seconds));
+    return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, "0")}`;
+  }
+
+  function previewLabel(item) {
+    const name = item.title || item.object_key.split("/").pop();
+    if (item.begin_seconds != null && item.end_seconds != null) {
+      return `${name} ${clock(item.begin_seconds)}–${clock(item.end_seconds)}`;
+    }
+    if (item.page) {
+      return `${name} 第 ${item.page} 页`;
+    }
+    return name;
+  }
+
+  function previewFromNode(node, marker) {
+    let raw = "";
+    let key = "";
+    URI_FIELDS.forEach((field) => {
+      if (key) {
+        return;
+      }
+      const found = s3Uri(node[field]);
+      if (found) {
+        key = found;
+        raw = String(node[field]);
+      }
+    });
+    if (!key && node.render && typeof node.render === "object") {
+      key = s3Uri(node.render.url);
+      raw = String(node.render.url || "");
+    }
+    if (!key) {
+      return null;
+    }
+    const range = node.time_range && typeof node.time_range === "object" ? node.time_range : {};
+    const fragment = fragmentRange(raw);
+    const begin = finite(node.begin_seconds) ?? finite(node.begin_ts) ?? finite(node.timestamp_start) ?? finite(range.start_seconds) ?? fragment[0];
+    const end = finite(node.end_seconds) ?? finite(node.end_ts) ?? finite(node.timestamp_end) ?? finite(range.end_seconds) ?? fragment[1];
+    let page = null;
+    if (Number.isInteger(node.page) && node.page >= 0) {
+      page = node.page === 0 ? 1 : node.page;
+    } else if (Number.isInteger(node.page_number) && node.page_number > 0) {
+      page = node.page_number;
+    } else if (node.page_range && Number.isInteger(node.page_range.start_page) && node.page_range.start_page > 0) {
+      page = node.page_range.start_page;
+    }
+    const title = String(node.title || node.display_label || node.asset_id || "");
+    return {
+      object_key: key,
+      begin_seconds: begin != null && end != null && end >= begin ? begin : null,
+      end_seconds: begin != null && end != null && end >= begin ? end : null,
+      page,
+      title,
+      marker: marker || "",
+      display_label: "",
+    };
+  }
+
+  function rememberPreview(list, item) {
+    item.display_label = previewLabel(item);
+    const same = list.find((row) => row.object_key === item.object_key && row.begin_seconds === item.begin_seconds && row.end_seconds === item.end_seconds && row.page === item.page);
+    if (same) {
+      if (!same.marker && item.marker) {
+        same.marker = item.marker;
+      }
+      if (!same.title && item.title) {
+        same.title = item.title;
+        same.display_label = previewLabel(same);
+      }
+      return;
+    }
+    const bare = item.begin_seconds != null
+      ? list.find((row) => row.object_key === item.object_key && row.begin_seconds == null && row.page == null)
+      : null;
+    if (bare) {
+      Object.assign(bare, item);
+      return;
+    }
+    if (item.begin_seconds == null && list.some((row) => row.object_key === item.object_key && row.begin_seconds != null)) {
+      return;
+    }
+    list.push(item);
+  }
+
+  function walkPreviews(value, marker, list) {
+    if (!value || typeof value !== "object") {
+      return;
+    }
+    if (Array.isArray(value)) {
+      value.forEach((item) => walkPreviews(item, marker, list));
+      return;
+    }
+    const ownMarker = typeof value.marker === "string" && /^\d+$/.test(value.marker) ? value.marker : marker;
+    const found = previewFromNode(value, ownMarker);
+    if (found) {
+      rememberPreview(list, found);
+    }
+    Object.entries(value).forEach(([key, child]) => {
+      const next = /^\d+$/.test(key) ? key : ownMarker;
+      walkPreviews(child, next, list);
+    });
+  }
+
+  function previewsIn(value, limit) {
+    const list = [];
+    walkPreviews(value, "", list);
+    return list.slice(0, limit);
+  }
+
+  function parsePayload(value) {
+    if (value && typeof value === "object") {
+      return value;
+    }
+    if (typeof value !== "string" || !value.trim()) {
+      return null;
+    }
+    try {
+      return JSON.parse(value);
+    } catch {
+      return null;
+    }
+  }
+
+  function signedUrl(objectKey) {
+    const cached = signedUrlCache.get(objectKey);
+    if (cached) {
+      return cached;
+    }
+    const pending = api(`${KNOWLEDGE_API}/downloads`, {
+      method: "POST",
+      body: JSON.stringify({ asset_path: objectKey }),
+    }).then((body) => {
+      if (!body || typeof body.url !== "string" || !body.url) {
+        throw new Error("预签名失败");
+      }
+      return body.url;
+    });
+    signedUrlCache.set(objectKey, pending);
+    pending.catch(() => signedUrlCache.delete(objectKey));
+    return pending;
+  }
+
+  function previewBlock(citation) {
+    const block = document.createElement("div");
+    block.className = "pg-preview";
+    if (citation.marker) {
+      block.dataset.marker = String(citation.marker);
+    }
+    const head = document.createElement("button");
+    head.type = "button";
+    head.className = "pg-preview-open";
+    head.textContent = citation.display_label || citation.title || "预览";
+    const stage = document.createElement("div");
+    stage.className = "pg-preview-stage";
+    stage.hidden = true;
+    head.addEventListener("click", () => {
+      const opening = stage.hidden;
+      stage.hidden = !opening;
+      if (opening && stage.dataset.loaded !== "1") {
+        stage.dataset.loaded = "1";
+        mountPreview(stage, citation);
+      }
+    });
+    block.append(head, stage);
+    return block;
+  }
+
+  function mountPreview(host, citation) {
+    const key = citation.object_key || "";
+    if (!key) {
+      host.textContent = "没有可预览的对象";
+      return;
+    }
+    const lower = key.toLowerCase();
+    const video = citation.modality === "video" || /\.(mp4|webm|mov|mkv)$/.test(lower);
+    if (video) {
+      mountVideo(host, citation, key);
+      return;
+    }
+    if (/\.(png|jpe?g|gif|webp)$/.test(lower)) {
+      const image = document.createElement("img");
+      image.className = "pg-preview-image";
+      image.alt = citation.display_label || "预览";
+      host.append(image);
+      signedUrl(key).then((url) => {
+        image.src = url;
+      }).catch(() => {
+        host.append(previewError());
+      });
+      return;
+    }
+    const open = openOriginalButton(citation, key);
+    host.append(open);
+    if (lower.endsWith(".pdf")) {
+      const frame = document.createElement("iframe");
+      frame.className = "pg-preview-frame";
+      frame.title = citation.display_label || "文档预览";
+      host.insertBefore(frame, open);
+      signedUrl(key).then((url) => {
+        frame.src = `${url}${citation.page ? `#page=${citation.page}` : ""}`;
+      }).catch(() => {
+        frame.remove();
+      });
+    }
+  }
+
+  function mountVideo(host, citation, key) {
+    const video = document.createElement("video");
+    video.className = "pg-preview-video";
+    video.controls = true;
+    video.preload = "metadata";
+    const start = Number(citation.begin_seconds);
+    const end = Number(citation.end_seconds);
+    video.addEventListener("loadedmetadata", () => {
+      if (Number.isFinite(start)) {
+        video.currentTime = start;
+      }
+    });
+    let stopAt = null;
+    video.addEventListener("timeupdate", () => {
+      if (stopAt !== null && video.currentTime >= stopAt) {
+        video.pause();
+        stopAt = null;
+      }
+    });
+    const play = document.createElement("button");
+    play.type = "button";
+    play.className = "pg-button pg-button-link";
+    play.textContent = "播放片段";
+    play.addEventListener("click", () => {
+      if (Number.isFinite(start)) {
+        video.currentTime = start;
+      }
+      stopAt = Number.isFinite(end) ? end : null;
+      video.play().catch(() => {});
+    });
+    host.append(video, play);
+    signedUrl(key).then((url) => {
+      video.src = url;
+    }).catch(() => {
+      host.append(previewError());
+    });
+  }
+
+  function openOriginalButton(citation, key) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "pg-button pg-button-link";
+    button.textContent = citation.page ? `打开原文 · 第 ${citation.page} 页` : "打开原文";
+    button.addEventListener("click", async () => {
+      try {
+        const url = await signedUrl(key);
+        window.open(`${url}${citation.page ? `#page=${citation.page}` : ""}`, "_blank", "noopener");
+      } catch {
+        button.textContent = "打开失败";
+      }
+    });
+    return button;
+  }
+
+  function previewError() {
+    const note = document.createElement("div");
+    note.className = "pg-preview-error";
+    note.textContent = "预览地址签名失败";
+    return note;
+  }
+
+  function citationButton(marker, citation) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "pg-citation";
+    button.dataset.marker = String(marker);
+    button.textContent = `[${marker}]`;
+    button.title = citation.display_label || citation.title || "";
+    button.addEventListener("click", () => {
+      const panel = button.closest(".pg-turn-body");
+      const target = panel && panel.querySelector(`.pg-preview[data-marker="${marker}"] .pg-preview-open`);
+      if (target) {
+        target.click();
+        target.scrollIntoView({ block: "nearest" });
+      }
+    });
+    return button;
+  }
+
+  function decorateAnswer(node, citations) {
+    const value = node.textContent || "";
+    const pattern = /\[(\d+)\]/g;
+    if (!pattern.test(value)) {
+      return;
+    }
+    pattern.lastIndex = 0;
+    const fragment = document.createDocumentFragment();
+    let last = 0;
+    for (const match of value.matchAll(pattern)) {
+      fragment.append(document.createTextNode(value.slice(last, match.index)));
+      const marker = match[1];
+      fragment.append(citations[marker] ? citationButton(marker, citations[marker]) : document.createTextNode(match[0]));
+      last = match.index + match[0].length;
+    }
+    fragment.append(document.createTextNode(value.slice(last)));
+    node.replaceChildren(fragment);
+  }
+
   function pretty(value) {
     if (value == null || value === "") {
       return "";
@@ -143,6 +481,7 @@ const PlaygroundAgent = (() => {
     let statusEl = null;
     let completedText = "";
     let usage = null;
+    const seenPreviews = [];
 
     function scroll() {
       const scroller = container.closest(".pg-chat-scroll") || container;
@@ -276,6 +615,7 @@ const PlaygroundAgent = (() => {
         } else if (type === "message_completed") {
           completedText = String(bodyPayload.text || "");
           usage = bodyPayload.token_usage || null;
+          previewsIn(bodyPayload.citations, 8).forEach((item) => rememberPreview(seenPreviews, item));
         } else if (type === "tool_call_started") {
           const el = toolRow(bodyPayload);
           el.dataset.started = String(moment);
@@ -295,6 +635,14 @@ const PlaygroundAgent = (() => {
           const block = el.querySelector(".pg-tool-result-block");
           block.hidden = false;
           el.querySelector(".pg-tool-result").textContent = pretty(result) || "（无结果）";
+          const found = previewsIn(parsePayload(result), 6);
+          found.forEach((item) => rememberPreview(seenPreviews, item));
+          if (found.length) {
+            const list = document.createElement("div");
+            list.className = "pg-preview-list";
+            found.forEach((item) => list.append(previewBlock(item)));
+            el.querySelector(".pg-tool-detail").append(list);
+          }
           scroll();
         } else if (type === "answer_review_started") {
           showStatus(`检查回答 ${bodyPayload.attempt || 1}/${bodyPayload.max_attempts || ""}`.replace(/\/$/, ""));
@@ -324,6 +672,26 @@ const PlaygroundAgent = (() => {
           el.className = "pg-turn-text";
           el.textContent = completedText;
           body.appendChild(el);
+        }
+        if (seenPreviews.length) {
+          const byMarker = {};
+          seenPreviews.forEach((item) => {
+            if (item.marker) {
+              byMarker[item.marker] = item;
+            }
+          });
+          const text = body.querySelector(".pg-turn-text");
+          if (text) {
+            decorateAnswer(text, byMarker);
+          }
+          const strip = document.createElement("div");
+          strip.className = "pg-citations";
+          const title = document.createElement("div");
+          title.className = "pg-citation-title";
+          title.textContent = "引用";
+          strip.append(title);
+          seenPreviews.slice(0, 8).forEach((item) => strip.append(previewBlock(item)));
+          body.appendChild(strip);
         }
         if (usage && (usage.input_tokens || usage.output_tokens || usage.total_tokens)) {
           const meta = document.createElement("div");

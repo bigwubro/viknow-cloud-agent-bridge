@@ -149,8 +149,10 @@ class PostgreSQLDB:
         values = _normalize_sql_params(params)
         try:
             if self.connection is not None:
+                await _use_hyperrag_schema(self.connection)
                 return await self.connection.execute(sql, *values)
             async with self.pool.acquire() as conn:
+                await _use_hyperrag_schema(conn)
                 return await conn.execute(sql, *values)
         except Exception as exc:
             if ignore_if_exists and _is_ignorable_sql_error(exc):
@@ -166,11 +168,13 @@ class PostgreSQLDB:
     ) -> Any:
         values = _normalize_sql_params(params)
         if self.connection is not None:
+            await _use_hyperrag_schema(self.connection)
             if multirows:
                 return [dict(row) for row in await self.connection.fetch(sql, *values)]
             row = await self.connection.fetchrow(sql, *values)
             return dict(row) if row is not None else None
         async with self.pool.acquire() as conn:
+            await _use_hyperrag_schema(conn)
             if multirows:
                 rows = await conn.fetch(sql, *values)
                 return [dict(row) for row in rows]

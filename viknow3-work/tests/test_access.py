@@ -41,7 +41,7 @@ def setUpModule() -> None:
     _REAL_HYPERAG = hyper_client.HYPERAG
     stub = ScriptHyperrag()
     hyper_client.HYPERAG = stub
-    import viknow3.access.rag.service as rag_service
+    import viknow3.access.knowledge.service as rag_service
 
     rag_service.HYPERAG = stub
     STORE.reset()
@@ -52,7 +52,7 @@ def setUpModule() -> None:
 
 def tearDownModule() -> None:
     from viknow3.application.hyperrag import client as hyper_client
-    import viknow3.access.rag.service as rag_service
+    import viknow3.access.knowledge.service as rag_service
 
     global _REAL_HYPERAG
     if _REAL_HYPERAG is not None:

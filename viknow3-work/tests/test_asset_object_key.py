@@ -158,7 +158,7 @@ class ObjectKeyTests(unittest.TestCase):
         )
 
     def test_media_byte_routes_are_not_mounted(self) -> None:
-        from viknow3.access.rag import routes
+        from viknow3.access.knowledge import routes
         from viknow3.server import create_app
 
         self.assertFalse(hasattr(routes, "media_router"))

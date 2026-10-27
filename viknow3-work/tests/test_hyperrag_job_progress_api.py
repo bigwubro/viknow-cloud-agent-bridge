@@ -6,7 +6,7 @@ import unittest
 from unittest.mock import patch
 
 
-from viknow3.access.rag.service import RagError, get_index_job_tasks
+from viknow3.access.knowledge.service import KnowledgeError, get_index_job_tasks
 from viknow3.application.hyperrag.job_progress import (
     JobProgress,
     JobStageProgress,
@@ -105,12 +105,12 @@ class HyperragJobProgressApiTests(unittest.TestCase):
         self.assertEqual(index_job_tasks_from_progress(progress), [])
 
     def test_get_index_job_tasks_service_422(self) -> None:
-        with self.assertRaises(RagError) as ctx:
+        with self.assertRaises(KnowledgeError) as ctx:
             get_index_job_tasks("   ")
         self.assertEqual(ctx.exception.status, 422)
 
     def test_get_index_job_tasks_service_delegates(self) -> None:
-        import viknow3.access.rag.service as rag_service
+        import viknow3.access.knowledge.service as rag_service
 
         with patch.object(rag_service.HYPERAG, "get_index_job_tasks", return_value=[]) as mocked:
             self.assertEqual(get_index_job_tasks("job-1"), [])

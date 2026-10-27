@@ -8,7 +8,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from viknow3.access.rag.service import RagError, create_index_job
+from viknow3.access.knowledge.service import KnowledgeError, create_index_job
 from viknow3.application.hyperrag.client import HyperragClient
 from viknow3.application.hyperrag.object_gateway import (
     ObjectFetchError,
@@ -119,8 +119,8 @@ class ObjectGatewayTests(unittest.TestCase):
             asset_path = key
             title = "动作演示.mp4"
 
-        with patch("viknow3.access.rag.service._catalog_asset", return_value=_Asset()):
-            with patch("viknow3.access.rag.service.HYPERAG.create_index", side_effect=fake_create):
+        with patch("viknow3.access.knowledge.service._catalog_asset", return_value=_Asset()):
+            with patch("viknow3.access.knowledge.service.HYPERAG.create_index", side_effect=fake_create):
                 job = create_index_job(
                     {
                         "library_id": "library-1",
@@ -144,9 +144,9 @@ class ObjectGatewayTests(unittest.TestCase):
             asset_path = key
             title = "动作演示.mp4"
 
-        with patch("viknow3.access.rag.service._catalog_asset", return_value=_Asset()):
-            with patch("viknow3.access.rag.service.HYPERAG.create_index") as create:
-                with self.assertRaises(RagError) as caught:
+        with patch("viknow3.access.knowledge.service._catalog_asset", return_value=_Asset()):
+            with patch("viknow3.access.knowledge.service.HYPERAG.create_index") as create:
+                with self.assertRaises(KnowledgeError) as caught:
                     create_index_job(
                         {
                             "library_id": "library-1",
@@ -158,7 +158,7 @@ class ObjectGatewayTests(unittest.TestCase):
         create.assert_not_called()
 
     def test_index_job_requires_the_library_and_asset_first(self) -> None:
-        from viknow3.access.rag.service import _catalog_asset
+        from viknow3.access.knowledge.service import _catalog_asset
 
         class MissingLibrary:
             def get_library(self, library_id: str) -> None:
@@ -167,7 +167,7 @@ class ObjectGatewayTests(unittest.TestCase):
             def get_asset(self, library_id: str, asset_id: str) -> None:
                 raise AssertionError("asset lookup before the library exists")
 
-        with self.assertRaises(RagError) as missing_library:
+        with self.assertRaises(KnowledgeError) as missing_library:
             _catalog_asset("library-1", "asset-1", store=MissingLibrary())
         self.assertEqual(missing_library.exception.status, 404)
         self.assertEqual(missing_library.exception.body["detail"], "library not found")
@@ -179,7 +179,7 @@ class ObjectGatewayTests(unittest.TestCase):
             def get_asset(self, library_id: str, asset_id: str) -> None:
                 return None
 
-        with self.assertRaises(RagError) as missing_asset:
+        with self.assertRaises(KnowledgeError) as missing_asset:
             _catalog_asset("library-1", "asset-1", store=MissingAsset())
         self.assertEqual(missing_asset.exception.body["detail"], "asset not found")
 
@@ -190,9 +190,9 @@ class ObjectGatewayTests(unittest.TestCase):
             asset_path = "knowledge/assets/other/upload/other.mp4"
             title = "其他"
 
-        with patch("viknow3.access.rag.service._catalog_asset", return_value=OtherPath()):
-            with patch("viknow3.access.rag.service.HYPERAG.create_index") as create:
-                with self.assertRaises(RagError) as mismatch:
+        with patch("viknow3.access.knowledge.service._catalog_asset", return_value=OtherPath()):
+            with patch("viknow3.access.knowledge.service.HYPERAG.create_index") as create:
+                with self.assertRaises(KnowledgeError) as mismatch:
                     create_index_job(
                         {"library_id": "library-1", "asset_id": "asset-1", "asset_path": key},
                         )

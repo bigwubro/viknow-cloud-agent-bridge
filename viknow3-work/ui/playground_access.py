@@ -25,10 +25,8 @@ def mount_access_api(app: FastAPI) -> None:
     from viknow3.access.agent.routes import router as agent_router
     from viknow3.access.agent.service import AgentError, close_lost_runs
     from viknow3.access.auth import APP_KEYS, AppKey, require_app
-    from viknow3.access.knowledge.routes import router as knowledge_router
+    from viknow3.access.knowledge.routes import online_router, router as knowledge_router
     from viknow3.access.knowledge.service import KnowledgeError
-    from viknow3.access.rag.routes import router as rag_router
-    from viknow3.access.rag.service import RagError
     from viknow3.access.user.routes import router as user_router
     from viknow3.access.user.service import UserError
 
@@ -48,17 +46,13 @@ def mount_access_api(app: FastAPI) -> None:
     def user_error(_request, exc: UserError) -> JSONResponse:
         return JSONResponse(exc.body, status_code=exc.status)
 
-    def rag_error(_request, exc: RagError) -> JSONResponse:
-        return JSONResponse(exc.body, status_code=exc.status)
-
     app.add_exception_handler(KnowledgeError, knowledge_error)
     app.add_exception_handler(AgentError, agent_error)
     app.add_exception_handler(UserError, user_error)
-    app.add_exception_handler(RagError, rag_error)
     app.dependency_overrides[require_app] = playground_app_key
     app.include_router(user_router)
     app.include_router(knowledge_router)
-    app.include_router(rag_router)
+    app.include_router(online_router)
     app.include_router(agent_router)
     close_lost_runs()
 

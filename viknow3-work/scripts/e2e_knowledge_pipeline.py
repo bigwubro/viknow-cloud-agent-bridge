@@ -150,7 +150,7 @@ def _ensure_asset(library_id: str, asset_id: str, asset_path: str, title: str, m
 
 
 def _poll_index(job_id: str, *, timeout_s: float, interval_s: float) -> dict:
-    from viknow3.access.rag.service import get_index_job
+    from viknow3.access.knowledge.service import get_index_job
 
     deadline = time.monotonic() + timeout_s
     last: dict = {}
@@ -182,7 +182,7 @@ def main() -> int:
     bootstrap_hyperrag_config()
     _ensure_mineru_on_path()
 
-    from viknow3.access.rag.service import create_index_job, upload_object
+    from viknow3.access.knowledge.service import create_index_job, upload_object
     from viknow3.application.hyperrag.client import HYPERAG
     from viknow3.application.hyperrag.object_gateway import install_object_store
     from viknow3.application.hyperrag.object_gateway import gateway_from_ops

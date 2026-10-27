@@ -5,7 +5,7 @@
 | 接入层 | 调用 |
 | --- | --- |
 | `access/agent/service.py` | `application/agentcore/client.py` |
-| `access/rag/service.py` | `application/hyperrag/client.py` |
+| `access/knowledge/service.py` | `application/hyperrag/client.py` |
 | `access/om/service.py` | `ops/client.py` |
 | `access/user/service.py` | 无。用户由调用方建立，记在接入层 |
 

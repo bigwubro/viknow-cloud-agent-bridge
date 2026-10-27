@@ -41,7 +41,7 @@ Migration: `deploy/viknow3-dev-data/migrations/knowledge-index-jobs.sql` (also a
 
 ## Write paths
 
-1. **Create** — `access.rag.service.create_index_job` → `knowledge_store.insert_index_job` after `HYPERAG.create_index`.
+1. **Create** — `access.knowledge.service.create_index_job` → `store.insert_index_job` after `HYPERAG.create_index`.
 2. **Poll** — `get_index_job` → `sync_index_job_from_api` (upsert job + `current_index_version_id` on success).
 3. **Status read** — `get_asset_index_status` may backfill catalog from `hyperrag_asset_status` and upsert matching job rows on terminal engine states.
 

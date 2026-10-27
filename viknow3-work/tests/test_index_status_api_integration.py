@@ -34,7 +34,7 @@ class IndexStatusApiIntegrationTests(unittest.TestCase):
         from viknow3.application.hyperrag import client as hyper_client
         from hyperrag_stub import ScriptHyperrag
 
-        import viknow3.access.rag.service as rag_service
+        import viknow3.access.knowledge.service as rag_service
 
         cls._real_hyperag = hyper_client.HYPERAG
         cls._stub = ScriptHyperrag()
@@ -46,7 +46,7 @@ class IndexStatusApiIntegrationTests(unittest.TestCase):
     @classmethod
     def tearDownClass(cls) -> None:
         from viknow3.application.hyperrag import client as hyper_client
-        import viknow3.access.rag.service as rag_service
+        import viknow3.access.knowledge.service as rag_service
 
         hyper_client.HYPERAG = cls._real_hyperag
         rag_service.HYPERAG = cls._real_hyperag

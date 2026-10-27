@@ -15,12 +15,10 @@ from fastapi.responses import JSONResponse
 from viknow3.access.agent.routes import router as agent_router
 from viknow3.access.agent.service import AgentError
 from viknow3.access.auth import AuthError
-from viknow3.access.knowledge.routes import router as knowledge_router
+from viknow3.access.knowledge.routes import online_router, router as knowledge_router
 from viknow3.access.knowledge.service import KnowledgeError
 from viknow3.access.om.routes import router as om_router
 from viknow3.access.om.service import OmError
-from viknow3.access.rag.routes import router as rag_router
-from viknow3.access.rag.service import RagError
 from viknow3.access.user.routes import router as user_router
 from viknow3.access.user.service import UserError
 
@@ -48,12 +46,12 @@ def create_app() -> FastAPI:
     def handle_access_error(_request: Request, exc: Exception) -> JSONResponse:
         return JSONResponse(exc.body, status_code=exc.status)
 
-    for exc_type in (AgentError, UserError, RagError, OmError, AuthError, KnowledgeError):
+    for exc_type in (AgentError, UserError, OmError, AuthError, KnowledgeError):
         application.add_exception_handler(exc_type, handle_access_error)
     application.include_router(user_router)
     application.include_router(knowledge_router)
+    application.include_router(online_router)
     application.include_router(agent_router)
-    application.include_router(rag_router)
     application.include_router(om_router)
     return application
 

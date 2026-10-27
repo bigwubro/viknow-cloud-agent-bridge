@@ -506,7 +506,7 @@ class _HyperragModule:
     """Process-wide HyperRAG facade. Initialized at application startup via init_hyperrag().
 
     Indexing is not the first step. Create the library, create the asset, then
-    call ``create_index``. ``access.rag.service.create_index_job`` enforces that
+    call ``create_index``. ``access.knowledge.service.create_index_job`` enforces that
     order before it reaches this client.
     """
 

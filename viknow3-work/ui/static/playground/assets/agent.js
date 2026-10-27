@@ -241,7 +241,7 @@ const PlaygroundAgent = (() => {
     const [begin, end] = rangeFrom(nodes, raw);
     const page = pageFrom(nodes);
     const named = node.title || (node.source && node.source.title) || "";
-    const title = String(named || ((begin == null && page == null) ? node.display_label : "") || node.asset_id || "");
+    const title = String(named || ((begin == null && page == null) ? node.display_label : "") || "");
     return {
       object_key: key,
       begin_seconds: begin != null && end != null && end >= begin ? begin : null,
@@ -476,22 +476,142 @@ const PlaygroundAgent = (() => {
     return note;
   }
 
+  function markerFrom(node) {
+    const raw = String((node && (node.agent_citation || node.marker)) || "");
+    const match = raw.match(/(\d+)/);
+    return match ? match[1] : "";
+  }
+
+  function claimPreview(node) {
+    if (!node || typeof node !== "object") {
+      return null;
+    }
+    const preview = previewFromNode(node, markerFrom(node));
+    if (!preview) {
+      return null;
+    }
+    const label = String(node.display_label || (node.render && node.render.label) || "");
+    preview.display_label = label || previewLabel(preview);
+    preview.claim = String(node.claim || "");
+    return preview;
+  }
+
+  function claimsIn(value) {
+    const payload = parsePayload(value);
+    if (!payload || typeof payload !== "object") {
+      return [];
+    }
+    const lists = [];
+    if (Array.isArray(payload.claims)) {
+      lists.push(payload.claims);
+    }
+    if (payload.result && typeof payload.result === "object" && Array.isArray(payload.result.claims)) {
+      lists.push(payload.result.claims);
+    }
+    return lists.flat().filter((item) => item && typeof item === "object");
+  }
+
+  function isInspectTool(name) {
+    const tool = String(name || "");
+    return tool.includes("inspect") || tool === "visual_ground" || tool === "video_review";
+  }
+
+  function renderToolReview(el) {
+    const panel = el.querySelector(".pg-tool-review");
+    if (!panel) {
+      return;
+    }
+    panel.replaceChildren();
+    const claims = Array.isArray(el._claims) ? el._claims : [];
+    if (!claims.length) {
+      const empty = document.createElement("div");
+      empty.className = "pg-citation-empty";
+      empty.textContent = "该引用暂无可预览内容。";
+      panel.append(empty);
+      return;
+    }
+    claims.forEach((claim) => {
+      const entry = document.createElement("div");
+      entry.className = "pg-citation-entry";
+      const meta = document.createElement("div");
+      meta.className = "pg-citation-meta";
+      meta.textContent = String(claim.display_label || (claim.render && claim.render.label) || "引用");
+      entry.append(meta);
+      if (claim.claim) {
+        const text = document.createElement("div");
+        text.className = "pg-citation-claim";
+        text.textContent = String(claim.claim);
+        entry.append(text);
+      }
+      const preview = claimPreview(claim);
+      if (preview) {
+        mountPreview(entry, preview);
+      } else {
+        const empty = document.createElement("div");
+        empty.className = "pg-citation-empty";
+        empty.textContent = "该引用暂无可预览内容。";
+        entry.append(empty);
+      }
+      panel.append(entry);
+    });
+  }
+
   function citationButton(marker, citation) {
     const button = document.createElement("button");
     button.type = "button";
-    button.className = "pg-citation";
+    button.className = "pg-answer-citation";
     button.dataset.marker = String(marker);
     button.textContent = `[${marker}]`;
-    button.title = citation.display_label || citation.title || "";
+    const tip = [citation.display_label, citation.claim].filter(Boolean).join("\n");
+    button.title = tip || `[${marker}]`;
     button.addEventListener("click", () => {
-      const panel = button.closest(".pg-turn-body");
-      const target = panel && panel.querySelector(`.pg-preview[data-marker="${marker}"] .pg-preview-open`);
-      if (target) {
-        target.click();
-        target.scrollIntoView({ block: "nearest" });
-      }
+      openCitationPreview(button, marker, citation);
     });
     return button;
+  }
+
+  function openCitationPreview(anchor, marker, citation) {
+    const parent = anchor.parentElement;
+    const current = parent && parent.querySelector(":scope > .pg-citation-panel");
+    if (current && current.dataset.marker === String(marker)) {
+      current.remove();
+      return;
+    }
+    if (current) {
+      current.remove();
+    }
+    const panel = document.createElement("div");
+    panel.className = "pg-citation-panel";
+    panel.dataset.marker = String(marker);
+    const head = document.createElement("div");
+    head.className = "pg-citation-panel-head";
+    const title = document.createElement("div");
+    title.className = "pg-citation-panel-title";
+    const label = String((citation && citation.display_label) || "");
+    title.textContent = label ? `[${marker}] ${label}` : `[${marker}]`;
+    const close = document.createElement("button");
+    close.type = "button";
+    close.className = "pg-citation-panel-close";
+    close.textContent = "关闭";
+    close.addEventListener("click", () => panel.remove());
+    head.append(title, close);
+    panel.append(head);
+    if (citation && citation.claim) {
+      const claim = document.createElement("div");
+      claim.className = "pg-citation-claim";
+      claim.textContent = String(citation.claim);
+      panel.append(claim);
+    }
+    const preview = claimPreview(citation);
+    if (preview) {
+      mountPreview(panel, preview);
+    } else {
+      const empty = document.createElement("div");
+      empty.className = "pg-citation-empty";
+      empty.textContent = "该引用暂无可预览内容。";
+      panel.append(empty);
+    }
+    anchor.after(panel);
   }
 
   function decorateAnswer(node, citations) {
@@ -571,7 +691,7 @@ const PlaygroundAgent = (() => {
     let statusEl = null;
     let completedText = "";
     let usage = null;
-    const seenPreviews = [];
+    let answerCitations = {};
 
     function scroll() {
       const scroller = container.closest(".pg-chat-scroll") || container;
@@ -632,7 +752,7 @@ const PlaygroundAgent = (() => {
       clearStatus();
       const el = document.createElement("div");
       el.className = "pg-tool pg-tool-running";
-      el.innerHTML = `<button type="button" class="pg-tool-head"><span class="pg-tool-mark" aria-hidden="true"></span><span class="pg-tool-name"></span><span class="pg-tool-summary"></span><span class="pg-tool-state">运行中</span><span class="pg-tool-chevron" aria-hidden="true"></span></button><div class="pg-tool-detail" hidden><div class="pg-tool-block"><div class="pg-tool-block-label">参数</div><pre class="pg-tool-pre pg-tool-args"></pre></div><div class="pg-tool-block pg-tool-result-block" hidden><div class="pg-tool-block-label">结果</div><pre class="pg-tool-pre pg-tool-result"></pre></div></div>`;
+      el.innerHTML = `<div class="pg-tool-row"><button type="button" class="pg-tool-head"><span class="pg-tool-mark" aria-hidden="true"></span><span class="pg-tool-name"></span><span class="pg-tool-summary"></span><span class="pg-tool-state">运行中</span><span class="pg-tool-chevron" aria-hidden="true"></span></button><button type="button" class="pg-tool-cite" hidden title="展开引用" aria-label="展开引用" aria-expanded="false">▶</button></div><div class="pg-tool-review" hidden></div><div class="pg-tool-detail" hidden><div class="pg-tool-block"><div class="pg-tool-block-label">参数</div><pre class="pg-tool-pre pg-tool-args"></pre></div><div class="pg-tool-block pg-tool-result-block" hidden><div class="pg-tool-block-label">结果</div><pre class="pg-tool-pre pg-tool-result"></pre></div></div>`;
       el.querySelector(".pg-tool-name").textContent = payload.name || "tool";
       el.querySelector(".pg-tool-head").addEventListener("click", () => {
         const detail = el.querySelector(".pg-tool-detail");
@@ -640,6 +760,23 @@ const PlaygroundAgent = (() => {
         detail.hidden = !open;
         el.classList.toggle("pg-tool-open", open);
       });
+      if (isInspectTool(payload.name)) {
+        const cite = el.querySelector(".pg-tool-cite");
+        cite.hidden = false;
+        cite.classList.add("pg-tool-cite-running");
+        cite.addEventListener("click", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          const review = el.querySelector(".pg-tool-review");
+          const opening = review.hidden;
+          review.hidden = !opening;
+          cite.classList.toggle("active", opening);
+          cite.setAttribute("aria-expanded", String(opening));
+          if (opening) {
+            renderToolReview(el);
+          }
+        });
+      }
       body.appendChild(el);
       tools.set(key, el);
       scroll();
@@ -705,7 +842,7 @@ const PlaygroundAgent = (() => {
         } else if (type === "message_completed") {
           completedText = String(bodyPayload.text || "");
           usage = bodyPayload.token_usage || null;
-          previewsIn(bodyPayload.citations, 8).forEach((item) => rememberPreview(seenPreviews, item));
+          answerCitations = bodyPayload.citations && typeof bodyPayload.citations === "object" ? bodyPayload.citations : {};
         } else if (type === "tool_call_started") {
           const el = toolRow(bodyPayload);
           el.dataset.started = String(moment);
@@ -725,13 +862,22 @@ const PlaygroundAgent = (() => {
           const block = el.querySelector(".pg-tool-result-block");
           block.hidden = false;
           el.querySelector(".pg-tool-result").textContent = pretty(result) || "（无结果）";
-          const found = previewsIn(parsePayload(result), 6);
-          found.forEach((item) => rememberPreview(seenPreviews, item));
-          if (found.length) {
-            const list = document.createElement("div");
-            list.className = "pg-preview-list";
-            found.forEach((item) => list.append(previewBlock(item)));
-            el.querySelector(".pg-tool-detail").append(list);
+          const cite = el.querySelector(".pg-tool-cite");
+          if (cite && !cite.hidden) {
+            cite.classList.remove("pg-tool-cite-running");
+            el._claims = claimsIn(result);
+            const review = el.querySelector(".pg-tool-review");
+            if (review && !review.hidden) {
+              renderToolReview(el);
+            }
+          } else {
+            const found = previewsIn(parsePayload(result), 6);
+            if (found.length) {
+              const list = document.createElement("div");
+              list.className = "pg-preview-list";
+              found.forEach((item) => list.append(previewBlock(item)));
+              el.querySelector(".pg-tool-detail").append(list);
+            }
           }
           scroll();
         } else if (type === "answer_review_started") {
@@ -757,23 +903,20 @@ const PlaygroundAgent = (() => {
         });
         closeText();
         clearStatus();
-        if (!full && completedText) {
+        if (completedText && Object.keys(answerCitations).length) {
+          let text = body.querySelector(".pg-turn-text");
+          if (!text) {
+            text = document.createElement("div");
+            text.className = "pg-turn-text";
+            body.appendChild(text);
+          }
+          text.textContent = completedText;
+          decorateAnswer(text, answerCitations);
+        } else if (!full && completedText) {
           const el = document.createElement("div");
           el.className = "pg-turn-text";
           el.textContent = completedText;
           body.appendChild(el);
-        }
-        if (seenPreviews.length) {
-          const byMarker = {};
-          seenPreviews.forEach((item) => {
-            if (item.marker) {
-              byMarker[item.marker] = item;
-            }
-          });
-          const text = body.querySelector(".pg-turn-text");
-          if (text) {
-            decorateAnswer(text, byMarker);
-          }
         }
         if (usage && (usage.input_tokens || usage.output_tokens || usage.total_tokens)) {
           const meta = document.createElement("div");

@@ -439,13 +439,7 @@ def _candidate_locators(result: Any) -> list[EvidenceLocatorFact]:
             continue
         metadata = item.get("metadata")
         metadata = metadata if isinstance(metadata, dict) else {}
-        asset_id = str(
-            item.get("asset_id")
-            or item.get("document_id")
-            or metadata.get("asset_id")
-            or metadata.get("document_id")
-            or default_asset_id
-        )
+        asset_id = _mapping_asset_id(item) or default_asset_id
         segment_id = str(item.get("id") or item.get("segment_id") or item.get("chunk_id") or "")
         parts = item.get("parts")
         if not isinstance(parts, list):
@@ -457,7 +451,7 @@ def _candidate_locators(result: Any) -> list[EvidenceLocatorFact]:
             part_metadata = part_metadata if isinstance(part_metadata, dict) else {}
             locator = EvidenceLocatorFact(
                 library_id=library_id,
-                asset_id=asset_id,
+                asset_id=_mapping_asset_id(part) or asset_id,
                 modality=str(part.get("kind") or item.get("modality") or ""),
                 evidence_id=segment_id,
                 segment_id=segment_id,
@@ -522,6 +516,20 @@ def _time_range(value: Any) -> dict[str, float] | None:
     if not isinstance(start, (int, float)) or not isinstance(end, (int, float)):
         return None
     return {"start_seconds": float(start), "end_seconds": float(end)}
+
+
+def _mapping_asset_id(item: dict[str, Any]) -> str:
+    """Asset id carried on a search hit, including HyperRAG's full_doc_id."""
+    metadata = item.get("metadata")
+    metadata = metadata if isinstance(metadata, dict) else {}
+    return str(
+        item.get("asset_id")
+        or item.get("document_id")
+        or metadata.get("asset_id")
+        or metadata.get("document_id")
+        or metadata.get("full_doc_id")
+        or ""
+    ).strip()
 
 
 def _locator_has_identity(locator: EvidenceLocatorFact) -> bool:

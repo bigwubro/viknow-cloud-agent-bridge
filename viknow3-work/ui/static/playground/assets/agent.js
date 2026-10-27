@@ -355,12 +355,11 @@ const PlaygroundAgent = (() => {
           `${KNOWLEDGE_API}/libraries/${encodeURIComponent(storageIds.library_id)}/assets/${encodeURIComponent(storageIds.asset_id)}/preview`,
           { headers: { "Content-Type": "application/json" } },
         ).then(async (response) => {
-          const payload = await response.json().catch(() => ({}));
           if (!response.ok) {
-            throw new Error(payload.detail || "预览失败");
+            const payload = await response.json().catch(() => ({}));
+            throw new Error(detailMessage(payload));
           }
-          const blob = await response.blob();
-          return URL.createObjectURL(blob);
+          return URL.createObjectURL(await response.blob());
         })
       : api(`${KNOWLEDGE_API}/downloads`, {
           method: "POST",

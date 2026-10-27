@@ -30,7 +30,6 @@ async def _playground_lifespan(application: FastAPI):
 app = FastAPI(title="ViKnow Playground", docs_url=None, redoc_url=None, lifespan=_playground_lifespan)
 mount_knowledge_api(app)
 app.include_router(playground_router)
-app.mount("/playground/assets", StaticFiles(directory=PLAYGROUND / "assets"), name="playground-assets")
 
 
 @app.get("/playground/assets/storage-config.js")
@@ -44,6 +43,9 @@ def playground_storage_config() -> PlainTextResponse:
         f'window.VIKNOW_STORAGE_TOKEN = "{token}";',
     ]
     return PlainTextResponse("\n".join(lines) + "\n", media_type="application/javascript")
+
+
+app.mount("/playground/assets", StaticFiles(directory=PLAYGROUND / "assets"), name="playground-assets")
 
 
 @app.get("/")

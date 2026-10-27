@@ -205,8 +205,10 @@ def _resolve_index_asset(library_id: str, asset_id: str) -> store.AssetRow | Non
         if not client.asset_exists(library_id, asset_id):
             return None
         remote = client.get_asset(library_id, asset_id)
-    except StorageClientError:
-        return None
+    except StorageClientError as exc:
+        if exc.status == 404:
+            return None
+        raise KnowledgeError(exc.status, {"detail": exc.detail}) from exc
     return store.ensure_asset_for_index(
         library_id,
         asset_id,

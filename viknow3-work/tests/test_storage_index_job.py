@@ -69,7 +69,7 @@ class StorageIndexJobTests(unittest.TestCase):
         with (
             mock.patch("viknow3.access.knowledge.service.storage_configured", return_value=True),
             mock.patch("viknow3.access.knowledge.service.get_storage_client", return_value=client),
-            mock.patch("viknow3.service.hyperrag.object_gateway.get_storage_client", return_value=client),
+            mock.patch("viknow3.service.storage.gateway.get_storage_client", return_value=client),
             mock.patch("viknow3.access.knowledge.service.HYPERAG.create_index", side_effect=fake_create_index),
         ):
             job = create_index_job({"library_id": library_id, "asset_id": asset_id})

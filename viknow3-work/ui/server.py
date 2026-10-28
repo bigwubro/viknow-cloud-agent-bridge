@@ -1,7 +1,8 @@
 """ViKnow Playground UI — static pages only (integrator service).
 
-Business APIs run on ``viknow3.server`` (``VIKNOW_PORT``). Storage runs on
-``VIKNOW_STORAGE_URL``. This process serves HTML/JS and ``playground-config.js``.
+Business APIs run on ``viknow3.server`` (``VIKNOW_PORT``). The browser calls
+viknow-storage and ViKnow API directly (see ``playground-config.js``).
+This process serves HTML/JS only.
 """
 
 from __future__ import annotations
@@ -9,8 +10,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-import httpx
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI
 from fastapi.responses import FileResponse, PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 

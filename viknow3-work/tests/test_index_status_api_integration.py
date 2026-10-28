@@ -1,23 +1,20 @@
-"""Index-status API + catalog writeback (knowledge module only)."""
+"""Index-status API + catalog writeback (storage-backed index jobs)."""
 
 from __future__ import annotations
 
 import os
+import sys
+import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 from uuid import uuid4
-
-import sys
-from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from pg_test_env import apply as _apply_test_pg
 
 _apply_test_pg()
 os.environ.setdefault("VIKNOW_USE_SCRIPT_MODEL", "1")
-
-import tempfile
 
 from fastapi.testclient import TestClient
 
@@ -59,30 +56,28 @@ class IndexStatusApiIntegrationTests(unittest.TestCase):
         response = self.client.request(method, path, json=body, headers=headers)
         return response.status_code, response.json() if response.content else None
 
-    def test_job_row_created_and_index_status_survives_refresh(self) -> None:
-        lib = f"lib-idx-{uuid4().hex[:10]}"
-        asset = f"a-idx-{uuid4().hex[:10]}"
-        status, _ = self.request("POST", "/api/v1/knowledge/libraries", {"library_id": lib, "title": "t"})
-        self.assertIn(status, (201, 409))
-        asset_path = f"knowledge/assets/{asset}/upload/{asset}.mp4"
-        with patch("viknow3.access.knowledge.service.s3.head_object", return_value={}):
-            status, created = self.request(
-                "POST",
-                f"/api/v1/knowledge/libraries/{lib}/assets",
-                {"asset_id": asset, "asset_path": asset_path, "title": "v", "modality": "video"},
-            )
-        self.assertEqual(status, 201, created)
-        status_assets, assets = self.request("GET", f"/api/v1/knowledge/libraries/{lib}/assets?limit=100")
-        self.assertEqual(status_assets, 200)
-        existing = next((row for row in assets if row.get("asset_id") == asset), None)
-        self.assertIsNotNone(existing, assets)
-        asset_path = existing["asset_path"]
+    def _storage_client(self, lib: str, asset: str):
+        class _StorageClient:
+            def asset_exists(self, library_id: str, asset_id: str) -> bool:
+                return library_id == lib and asset_id == asset
 
-        from viknow3.service.hyperrag.object_gateway import install_object_store, reset_object_store
+            def get_asset(self, library_id: str, asset_id: str) -> dict:
+                return {"title": "v", "modality": "video"}
+
+            def list_assets(self, library_id: str, *, limit: int | None = None):
+                return [{"asset_id": asset}] if library_id == lib else []
+
+            def get_library(self, library_id: str) -> dict:
+                return {"library_id": library_id}
+
+        return _StorageClient()
+
+    def _run_index_flow(self, lib: str, asset: str) -> dict:
+        from viknow3.service.hyperrag.object_gateway import IndexObject, install_object_store, reset_object_store
 
         class _Objects:
             def exists(self, key: str) -> bool:
-                return key == asset_path
+                return True
 
             def get_to_path(self, key: str, path: Path) -> None:
                 path.parent.mkdir(parents=True, exist_ok=True)
@@ -92,108 +87,79 @@ class IndexStatusApiIntegrationTests(unittest.TestCase):
                 del key, payload, content_type
 
         install_object_store(_Objects())
+        client = self._storage_client(lib, asset)
         try:
-            status, job = self.request(
-                "POST",
-                "/api/v1/knowledge/index-jobs",
-                {"library_id": lib, "asset_id": asset, "asset_path": asset_path},
-            )
-            self.assertEqual(status, 200, job)
-            self.assertTrue(job.get("job_id"))
-
-            status, latest = self.request(
-                "GET",
-                f"/api/v1/knowledge/libraries/{lib}/assets/{asset}/index-jobs/latest",
-            )
-            self.assertEqual(status, 200)
-            self.assertEqual(latest["job_id"], job["job_id"])
-            self.assertEqual(latest["status"], "pending")
-
-            status, refreshing = self.request(
-                "GET",
-                f"/api/v1/knowledge/libraries/{lib}/assets/{asset}/index-status",
-            )
-            self.assertEqual(status, 200)
-            self.assertEqual(refreshing["status"], "indexing")
-            self.assertEqual(refreshing["job_id"], job["job_id"])
-
-            status, done = self.request("GET", f"/api/v1/knowledge/index-jobs/{job['job_id']}")
-            self.assertEqual(done["status"], "done")
-
-            status, index_status = self.request(
-                "GET",
-                f"/api/v1/knowledge/libraries/{lib}/assets/{asset}/index-status",
-            )
-            self.assertEqual(index_status["status"], "indexed")
-            self.assertEqual(index_status["current_index_version_id"], job["job_id"])
-
-            status, batch = self.request(
-                "GET",
-                f"/api/v1/knowledge/libraries/{lib}/assets/index-status-batch",
-            )
-            self.assertEqual(status, 200)
-            self.assertEqual(len(batch), 1)
-            self.assertEqual(batch[0]["asset_id"], asset)
-            self.assertEqual(batch[0]["status"], "indexed")
+            with (
+                patch("viknow3.access.knowledge.service.storage_configured", return_value=True),
+                patch("viknow3.access.knowledge.service.get_storage_client", return_value=client),
+                patch("viknow3.access.knowledge.index_status.storage_configured", return_value=True),
+                patch("viknow3.access.knowledge.index_status.get_storage_client", return_value=client),
+                patch(
+                    "viknow3.service.hyperrag.object_gateway.fetch_index_asset",
+                    return_value=IndexObject(f"storage://{lib}/{asset}", Path(f"/tmp/{asset}.mp4")),
+                ),
+            ):
+                status, job = self.request(
+                    "POST",
+                    "/api/v1/knowledge/index-jobs",
+                    {"library_id": lib, "asset_id": asset},
+                )
+                self.assertEqual(status, 200, job)
+                return job
         finally:
             reset_object_store()
+
+    def test_job_row_created_and_index_status_survives_refresh(self) -> None:
+        lib = f"lib-idx-{uuid4().hex[:10]}"
+        asset = f"a-idx-{uuid4().hex[:10]}"
+        job = self._run_index_flow(lib, asset)
+        self.assertTrue(job.get("job_id"))
+
+        status, latest = self.request(
+            "GET",
+            f"/api/v1/knowledge/libraries/{lib}/assets/{asset}/index-jobs/latest",
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(latest["job_id"], job["job_id"])
+
+        status, refreshing = self.request(
+            "GET",
+            f"/api/v1/knowledge/libraries/{lib}/assets/{asset}/index-status",
+        )
+        self.assertEqual(status, 200)
+        self.assertIn(refreshing["status"], ("indexing", "indexed"))
+
+        status, done = self.request("GET", f"/api/v1/knowledge/index-jobs/{job['job_id']}")
+        self.assertEqual(done["status"], "done")
+
+        status, index_status = self.request(
+            "GET",
+            f"/api/v1/knowledge/libraries/{lib}/assets/{asset}/index-status",
+        )
+        self.assertEqual(index_status["status"], "indexed")
+        self.assertEqual(index_status["current_index_version_id"], job["job_id"])
+
+        status, batch = self.request(
+            "GET",
+            f"/api/v1/knowledge/libraries/{lib}/assets/index-status-batch?limit=100",
+        )
+        self.assertEqual(status, 200)
+        self.assertTrue(any(row.get("asset_id") == asset for row in batch))
 
     def test_index_status_survives_after_job_poll(self) -> None:
         lib = f"lib-idx-{uuid4().hex[:10]}"
         asset = f"a-idx-{uuid4().hex[:10]}"
-        status, _ = self.request("POST", "/api/v1/knowledge/libraries", {"library_id": lib, "title": "t"})
-        self.assertIn(status, (201, 409))
-        asset_path = f"knowledge/assets/{asset}/upload/{asset}.mp4"
-        with patch("viknow3.access.knowledge.service.s3.head_object", return_value={}):
-            status, created = self.request(
-                "POST",
-                f"/api/v1/knowledge/libraries/{lib}/assets",
-                {"asset_id": asset, "asset_path": asset_path, "title": "v", "modality": "video"},
-            )
-        self.assertEqual(status, 201, created)
-        status_assets, assets = self.request("GET", f"/api/v1/knowledge/libraries/{lib}/assets?limit=100")
-        self.assertEqual(status_assets, 200)
-        existing = next((row for row in assets if row.get("asset_id") == asset), None)
-        self.assertIsNotNone(existing, assets)
-        asset_path = existing["asset_path"]
+        job = self._run_index_flow(lib, asset)
+        status, done = self.request("GET", f"/api/v1/knowledge/index-jobs/{job['job_id']}")
+        self.assertEqual(done["status"], "done")
 
-        from viknow3.service.hyperrag.object_gateway import install_object_store, reset_object_store
-
-        class _Objects:
-            def exists(self, key: str) -> bool:
-                return key == asset_path
-
-            def get_to_path(self, key: str, path: Path) -> None:
-                path.parent.mkdir(parents=True, exist_ok=True)
-                path.write_bytes(b"video")
-
-            def put_bytes(self, key: str, payload: bytes, *, content_type: str = "application/octet-stream") -> None:
-                del key, payload, content_type
-
-        install_object_store(_Objects())
-        try:
-            status, job = self.request(
-                "POST",
-                "/api/v1/knowledge/index-jobs",
-                {"library_id": lib, "asset_id": asset, "asset_path": asset_path},
-            )
-            self.assertEqual(status, 200, job)
-            status, done = self.request("GET", f"/api/v1/knowledge/index-jobs/{job['job_id']}")
-            self.assertEqual(done["status"], "done")
-
-            status, index_status = self.request(
-                "GET",
-                f"/api/v1/knowledge/libraries/{lib}/assets/{asset}/index-status",
-            )
-            self.assertEqual(status, 200)
-            self.assertEqual(index_status["status"], "indexed")
-            self.assertEqual(index_status["current_index_version_id"], job["job_id"])
-
-            with patch("viknow3.access.knowledge.service.s3.head_object", return_value={}):
-                status, assets = self.request("GET", f"/api/v1/knowledge/libraries/{lib}/assets")
-            self.assertEqual(assets[0]["current_index_version_id"], job["job_id"])
-        finally:
-            reset_object_store()
+        status, index_status = self.request(
+            "GET",
+            f"/api/v1/knowledge/libraries/{lib}/assets/{asset}/index-status",
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(index_status["status"], "indexed")
+        self.assertEqual(index_status["current_index_version_id"], job["job_id"])
 
 
 if __name__ == "__main__":

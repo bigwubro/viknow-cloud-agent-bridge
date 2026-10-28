@@ -1,176 +1,20 @@
-"""Knowledge library, asset, index, and search service."""
+"""Knowledge index, status, and search (catalog blobs are in viknow-storage)."""
 
 from __future__ import annotations
 
-import re
-from pathlib import Path, PurePosixPath
 from typing import Any
-from uuid import uuid4
 
 from viknow3.access.knowledge import store
 from viknow3.service.hyperrag.client import HYPERAG, HyperragClientError
-from viknow3.service.hyperrag.object_gateway import ObjectFetchError, fetch_index_asset, get_object_store
+from viknow3.service.hyperrag.object_gateway import ObjectFetchError, fetch_index_asset
 from viknow3.service.storage.client import StorageClientError
 from viknow3.service.storage.gateway import get_storage_client, storage_configured
-from viknow3.storage import s3
-
-_LIBRARY_ID = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$")
-_ASSET_ID = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$")
-
-_MODALITY = {
-    ".pdf": "document",
-    ".txt": "document",
-    ".md": "document",
-    ".markdown": "document",
-    ".mp4": "video",
-    ".mov": "video",
-    ".mkv": "video",
-    ".webm": "video",
-    ".png": "image",
-    ".jpg": "image",
-    ".jpeg": "image",
-}
 
 
 class KnowledgeError(Exception):
     def __init__(self, status: int, body: dict[str, Any]) -> None:
         self.status = status
         self.body = body
-
-
-def _limit(value: int | None) -> int:
-    if value is None:
-        return 20
-    return max(1, min(value, 100))
-
-
-def _modality(name: str, given: str | None) -> str:
-    if given:
-        return given.strip()
-    suffix = Path(name).suffix.lower()
-    return _MODALITY.get(suffix, "document")
-
-
-def create_library(body: dict[str, Any]) -> dict[str, Any]:
-    library_id = str(body.get("library_id") or "").strip()
-    if not library_id or not _LIBRARY_ID.match(library_id):
-        raise KnowledgeError(422, {"detail": [{"loc": ["body", "library_id"], "msg": "invalid library_id", "type": "value_error"}]})
-    title = body.get("title")
-    title_text = str(title).strip() if title is not None else library_id
-    try:
-        row = store.create_library(library_id, title_text)
-    except ValueError as exc:
-        if str(exc) == "library_exists":
-            raise KnowledgeError(409, {"detail": "library_exists"}) from exc
-        raise
-    return row.public()
-
-
-def list_libraries(limit: int | None, after: str | None) -> list[dict[str, Any]]:
-    rows = store.list_libraries(_limit(limit), after)
-    return [row.public() for row in rows]
-
-
-def get_library(library_id: str) -> dict[str, Any]:
-    row = store.get_library(library_id)
-    if row is None:
-        raise KnowledgeError(404, {"detail": "library not found"})
-    return row.public()
-
-
-def create_asset(library_id: str, body: dict[str, Any]) -> dict[str, Any]:
-    del library_id, body
-    raise KnowledgeError(
-        410,
-        {"detail": "create assets in viknow-storage; viknow catalog rows are created when indexing"},
-    )
-
-
-def list_assets(library_id: str, limit: int | None, after: str | None) -> list[dict[str, Any]]:
-    try:
-        rows = store.list_assets(library_id, _limit(limit), after)
-    except ValueError as exc:
-        if str(exc) == "library_not_found":
-            raise KnowledgeError(404, {"detail": "library not found"}) from exc
-        raise
-    return [row.public() for row in rows]
-
-
-_VIDEO_SUFFIXES = frozenset({".mp4", ".mov", ".mkv", ".webm"})
-
-
-def build_asset_path(asset_id: str, file_name: str) -> str:
-    """Canonical object key: knowledge/assets/{asset_id}/upload/{asset_id}[.normalized].{ext}"""
-
-    suffix = Path(file_name).suffix.lower()
-    if not suffix:
-        raise KnowledgeError(422, {"detail": "file extension is required"})
-    if suffix in _VIDEO_SUFFIXES:
-        upload_name = f"{asset_id}.normalized{suffix}"
-    else:
-        upload_name = f"{asset_id}{suffix}"
-    return f"knowledge/assets/{asset_id}/upload/{upload_name}"
-
-
-def upload_library_file(library_id: str, file_name: str, stream: Any, content_type: str) -> dict[str, Any]:
-    """Store bytes on the object gateway from the Playground BFF (avoids browser CORS to MinIO)."""
-
-    get_library(library_id)
-    name = str(file_name or "").strip()
-    if not name:
-        raise KnowledgeError(422, {"detail": [{"loc": ["file"], "msg": "file name is required", "type": "missing"}]})
-    aid = str(uuid4())
-    path = build_asset_path(aid, name)
-    try:
-        key = s3.put_object_stream(path, stream, content_type or "application/octet-stream")
-    except s3.StorageError as exc:
-        raise KnowledgeError(exc.status, {"detail": exc.detail}) from exc
-    return {
-        "asset_id": aid,
-        "asset_path": key,
-        "library_id": library_id,
-        "content_type": content_type or "application/octet-stream",
-    }
-
-
-def presign_upload(library_id: str, file_name: str, asset_id: str | None, content_type: str) -> dict[str, Any]:
-    aid = (asset_id or "").strip() or str(uuid4())
-    if not _ASSET_ID.match(aid):
-        raise KnowledgeError(422, {"detail": "invalid asset_id"})
-    path = build_asset_path(aid, file_name)
-    try:
-        signed = s3.presign_put(path, content_type or "application/octet-stream")
-    except s3.StorageError as exc:
-        raise KnowledgeError(exc.status, {"detail": exc.detail}) from exc
-    signed["asset_id"] = aid
-    signed["library_id"] = library_id
-    return signed
-
-
-def asset_content_url(library_id: str, asset_id: str, *, download: bool = False) -> dict[str, Any]:
-    """Relative Playground API URL (caller sends X-App-Key)."""
-
-    library_id = str(library_id or "").strip()
-    asset_id = str(asset_id or "").strip()
-    if not library_id or not asset_id:
-        raise KnowledgeError(422, {"detail": "library_id and asset_id are required"})
-    if not storage_configured():
-        raise KnowledgeError(503, {"detail": "viknow-storage is not configured"})
-    segment = "content" if download else "preview"
-    return {
-        "url": f"/api/v1/knowledge/libraries/{library_id}/assets/{asset_id}/{segment}",
-        "library_id": library_id,
-        "asset_id": asset_id,
-    }
-
-
-def presign_download(asset_path: str, download_name: str | None) -> dict[str, Any]:
-    """Legacy S3 presign for old ``knowledge/assets/`` keys (Actio-era indexes)."""
-
-    try:
-        return s3.presign_get(asset_path, download_name=download_name)
-    except s3.StorageError as exc:
-        raise KnowledgeError(exc.status, {"detail": exc.detail}) from exc
 
 
 def get_asset_index_status(library_id: str, asset_id: str) -> dict[str, Any]:
@@ -191,61 +35,6 @@ def get_latest_asset_index_job(library_id: str, asset_id: str) -> dict[str, Any]
     return _get(library_id, asset_id)
 
 
-_UPLOAD_ASSET_ID = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
-_UPLOAD_SUFFIX = re.compile(r"^\.[A-Za-z0-9]{1,16}$")
-
-
-def upload_object(
-    library_id: str,
-    file_name: str,
-    content: bytes,
-    *,
-    asset_id: str | None = None,
-    content_type: str | None = None,
-) -> dict[str, Any]:
-    """Store one source object. Creating the index is a later, separate call."""
-
-    library = str(library_id or "").strip()
-    if not library or "/" in library or "\\" in library or ".." in library or "\x00" in library:
-        raise KnowledgeError(422, {"detail": [{"loc": ["library_id"], "msg": "invalid library_id", "type": "value_error"}]})
-    name = PurePosixPath(str(file_name or "").replace("\\", "/")).name
-    if not name or name in {".", ".."}:
-        raise KnowledgeError(422, {"detail": [{"loc": ["file"], "msg": "file name is required", "type": "missing"}]})
-    suffix = PurePosixPath(name).suffix.lower()
-    if _UPLOAD_SUFFIX.fullmatch(suffix) is None:
-        raise KnowledgeError(422, {"detail": [{"loc": ["file"], "msg": "file extension is required", "type": "value_error"}]})
-    if not content:
-        raise KnowledgeError(422, {"detail": [{"loc": ["file"], "msg": "file is empty", "type": "value_error"}]})
-    chosen = str(asset_id or "").strip() or str(uuid4())
-    if _UPLOAD_ASSET_ID.fullmatch(chosen) is None:
-        raise KnowledgeError(422, {"detail": [{"loc": ["asset_id"], "msg": "invalid asset_id", "type": "value_error"}]})
-    key = f"knowledge/assets/{chosen}/upload/{chosen}{suffix}"
-    try:
-        get_object_store().put_bytes(key, content, content_type=content_type or "application/octet-stream")
-    except ObjectFetchError as exc:
-        raise KnowledgeError(exc.status, exc.body) from exc
-    return {
-        "library_id": library,
-        "asset_id": chosen,
-        "asset_path": key,
-        "file_name": name,
-        "size_bytes": len(content),
-    }
-
-
-def _catalog_asset(library_id: str, asset_id: str, *, store: Any | None = None) -> Any:
-    """The library row and the asset row must exist before an index job is submitted."""
-    catalog = store
-    if catalog is None:
-        from viknow3.access.knowledge import store as catalog
-    if catalog.get_library(library_id) is None:
-        raise KnowledgeError(404, {"detail": "library not found"})
-    asset = catalog.get_asset(library_id, asset_id)
-    if asset is None:
-        raise KnowledgeError(404, {"detail": "asset not found"})
-    return asset
-
-
 def create_index_job(body: dict[str, Any]) -> dict[str, Any]:
     if not storage_configured():
         raise KnowledgeError(503, {"detail": "viknow-storage is required for index jobs"})
@@ -254,7 +43,15 @@ def create_index_job(body: dict[str, Any]) -> dict[str, Any]:
     if body.get("asset_path"):
         raise KnowledgeError(
             422,
-            {"detail": [{"loc": ["body", "asset_path"], "msg": "asset_path is no longer accepted; upload to viknow-storage", "type": "extra_forbidden"}]},
+            {
+                "detail": [
+                    {
+                        "loc": ["body", "asset_path"],
+                        "msg": "asset_path is no longer accepted; upload to viknow-storage",
+                        "type": "extra_forbidden",
+                    }
+                ]
+            },
         )
     if not library_id or not asset_id:
         raise KnowledgeError(
@@ -278,7 +75,6 @@ def create_index_job(body: dict[str, Any]) -> dict[str, Any]:
     )
     if title is None:
         title = remote.get("title")
-    fetch = lambda: fetch_index_asset(library_id, asset_id)
 
     if title is not None and not str(title).strip():
         raise KnowledgeError(422, {"detail": [{"loc": ["body", "params", "title"], "msg": "title must be non-empty", "type": "value_error"}]})
@@ -287,7 +83,7 @@ def create_index_job(body: dict[str, Any]) -> dict[str, Any]:
         raise KnowledgeError(422, {"detail": [{"loc": ["body", "compile_mode"], "msg": "invalid compile_mode", "type": "literal_error"}]})
     mode = compile_mode if compile_mode in ("pre_compile", "fast_ingest") else None
     try:
-        fetched = fetch()
+        fetched = fetch_index_asset(library_id, asset_id)
     except ObjectFetchError as exc:
         raise KnowledgeError(exc.status, exc.body) from exc
     job = HYPERAG.create_index(
@@ -324,30 +120,6 @@ def get_index_job_tasks(job_id: str) -> list[dict[str, Any]]:
     if not job_id.strip():
         raise KnowledgeError(422, {"detail": "job_id is required"})
     return _hyperrag_call(lambda: HYPERAG.get_index_job_tasks(job_id))
-
-
-def proxy_storage_asset(
-    library_id: str,
-    asset_id: str,
-    *,
-    preview: bool,
-    range_header: str | None = None,
-) -> tuple[int, dict[str, str], bytes]:
-    """Stream bytes from viknow-storage for Playground/agents (AppKey on this hop)."""
-
-    if not storage_configured():
-        raise KnowledgeError(503, {"detail": "viknow-storage is not configured"})
-    library_id = str(library_id or "").strip()
-    asset_id = str(asset_id or "").strip()
-    if not library_id or not asset_id:
-        raise KnowledgeError(422, {"detail": "library_id and asset_id are required"})
-    try:
-        client = get_storage_client()
-        if not client.asset_exists(library_id, asset_id):
-            raise KnowledgeError(404, {"detail": "asset not found"})
-        return client.fetch_bytes(library_id, asset_id, preview=preview, range_header=range_header)
-    except StorageClientError as exc:
-        raise KnowledgeError(exc.status, {"detail": exc.detail}) from exc
 
 
 def delete_index(library_id: str, asset_id: str) -> dict[str, Any]:

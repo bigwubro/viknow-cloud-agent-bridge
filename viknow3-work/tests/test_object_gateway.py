@@ -92,32 +92,6 @@ class ObjectGatewayTests(unittest.TestCase):
         self.assertEqual(caught.exception.status, 503)
         self.assertEqual(caught.exception.body["detail"], "s3_client is incomplete")
 
-    def test_index_job_requires_the_library_and_asset_first(self) -> None:
-        from viknow3.access.knowledge.service import _catalog_asset
-
-        class MissingLibrary:
-            def get_library(self, library_id: str) -> None:
-                return None
-
-            def get_asset(self, library_id: str, asset_id: str) -> None:
-                raise AssertionError("asset lookup before the library exists")
-
-        with self.assertRaises(KnowledgeError) as missing_library:
-            _catalog_asset("library-1", "asset-1", store=MissingLibrary())
-        self.assertEqual(missing_library.exception.status, 404)
-        self.assertEqual(missing_library.exception.body["detail"], "library not found")
-
-        class MissingAsset:
-            def get_library(self, library_id: str) -> object:
-                return object()
-
-            def get_asset(self, library_id: str, asset_id: str) -> None:
-                return None
-
-        with self.assertRaises(KnowledgeError) as missing_asset:
-            _catalog_asset("library-1", "asset-1", store=MissingAsset())
-        self.assertEqual(missing_asset.exception.body["detail"], "asset not found")
-
     def test_gateway_client_uses_the_internal_endpoint(self) -> None:
         row = {
             "endpoint": "http://127.0.0.1:19191",

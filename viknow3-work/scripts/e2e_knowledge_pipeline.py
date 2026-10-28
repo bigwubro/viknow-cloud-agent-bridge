@@ -116,35 +116,28 @@ def _ensure_mineru_on_path() -> None:
     os.environ["PATH"] = f"{bin_dir}{os.pathsep}{os.environ.get('PATH', '')}"
 
 
-def _ensure_library(library_id: str, title: str) -> None:
-    from viknow3.access.knowledge import store as knowledge_store
-    from viknow3.access.knowledge.service import KnowledgeError, create_library
+def _upload_to_storage(library_id: str, asset_id: str, source: Path, content: bytes, modality: str) -> None:
+    from viknow3.service.storage.client import StorageClientError
+    from viknow3.service.storage.gateway import get_storage_client, storage_configured
 
-    if knowledge_store.get_library(library_id) is not None:
-        return
+    if not storage_configured():
+        raise RuntimeError("Set VIKNOW_STORAGE_URL and VIKNOW_STORAGE_TOKEN for e2e uploads")
+    client = get_storage_client()
     try:
-        create_library({"library_id": library_id, "title": title})
-    except KnowledgeError as exc:
+        client.create_library(library_id, f"E2E {library_id}")
+    except StorageClientError as exc:
         if exc.status != 409:
             raise
-
-
-def _ensure_asset(library_id: str, asset_id: str, asset_path: str, title: str, modality: str) -> None:
-    from viknow3.access.knowledge import store as knowledge_store
-    from viknow3.access.knowledge.service import KnowledgeError, create_asset
-
-    if knowledge_store.get_asset(library_id, asset_id) is not None:
-        return
     try:
-        create_asset(library_id,
-            {
-                "asset_id": asset_id,
-                "asset_path": asset_path,
-                "title": title,
-                "modality": modality,
-            },
+        client.upload_asset(
+            library_id,
+            source.name,
+            content,
+            asset_id=asset_id,
+            title=source.name,
+            content_type="application/octet-stream",
         )
-    except KnowledgeError as exc:
+    except StorageClientError as exc:
         if exc.status != 409:
             raise
 
@@ -182,12 +175,8 @@ def main() -> int:
     bootstrap_hyperrag_config()
     _ensure_mineru_on_path()
 
-    from viknow3.access.knowledge.service import create_index_job, upload_object
+    from viknow3.access.knowledge.service import create_index_job
     from viknow3.service.hyperrag.client import HYPERAG
-    from viknow3.service.hyperrag.object_gateway import install_object_store
-    from viknow3.service.hyperrag.object_gateway import gateway_from_ops
-
-    install_object_store(gateway_from_ops())
 
     from viknow3.service.hyperrag.runtime import init_hyperrag, start_background_runtime
 
@@ -210,18 +199,7 @@ def main() -> int:
     modality = "video" if suffix in {".mp4", ".mov", ".mkv", ".webm"} else "document"
 
     print(f"library={library_id} asset={asset_id} file={source.name} bytes={len(content)}", flush=True)
-    _ensure_library(library_id, f"E2E {library_id}")
-
-    uploaded = upload_object(library_id, source.name, content, asset_id=asset_id)
-    print("uploaded:", json.dumps(uploaded, ensure_ascii=False), flush=True)
-
-    _ensure_asset(
-        library_id,
-        asset_id,
-        uploaded["asset_path"],
-        source.name,
-        modality,
-    )
+    _upload_to_storage(library_id, asset_id, source, content, modality)
 
     job = create_index_job(
         {

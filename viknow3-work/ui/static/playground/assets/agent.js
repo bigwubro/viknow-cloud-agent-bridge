@@ -365,46 +365,43 @@ const PlaygroundAgent = (() => {
     }
   }
 
-  function signedUrl(objectKey, libraryId, assetId) {
-    const cacheKey = libraryId && assetId ? `ref:${libraryId}/${assetId}` : objectKey;
-    const cached = signedUrlCache.get(cacheKey);
+  function storageAssetUrl(libraryId, assetId, preview = true) {
+    const base = String(window.VIKNOW_STORAGE_URL || "").replace(/\/$/, "");
+    const token = String(window.VIKNOW_STORAGE_TOKEN || "").trim();
+    if (!base || !token) {
+      throw new Error("未配置 viknow-storage");
+    }
+    const segment = preview ? "preview" : "content";
+    return `${base}/libraries/${encodeURIComponent(libraryId)}/assets/${encodeURIComponent(assetId)}/${segment}`;
+  }
+
+  function storageBlobObjectUrl(url) {
+    const cached = signedUrlCache.get(url);
     if (cached) {
       return cached;
     }
-    const storageIds = libraryId && assetId
-      ? { library_id: libraryId, asset_id: assetId }
-      : storageIdsFromUri(objectKey);
-    const pending = storageIds
-      ? fetch(
-          `${knowledgeApi()}/libraries/${encodeURIComponent(storageIds.library_id)}/assets/${encodeURIComponent(storageIds.asset_id)}/preview`,
-          { headers: { "Content-Type": "application/json" } },
-        ).then(async (response) => {
-          if (!response.ok) {
-            const payload = await response.json().catch(() => ({}));
-            throw new Error(detailMessage(payload));
-          }
-          return URL.createObjectURL(await response.blob());
-        })
-      : api(`${knowledgeApi()}/downloads`, {
-          method: "POST",
-          body: JSON.stringify({ asset_path: objectKey }),
-        }).then((body) => {
-          if (!body || typeof body.url !== "string" || !body.url) {
-            throw new Error("预签名失败");
-          }
-          return body.url;
-        });
-    signedUrlCache.set(cacheKey, pending);
-    pending.catch(() => signedUrlCache.delete(cacheKey));
+    const pending = fetch(url, {
+      headers: { Authorization: `Bearer ${String(window.VIKNOW_STORAGE_TOKEN || "").trim()}` },
+    }).then(async (response) => {
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(detailMessage(payload));
+      }
+      return URL.createObjectURL(await response.blob());
+    });
+    signedUrlCache.set(url, pending);
+    pending.catch(() => signedUrlCache.delete(url));
     return pending;
   }
 
   function signedUrlForCitation(citation) {
-    return signedUrl(
-      citation.object_key,
-      citation.library_id || "",
-      citation.asset_id || "",
-    );
+    const fromIds = citation.library_id && citation.asset_id
+      ? { library_id: citation.library_id, asset_id: citation.asset_id }
+      : storageIdsFromUri(citation.object_key);
+    if (!fromIds) {
+      return Promise.reject(new Error("无法预览：缺少 library_id / asset_id"));
+    }
+    return storageBlobObjectUrl(storageAssetUrl(fromIds.library_id, fromIds.asset_id, true));
   }
 
   function previewBlock(citation) {
@@ -1484,8 +1481,6 @@ const PlaygroundAgent = (() => {
             throw new Error(detailMessage(payload));
           }
           rows = Array.isArray(payload) ? payload : [];
-        } else {
-          rows = await api(`${knowledgeApi()}/libraries?limit=100`);
         }
         pickerLoading.hidden = true;
         if (!rows.length) {

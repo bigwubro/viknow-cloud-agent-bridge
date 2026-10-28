@@ -80,36 +80,6 @@ class StorageClient:
         self._raise(response)
         return response.content
 
-    def fetch_bytes(
-        self,
-        library_id: str,
-        asset_id: str,
-        *,
-        preview: bool = True,
-        range_header: str | None = None,
-    ) -> tuple[int, dict[str, str], bytes]:
-        path = (
-            f"/libraries/{library_id}/assets/{asset_id}/preview"
-            if preview
-            else f"/libraries/{library_id}/assets/{asset_id}/content"
-        )
-        headers = {"Range": range_header} if range_header else None
-        response = self._http.get(path, headers=headers)
-        self._raise(response)
-        out_headers = {
-            key.lower(): value
-            for key, value in response.headers.items()
-            if key.lower()
-            in {
-                "content-type",
-                "content-length",
-                "content-range",
-                "accept-ranges",
-                "content-disposition",
-            }
-        }
-        return response.status_code, out_headers, response.content
-
     def preview_url(self, library_id: str, asset_id: str) -> str:
         return f"{self._http.base_url}/libraries/{library_id}/assets/{asset_id}/preview"
 

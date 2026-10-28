@@ -156,32 +156,30 @@ class AccessTests(unittest.TestCase):
         self.assertEqual(missing["status"], "error")
         self.assertEqual(missing["code"], "unknown_library")
 
-        status, library = self.request(
-            "POST",
-            "/api/v1/knowledge/libraries",
-            {"library_id": "library-1", "title": "库"},
-        )
-        self.assertIn(status, (201, 409), library)
-        asset_path = "knowledge/assets/asset-1/upload/asset-1.mp4"
-        with patch("viknow3.access.knowledge.service.s3.head_object", return_value={}):
-            status, asset = self.request(
-                "POST",
-                "/api/v1/knowledge/libraries/library-1/assets",
-                {
-                    "asset_id": "asset-1",
-                    "asset_path": asset_path,
-                    "title": "动作演示.mp4",
-                    "modality": "video",
-                },
-            )
-        self.assertIn(status, (201, 409), asset)
         from pathlib import Path
+        from unittest.mock import patch
 
-        from viknow3.service.hyperrag.object_gateway import install_object_store, reset_object_store
+        from viknow3.access.knowledge import store as knowledge_store
+        from viknow3.service.hyperrag.object_gateway import IndexObject, install_object_store, reset_object_store
+
+        knowledge_store.create_library("library-1", "库")
+
+        class _StorageClient:
+            def asset_exists(self, library_id: str, asset_id: str) -> bool:
+                return library_id == "library-1" and asset_id == "asset-1"
+
+            def get_asset(self, library_id: str, asset_id: str) -> dict:
+                return {"title": "动作演示.mp4", "modality": "video"}
+
+            def list_assets(self, library_id: str, *, limit: int | None = None):
+                return [{"asset_id": "asset-1"}]
+
+            def get_library(self, library_id: str) -> dict:
+                return {"library_id": library_id}
 
         class _Objects:
             def exists(self, key: str) -> bool:
-                return key == asset_path
+                return True
 
             def get_to_path(self, key: str, path: Path) -> None:
                 path.parent.mkdir(parents=True, exist_ok=True)
@@ -192,17 +190,26 @@ class AccessTests(unittest.TestCase):
 
         install_object_store(_Objects())
         try:
-            status, job = self.request(
-                "POST",
-                "/api/v1/knowledge/index-jobs",
-                {
-                    "library_id": "library-1",
-                    "asset_id": "asset-1",
-                    "asset_path": asset_path,
-                    "compile_mode": "fast_ingest",
-                    "params": {"title": "动作演示.mp4"},
-                },
-            )
+            with (
+                patch("viknow3.access.knowledge.service.storage_configured", return_value=True),
+                patch("viknow3.access.knowledge.service.get_storage_client", return_value=_StorageClient()),
+                patch("viknow3.access.knowledge.index_status.storage_configured", return_value=True),
+                patch("viknow3.access.knowledge.index_status.get_storage_client", return_value=_StorageClient()),
+                patch(
+                    "viknow3.service.hyperrag.object_gateway.fetch_index_asset",
+                    return_value=IndexObject("storage://library-1/asset-1", Path("/tmp/asset-1.mp4")),
+                ),
+            ):
+                status, job = self.request(
+                    "POST",
+                    "/api/v1/knowledge/index-jobs",
+                    {
+                        "library_id": "library-1",
+                        "asset_id": "asset-1",
+                        "compile_mode": "fast_ingest",
+                        "params": {"title": "动作演示.mp4"},
+                    },
+                )
             self.assertEqual(job["status"], "pending")
             self.assertIsNone(job["metadata"])
             status, done = self.request("GET", f"/api/v1/knowledge/index-jobs/{job['job_id']}")
@@ -217,10 +224,6 @@ class AccessTests(unittest.TestCase):
             self.assertEqual(status, 200)
             self.assertEqual(index_status["status"], "indexed")
             self.assertEqual(index_status["current_index_version_id"], job["job_id"])
-            with patch("viknow3.access.knowledge.service.s3.head_object", return_value={}):
-                status, assets = self.request("GET", "/api/v1/knowledge/libraries/library-1/assets")
-            self.assertEqual(status, 200)
-            self.assertEqual(assets[0]["current_index_version_id"], job["job_id"])
         finally:
             reset_object_store()
 

@@ -25,7 +25,17 @@ class IndexObject:
     path: Path
 
 
-def fetch_index_asset(library_id: str, asset_id: str) -> IndexObject:
+def _index_suffix(filename: str | None) -> str:
+    for candidate in (filename,):
+        if not candidate:
+            continue
+        suffix = Path(str(candidate)).suffix.lower()
+        if suffix:
+            return suffix
+    return ""
+
+
+def fetch_index_asset(library_id: str, asset_id: str, *, filename: str | None = None) -> IndexObject:
     """Download bytes from viknow-storage into scratch for HyperRAG indexing."""
 
     from viknow3.service.storage.client import StorageClientError
@@ -36,7 +46,24 @@ def fetch_index_asset(library_id: str, asset_id: str) -> IndexObject:
     if not library or not asset:
         raise ObjectFetchError(422, {"detail": "library_id and asset_id are required"})
     key = f"storage://{library}/{asset}"
-    path = scratch_root() / "storage" / library / asset / "original"
+    resolved_name = str(filename).strip() if filename is not None else ""
+    client = None
+    if not resolved_name:
+        client = get_storage_client()
+        try:
+            meta = client.get_asset(library, asset)
+            resolved_name = str(meta.get("filename") or meta.get("title") or "")
+        except StorageClientError as exc:
+            raise ObjectFetchError(exc.status, {"detail": exc.detail}) from exc
+    suffix = _index_suffix(resolved_name)
+    if not suffix:
+        raise ObjectFetchError(
+            422,
+            {"detail": "asset filename must include a file extension supported for indexing"},
+        )
+    if client is None:
+        client = get_storage_client()
+    path = scratch_root() / "storage" / library / asset / f"original{suffix}"
     locks = scratch_root() / ".materialize-locks"
     locks.mkdir(parents=True, exist_ok=True)
     identity = hashlib.sha256(f"{key}:{path}".encode()).hexdigest()
@@ -45,7 +72,7 @@ def fetch_index_asset(library_id: str, asset_id: str) -> IndexObject:
         if path.is_file() and path.stat().st_size > 0:
             return IndexObject(key, path)
         try:
-            payload = get_storage_client().download(library, asset)
+            payload = client.download(library, asset)
         except StorageClientError as exc:
             raise ObjectFetchError(exc.status, {"detail": exc.detail}) from exc
         path.parent.mkdir(parents=True, exist_ok=True)

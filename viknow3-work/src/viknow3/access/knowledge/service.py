@@ -77,17 +77,24 @@ def create_index_job(body: dict[str, Any]) -> dict[str, Any]:
         raise KnowledgeError(422, {"detail": [{"loc": ["body", "compile_mode"], "msg": "invalid compile_mode", "type": "literal_error"}]})
     mode = compile_mode if compile_mode in ("pre_compile", "fast_ingest") else None
     try:
-        fetched = fetch_index_asset(library_id, asset_id)
+        fetched = fetch_index_asset(
+            library_id,
+            asset_id,
+            filename=str(remote.get("filename") or remote.get("title") or "") or None,
+        )
     except ObjectFetchError as exc:
         raise KnowledgeError(exc.status, exc.body) from exc
-    job = HYPERAG.create_index(
-        library_id,
-        asset_id,
-        str(fetched.path),
-        str(title) if title else None,
-        compile_mode=mode,
-        object_key=fetched.key,
-    )
+    try:
+        job = HYPERAG.create_index(
+            library_id,
+            asset_id,
+            str(fetched.path),
+            str(title) if title else None,
+            compile_mode=mode,
+            object_key=fetched.key,
+        )
+    except ValueError as exc:
+        raise KnowledgeError(422, {"detail": str(exc)}) from exc
     job_id = str(job.get("job_id") or "").strip()
     if job_id:
         store.insert_index_job(

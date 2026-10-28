@@ -34,18 +34,24 @@ class FetchIndexAssetTests(unittest.TestCase):
             "viknow3.service.storage.gateway.get_storage_client",
             return_value=FakeClient(),
         ):
-            fetched = fetch_index_asset(library_id, asset_id)
+            fetched = fetch_index_asset(library_id, asset_id, filename="clip.mp4")
 
         self.assertEqual(fetched.key, f"storage://{library_id}/{asset_id}")
         self.assertTrue(fetched.path.is_file())
+        self.assertEqual(fetched.path.name, "original.mp4")
         self.assertEqual(fetched.path.read_bytes(), payload)
 
         with mock.patch(
             "viknow3.service.storage.gateway.get_storage_client",
             return_value=FakeClient(),
         ):
-            again = fetch_index_asset(library_id, asset_id)
+            again = fetch_index_asset(library_id, asset_id, filename="clip.mp4")
         self.assertEqual(again.path, fetched.path)
+
+    def test_requires_indexable_extension(self) -> None:
+        with self.assertRaises(ObjectFetchError) as caught:
+            fetch_index_asset("lib", "a", filename="noext")
+        self.assertEqual(caught.exception.status, 422)
 
     def test_missing_ids_rejected(self) -> None:
         with self.assertRaises(ObjectFetchError) as caught:

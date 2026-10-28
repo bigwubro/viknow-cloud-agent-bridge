@@ -107,10 +107,11 @@ ensure_playground_data_root() {
     return 1
   }
 }
-export VIKNOW_PORT="${VIKNOW_PORT:-5175}"
+# 5175 is viknow2-test on 236; Playground ViKnow API uses a separate port.
+export VIKNOW_PORT="${VIKNOW_PORT:-5218}"
 export VIKNOW_UI_PORT="${VIKNOW_UI_PORT:-5198}"
-export VIKNOW_PLAYGROUND_API_URL="${VIKNOW_PLAYGROUND_API_URL:-http://127.0.0.1:${VIKNOW_PORT}}"
-export VIKNOW_CORS_ORIGINS="${VIKNOW_CORS_ORIGINS:-http://127.0.0.1:${VIKNOW_UI_PORT}}"
+export VIKNOW_PLAYGROUND_API_URL="${VIKNOW_PLAYGROUND_API_URL:-http://36.103.198.236:${VIKNOW_PORT}}"
+export VIKNOW_CORS_ORIGINS="${VIKNOW_CORS_ORIGINS:-http://36.103.198.236:${VIKNOW_UI_PORT},http://127.0.0.1:${VIKNOW_UI_PORT}}"
 # deepagents needs Python >= 3.11; the 236 host python3 is 3.10, so the UI runs from this venv.
 PYTHON="${VIKNOW_PYTHON:-/home/cursor-agent/viknow3/venv312/bin/python}"
 
@@ -154,10 +155,21 @@ ensure_s3_public_endpoint() {
 }
 
 start_api() {
-  nohup env PYTHONPATH="${PYTHONPATH}" VIKNOW3_ROOT="${VIKNOW3_ROOT}" VIKNOW3_ENV_FILE="${VIKNOW3_ENV_FILE:-}" \
-    VIKNOW_HOST="${VIKNOW_HOST:-0.0.0.0}" VIKNOW_PORT="${VIKNOW_PORT}" VIKNOW_CORS_ORIGINS="${VIKNOW_CORS_ORIGINS}" \
-    JIEBA_CACHE_DIR="${JIEBA_CACHE_DIR}" TMPDIR="${TMPDIR}" \
-    "$PYTHON" -m viknow3.server >>"$API_LOG" 2>&1 &
+  nohup bash -lc "
+    IFS=':' read -ra _env_files <<< \"${VIKNOW3_ENV_FILE}\"
+    for _f in \"\${_env_files[@]}\"; do
+      [[ -n \"\$_f\" && -f \"\$_f\" ]] && source \"\$_f\"
+    done
+    cd \"${ROOT}\"
+    export PYTHONPATH=\"${PYTHONPATH}\"
+    export VIKNOW3_ROOT=\"${VIKNOW3_ROOT}\"
+    export VIKNOW_HOST=\"${VIKNOW_HOST:-0.0.0.0}\"
+    export VIKNOW_PORT=\"${VIKNOW_PORT}\"
+    export VIKNOW_CORS_ORIGINS=\"${VIKNOW_CORS_ORIGINS}\"
+    export JIEBA_CACHE_DIR=\"${JIEBA_CACHE_DIR}\"
+    export TMPDIR=\"${TMPDIR}\"
+    exec \"${PYTHON}\" -m viknow3.server
+  " >>"$API_LOG" 2>&1 &
   echo $! >"$API_PIDFILE"
   ready=0
   for _ in $(seq 1 45); do

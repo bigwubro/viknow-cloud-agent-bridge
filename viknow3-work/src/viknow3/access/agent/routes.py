@@ -201,8 +201,7 @@ def interrupt_agent_session_run(
     app_key: AppKey = Depends(require_app),
 ) -> dict[str, Any]:
     service.assert_run_in_session(app_key, agent_id, session_id, run_id)
-    service.interrupt(run_id, app_key)
-    return {"run_id": run_id, "session_id": session_id}
+    return service.interrupt(run_id, app_key)
 
 
 @router.get("/agents/{agent_id}/sessions/{session_id}/files")
@@ -272,9 +271,8 @@ def run_events(
 
 
 @router.post("/runs/{run_id}/interrupt")
-def interrupt_run(run_id: str, app_key: AppKey = Depends(require_app)) -> dict[str, str]:
-    service.interrupt(run_id, app_key)
-    return {"status": "interrupted"}
+def interrupt_run(run_id: str, app_key: AppKey = Depends(require_app)) -> dict[str, Any]:
+    return service.interrupt(run_id, app_key)
 
 
 @router.get("/sessions")

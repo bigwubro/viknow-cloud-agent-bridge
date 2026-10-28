@@ -239,6 +239,13 @@ class SessionLifecycleTests(unittest.TestCase):
         self.assertEqual([item["type"] for item in history], ["run_failed"])
         self.assertEqual(history[0]["payload"]["code"], "run_lost")
 
+    def test_two_new_sessions_same_user_are_not_globally_serialized(self) -> None:
+        first = self.start("会话 A")
+        second = self.start("会话 B")
+        self.assertNotEqual(first["session_id"], second["session_id"])
+        self.finish(first)
+        self.finish(second)
+
     def test_nested_interrupt_returns_the_run_and_session(self) -> None:
         submitted = self.start()
         self.finish(submitted)

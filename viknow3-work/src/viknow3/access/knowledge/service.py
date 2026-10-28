@@ -67,12 +67,6 @@ def create_index_job(body: dict[str, Any]) -> dict[str, Any]:
         remote = client.get_asset(library_id, asset_id)
     except StorageClientError as exc:
         raise KnowledgeError(exc.status, {"detail": exc.detail}) from exc
-    store.ensure_asset_for_index(
-        library_id,
-        asset_id,
-        str(remote.get("title") or asset_id),
-        str(remote.get("modality") or "document"),
-    )
     if title is None:
         title = remote.get("title")
 
@@ -125,9 +119,7 @@ def get_index_job_tasks(job_id: str) -> list[dict[str, Any]]:
 def delete_index(library_id: str, asset_id: str) -> dict[str, Any]:
     if not library_id.strip() or not asset_id.strip():
         raise KnowledgeError(422, {"detail": [{"loc": ["body"], "msg": "library_id and asset_id are required", "type": "missing"}]})
-    result = HYPERAG.delete_index(library_id, asset_id)
-    store.clear_current_index_version_id(library_id.strip(), asset_id.strip())
-    return result
+    return HYPERAG.delete_index(library_id, asset_id)
 
 
 def search(body: dict[str, Any]) -> dict[str, Any]:

@@ -8,7 +8,6 @@ from viknow3.service.storage.gateway import storage_configured
 
 _PREFIX = "knowledge/assets/"
 _STORAGE_PREFIX = "storage://"
-_CACHE: dict[tuple[str, str], str] = {}
 
 
 def storage_uri(library_id: str, asset_id: str) -> str:
@@ -43,35 +42,14 @@ def knowledge_object_key(value: Any) -> str | None:
 
 
 def catalog_asset_object_key(library_id: str, asset_id: str) -> str | None:
-    """Look up the asset row's ``asset_path``. Missing config or rows yield None."""
+    """Resolve logical object key without a PG catalog mirror."""
 
     library = str(library_id or "").strip()
     asset = str(asset_id or "").strip()
     if not library or not asset:
         return None
-    cached = _CACHE.get((library, asset))
-    if cached:
-        return cached
-    try:
-        from viknow3.access.knowledge.store import get_asset
-    except Exception:
-        return None
-    try:
-        row = get_asset(library, asset)
-    except Exception:
-        return None
-    if row is None:
-        return None
-    path = getattr(row, "asset_path", None)
-    key = knowledge_object_key(path)
-    if key:
-        _CACHE[(library, asset)] = key
-        return key
-    parsed = parse_storage_uri(path)
-    if parsed and parsed == (library, asset):
-        uri = storage_uri(library, asset)
-        _CACHE[(library, asset)] = uri
-        return uri
+    if storage_configured():
+        return storage_uri(library, asset)
     return None
 
 

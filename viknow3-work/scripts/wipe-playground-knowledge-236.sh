@@ -22,8 +22,8 @@ if docker ps --format '{{.Names}}' | grep -qx viknow3-ops-postgres; then
      DELETE FROM hyperrag.hyperrag_knowledge_discovery_libraries;
      DELETE FROM hyperrag.hyperrag_knowledgebase_info;
      DELETE FROM catalog.knowledge_index_jobs;
-     DELETE FROM catalog.knowledge_assets;
-     DELETE FROM catalog.knowledge_libraries;"
+     DROP TABLE IF EXISTS catalog.knowledge_assets;
+     DROP TABLE IF EXISTS catalog.knowledge_libraries;"
 else
   DSN="${VIKNOW_KNOWLEDGE_DSN:-${VIKNOW_HYPERRAG_DSN:-}}"
   if [[ -z "$DSN" ]]; then
@@ -31,6 +31,8 @@ else
     exit 0
   fi
   psql "$DSN" -v ON_ERROR_STOP=1 -c \
-    "DELETE FROM catalog.knowledge_index_jobs; DELETE FROM catalog.knowledge_assets; DELETE FROM catalog.knowledge_libraries;"
+    "DELETE FROM catalog.knowledge_index_jobs;
+     DROP TABLE IF EXISTS catalog.knowledge_assets;
+     DROP TABLE IF EXISTS catalog.knowledge_libraries;"
 fi
 echo "done"

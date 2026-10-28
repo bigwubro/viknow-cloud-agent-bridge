@@ -34,7 +34,6 @@ class StorageIndexJobTests(unittest.TestCase):
     def test_create_index_job_without_asset_path_uses_storage(self) -> None:
         library_id = f"lib-a-{uuid.uuid4().hex[:8]}"
         asset_id = "file-1"
-        store.create_library(library_id, "A")
         captured: dict = {}
 
         class FakeClient:
@@ -77,9 +76,9 @@ class StorageIndexJobTests(unittest.TestCase):
         self.assertEqual(job["job_id"], "job-1")
         self.assertEqual(captured["object_key"], f"storage://{library_id}/{asset_id}")
         self.assertTrue(captured["path"])
-        row = store.get_asset(library_id, asset_id)
-        self.assertIsNotNone(row)
-        self.assertEqual(row.asset_path, f"storage://{library_id}/{asset_id}")
+        job_row = store.get_latest_index_job(library_id, asset_id)
+        self.assertIsNotNone(job_row)
+        self.assertEqual(job_row.job_id, "job-1")
 
     def test_asset_path_in_body_rejected(self) -> None:
         with mock.patch("viknow3.access.knowledge.service.storage_configured", return_value=True):

@@ -159,10 +159,7 @@ class AccessTests(unittest.TestCase):
         from pathlib import Path
         from unittest.mock import patch
 
-        from viknow3.access.knowledge import store as knowledge_store
         from viknow3.service.hyperrag.object_gateway import IndexObject, install_object_store, reset_object_store
-
-        knowledge_store.create_library("library-1", "库")
 
         class _StorageClient:
             def asset_exists(self, library_id: str, asset_id: str) -> bool:

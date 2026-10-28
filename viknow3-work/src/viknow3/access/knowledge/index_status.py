@@ -1,4 +1,4 @@
-"""Playground index status: catalog, persisted index jobs, HyperRAG asset_status, optional Redis."""
+"""Playground index status: viknow-storage asset ids + jobs / HyperRAG / Redis."""
 
 from __future__ import annotations
 
@@ -86,7 +86,20 @@ def _map_api_job_status(raw: str) -> str | None:
     return None
 
 
-def _sync_hyperrag_terminal_to_catalog(
+def _assert_storage_asset(library_id: str, asset_id: str) -> None:
+    if not storage_configured():
+        raise KnowledgeError(503, {"detail": "viknow-storage is required for index status"})
+    try:
+        client = get_storage_client()
+        if not client.asset_exists(library_id, asset_id):
+            raise KnowledgeError(404, {"detail": "asset not found"})
+    except StorageClientError as exc:
+        if exc.status == 404:
+            raise KnowledgeError(404, {"detail": "asset not found"}) from exc
+        raise KnowledgeError(exc.status, {"detail": exc.detail}) from exc
+
+
+def _sync_hyperrag_terminal(
     library_id: str,
     asset_id: str,
     hyperrag_row: dict[str, Any],
@@ -106,16 +119,11 @@ def _sync_hyperrag_terminal_to_catalog(
                 "completed",
                 error_message=None,
             )
-        try:
-            store.set_current_index_version_id(library_id, asset_id, version_id)
-        except ValueError:
-            pass
-        asset = store.get_asset(library_id, asset_id)
         return {
             "library_id": library_id,
             "asset_id": asset_id,
             "status": "indexed",
-            "current_index_version_id": (asset.current_index_version_id if asset else None) or version_id,
+            "current_index_version_id": version_id,
             "job_id": None,
             "error_message": None,
         }
@@ -152,17 +160,11 @@ def _sync_hyperrag_terminal_to_catalog(
 def _payload_from_persisted_job(library_id: str, asset_id: str, job: store.IndexJobRow) -> dict[str, Any]:
     mapped = _map_api_job_status(job.status)
     if mapped == "indexed":
-        version_id = job.job_id
-        try:
-            store.set_current_index_version_id(library_id, asset_id, version_id)
-        except ValueError:
-            pass
-        asset = store.get_asset(library_id, asset_id)
         return {
             "library_id": library_id,
             "asset_id": asset_id,
             "status": "indexed",
-            "current_index_version_id": (asset.current_index_version_id if asset else None) or version_id,
+            "current_index_version_id": job.job_id,
             "job_id": None,
             "error_message": None,
         }
@@ -194,48 +196,13 @@ def _payload_from_persisted_job(library_id: str, asset_id: str, job: store.Index
     }
 
 
-def _resolve_index_asset(library_id: str, asset_id: str) -> store.AssetRow | None:
-    row = store.get_asset(library_id, asset_id)
-    if row is not None:
-        return row
-    if not storage_configured():
-        return None
-    try:
-        client = get_storage_client()
-        if not client.asset_exists(library_id, asset_id):
-            return None
-        remote = client.get_asset(library_id, asset_id)
-    except StorageClientError as exc:
-        if exc.status == 404:
-            return None
-        raise KnowledgeError(exc.status, {"detail": exc.detail}) from exc
-    return store.ensure_asset_for_index(
-        library_id,
-        asset_id,
-        str(remote.get("title") or asset_id),
-        str(remote.get("modality") or "document"),
-    )
-
-
 def get_asset_index_status(library_id: str, asset_id: str) -> dict[str, Any]:
     library_id = str(library_id or "").strip()
     asset_id = str(asset_id or "").strip()
     if not library_id or not asset_id:
         raise KnowledgeError(422, {"detail": "library_id and asset_id are required"})
 
-    asset = _resolve_index_asset(library_id, asset_id)
-    if asset is None:
-        raise KnowledgeError(404, {"detail": "asset not found"})
-
-    if asset.current_index_version_id:
-        return {
-            "library_id": library_id,
-            "asset_id": asset_id,
-            "status": "indexed",
-            "current_index_version_id": asset.current_index_version_id,
-            "job_id": None,
-            "error_message": None,
-        }
+    _assert_storage_asset(library_id, asset_id)
 
     persisted = store.get_latest_index_job(library_id, asset_id)
     if persisted is not None:
@@ -247,7 +214,7 @@ def get_asset_index_status(library_id: str, asset_id: str) -> dict[str, Any]:
     if hyperrag_row is not None:
         mapped = _map_hyperrag_status(str(hyperrag_row.get("status") or ""))
         if mapped is not None:
-            synced = _sync_hyperrag_terminal_to_catalog(library_id, asset_id, hyperrag_row, mapped)
+            synced = _sync_hyperrag_terminal(library_id, asset_id, hyperrag_row, mapped)
             if synced is not None:
                 return synced
             if mapped in {"failed", "indexing"}:
@@ -279,14 +246,8 @@ def get_asset_index_status(library_id: str, asset_id: str) -> dict[str, Any]:
             "error_message": redis.get("error_message"),
         }
         if redis["status"] == "indexed" and redis.get("job_id"):
-            try:
-                store.set_current_index_version_id(library_id, asset_id, str(redis["job_id"]))
-            except ValueError:
-                pass
-            else:
-                payload["current_index_version_id"] = str(redis["job_id"])
-                payload["job_id"] = None
-                payload["status"] = "indexed"
+            payload["current_index_version_id"] = str(redis["job_id"])
+            payload["job_id"] = None
         return payload
 
     return {
@@ -304,22 +265,18 @@ def list_library_assets_index_status(library_id: str, limit: int | None = None) 
     library_id = str(library_id or "").strip()
     if not library_id:
         raise KnowledgeError(422, {"detail": "library_id is required"})
+    if not storage_configured():
+        raise KnowledgeError(503, {"detail": "viknow-storage is required for index status"})
     cap = 100 if limit is None else max(1, min(int(limit), 100))
-    asset_ids: list[str] = []
-    if storage_configured():
-        try:
-            client = get_storage_client()
-            client.get_library(library_id)
-            asset_ids = [str(row.get("asset_id") or "") for row in client.list_assets(library_id, limit=cap)]
-            asset_ids = [aid for aid in asset_ids if aid]
-        except StorageClientError as exc:
-            if exc.status == 404:
-                raise KnowledgeError(404, {"detail": "library not found"}) from exc
-            raise KnowledgeError(exc.status, {"detail": exc.detail}) from exc
-    else:
-        if store.get_library(library_id) is None:
-            raise KnowledgeError(404, {"detail": "library not found"})
-        asset_ids = [asset.asset_id for asset in store.list_assets(library_id, cap, None)]
+    try:
+        client = get_storage_client()
+        client.get_library(library_id)
+        asset_ids = [str(row.get("asset_id") or "") for row in client.list_assets(library_id, limit=cap)]
+        asset_ids = [aid for aid in asset_ids if aid]
+    except StorageClientError as exc:
+        if exc.status == 404:
+            raise KnowledgeError(404, {"detail": "library not found"}) from exc
+        raise KnowledgeError(exc.status, {"detail": exc.detail}) from exc
     return [get_asset_index_status(library_id, asset_id) for asset_id in asset_ids]
 
 
@@ -328,8 +285,7 @@ def get_latest_index_job(library_id: str, asset_id: str) -> dict[str, Any]:
     asset_id = str(asset_id or "").strip()
     if not library_id or not asset_id:
         raise KnowledgeError(422, {"detail": "library_id and asset_id are required"})
-    if _resolve_index_asset(library_id, asset_id) is None:
-        raise KnowledgeError(404, {"detail": "asset not found"})
+    _assert_storage_asset(library_id, asset_id)
     job = store.get_latest_index_job(library_id, asset_id)
     if job is None:
         raise KnowledgeError(404, {"detail": "index job not found"})
@@ -337,7 +293,7 @@ def get_latest_index_job(library_id: str, asset_id: str) -> dict[str, Any]:
 
 
 def sync_index_job_from_api(job: dict[str, Any]) -> None:
-    """Persist index job row from HyperRAG GET job; backfill catalog on terminal success."""
+    """Persist index job row from HyperRAG GET job."""
     job_id = str(job.get("job_id") or "").strip()
     library_id = str(job.get("library_id") or "").strip()
     asset_id = str(job.get("asset_id") or "").strip()
@@ -355,24 +311,11 @@ def sync_index_job_from_api(job: dict[str, Any]) -> None:
         error_message=err,
         completed_at=completed_at,
     )
-    persist_index_job_completion(job)
 
 
 def persist_index_job_completion(job: dict[str, Any]) -> None:
-    """Write catalog ``current_index_version_id`` when an index job reaches a terminal success state."""
-    status = str(job.get("status") or "").strip().lower()
-    if status not in _INDEX_DONE:
-        return
-    library_id = str(job.get("library_id") or "").strip()
-    asset_id = str(job.get("asset_id") or "").strip()
-    job_id = str(job.get("job_id") or "").strip()
-    if not library_id or not asset_id:
-        return
-    version_id = job_id or f"indexed:{library_id}:{asset_id}"
-    try:
-        store.set_current_index_version_id(library_id, asset_id, version_id)
-    except ValueError:
-        return
+    """No-op: indexed state is derived from persisted job rows and HyperRAG."""
+    del job
 
 
 __all__ = [

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from typing import Any
 
@@ -23,7 +24,22 @@ class Principal:
 DEV_APP_KEY = AppKey("dev-app-key", "expertbuddy-deepagents")
 ADMIN_KEY = "dev-admin-key"
 
-APP_KEYS = {DEV_APP_KEY.key: DEV_APP_KEY}
+APP_KEYS: dict[str, AppKey] = {DEV_APP_KEY.key: DEV_APP_KEY}
+
+
+def register_app_key(raw: str, *, default_agent_id: str | None = None) -> None:
+    key = str(raw or "").strip()
+    if not key:
+        return
+    APP_KEYS[key] = AppKey(key, default_agent_id or DEV_APP_KEY.default_agent_id)
+
+
+def _load_env_app_keys() -> None:
+    for env_name in ("VIKNOW3_APP_KEY", "VIKNOW_APP_KEY"):
+        register_app_key(os.environ.get(env_name, ""))
+
+
+_load_env_app_keys()
 
 
 def bearer(header: str | None) -> str | None:
@@ -56,11 +72,21 @@ class AuthError(Exception):
         self.body = body
 
 
-def require_app(request: Request) -> AppKey:
+def _app_key_from_request(request: Request) -> AppKey | None:
     principal = business_principal(request.headers.get("authorization"))
-    if principal is None or principal.app_key is None:
+    if principal is not None and principal.app_key is not None:
+        return principal.app_key
+    header_key = (request.headers.get("x-app-key") or "").strip()
+    if header_key:
+        return APP_KEYS.get(header_key)
+    return None
+
+
+def require_app(request: Request) -> AppKey:
+    app_key = _app_key_from_request(request)
+    if app_key is None:
         raise AuthError(401, {"code": "invalid_app_key", "message": "app key is missing, invalid, or revoked"})
-    return principal.app_key
+    return app_key
 
 
 def require_admin(request: Request) -> None:

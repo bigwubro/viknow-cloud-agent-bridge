@@ -75,3 +75,7 @@ def main() -> None:
     host = os.environ.get("VIKNOW_HOST", "127.0.0.1")
     port = int(os.environ.get("VIKNOW_PORT", "5175"))
     uvicorn.run(app, host=host, port=port)
+
+
+if __name__ == "__main__":
+    main()

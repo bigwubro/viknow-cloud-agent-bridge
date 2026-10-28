@@ -168,7 +168,7 @@ start_api() {
     export VIKNOW_CORS_ORIGINS=\"${VIKNOW_CORS_ORIGINS}\"
     export JIEBA_CACHE_DIR=\"${JIEBA_CACHE_DIR}\"
     export TMPDIR=\"${TMPDIR}\"
-    exec \"${PYTHON}\" -m viknow3.server
+    exec \"${PYTHON}\" -m viknow3
   " >>"$API_LOG" 2>&1 &
   echo $! >"$API_PIDFILE"
   ready=0

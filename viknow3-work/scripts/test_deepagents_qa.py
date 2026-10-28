@@ -33,11 +33,11 @@ def parse_sse(raw: bytes) -> list[dict[str, Any]]:
 def fetch_history(base: str, auth: str, session_id: str, run_id: str) -> list[dict[str, Any]]:
     try:
         return req_json(
-            base, auth, "GET", f"/api/v1/agent/agents/deepagents/sessions/{session_id}/runs/{run_id}/history"
+            base, auth, "GET", f"/api/v1/agent/agents/expertbuddy-deepagents/sessions/{session_id}/runs/{run_id}/history"
         )
     except urllib.error.HTTPError:
         request = urllib.request.Request(
-            f"{base}/api/v1/agent/agents/deepagents/sessions/{session_id}/runs/{run_id}/events?after_sequence=0&live=false",
+            f"{base}/api/v1/agent/agents/expertbuddy-deepagents/sessions/{session_id}/runs/{run_id}/events?after_sequence=0&live=false",
             headers={"Authorization": auth},
             method="GET",
         )
@@ -51,13 +51,13 @@ def run_qa(base: str, auth: str, user_id: str, library_id: str, qid: str, messag
         base,
         auth,
         "POST",
-        "/api/v1/agent/agents/deepagents/sessions",
+        "/api/v1/agent/agents/expertbuddy-deepagents/sessions",
         {"user_id": user_id, "message": message, "library_ids": [library_id]},
     )
     sid, rid = out["session_id"], out["run_id"]
     run: dict[str, Any] = {"status": "running"}
     for _ in range(180):
-        run = req_json(base, auth, "GET", f"/api/v1/agent/agents/deepagents/sessions/{sid}/runs/{rid}")
+        run = req_json(base, auth, "GET", f"/api/v1/agent/agents/expertbuddy-deepagents/sessions/{sid}/runs/{rid}")
         if run.get("status") in ("completed", "failed", "interrupted"):
             break
         time.sleep(2)

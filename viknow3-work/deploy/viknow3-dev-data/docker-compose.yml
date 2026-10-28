@@ -1,6 +1,6 @@
 # ViKnow 3 开发专用数据栈（与 viknow2-test 的 15432/16379/17687 隔离）
 # 启动：docker compose -f deploy/viknow3-dev-data/docker-compose.yml up -d
-# Postgres 业务库 + viknow_ops 使用已有 viknow3-ops-postgres（127.0.0.1:16432），不在此 compose 内。
+# Postgres 业务库 + viknow3_ops 使用已有 viknow3-ops-postgres（127.0.0.1:16432），不在此 compose 内。登录角色仍是 viknow_ops。
 
 services:
   redis:

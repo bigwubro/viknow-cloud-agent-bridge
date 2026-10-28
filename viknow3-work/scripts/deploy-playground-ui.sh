@@ -107,25 +107,46 @@ ensure_playground_data_root() {
     return 1
   }
 }
+# 5175 is viknow2-test on 236; Playground ViKnow API uses a separate port.
+export VIKNOW_PORT="${VIKNOW_PORT:-5218}"
 export VIKNOW_UI_PORT="${VIKNOW_UI_PORT:-5198}"
+export VIKNOW_PLAYGROUND_API_URL="${VIKNOW_PLAYGROUND_API_URL:-http://36.103.198.236:${VIKNOW_PORT}}"
+export VIKNOW_STORAGE_PUBLIC_HOST="${VIKNOW_STORAGE_PUBLIC_HOST:-36.103.198.236}"
+export VIKNOW_STORAGE_PUBLIC_PORT="${VIKNOW_STORAGE_PUBLIC_PORT:-5219}"
+export VIKNOW_STORAGE_BROWSER_URL="${VIKNOW_STORAGE_BROWSER_URL:-http://${VIKNOW_STORAGE_PUBLIC_HOST}:${VIKNOW_STORAGE_PUBLIC_PORT}}"
+export VIKNOW_CORS_ORIGINS="${VIKNOW_CORS_ORIGINS:-http://36.103.198.236:${VIKNOW_UI_PORT},http://127.0.0.1:${VIKNOW_UI_PORT}}"
 # deepagents needs Python >= 3.11; the 236 host python3 is 3.10, so the UI runs from this venv.
 PYTHON="${VIKNOW_PYTHON:-/home/cursor-agent/viknow3/venv312/bin/python}"
 
-PIDFILE="${TMPDIR:-/tmp}/viknow-playground-ui.pid"
+API_PIDFILE="${TMPDIR:-/tmp}/viknow-playground-api.pid"
+UI_PIDFILE="${TMPDIR:-/tmp}/viknow-playground-ui.pid"
+API_LOG="${TMPDIR:-/tmp}/viknow-api.log"
 LOG="${TMPDIR:-/tmp}/viknow-ui.log"
 
-stop_ui() {
+stop_port() {
+  local port="$1"
   if command -v fuser >/dev/null 2>&1; then
-    fuser -k "${VIKNOW_UI_PORT}/tcp" >/dev/null 2>&1 || true
+    fuser -k "${port}/tcp" >/dev/null 2>&1 || true
     sleep 0.5
   fi
-  if [[ -f "$PIDFILE" ]]; then
-    old="$(cat "$PIDFILE" 2>/dev/null || true)"
+}
+
+stop_pidfile() {
+  local file="$1"
+  if [[ -f "$file" ]]; then
+    old="$(cat "$file" 2>/dev/null || true)"
     if [[ -n "$old" ]] && kill -0 "$old" 2>/dev/null; then
       kill "$old" 2>/dev/null || true
     fi
-    rm -f "$PIDFILE"
+    rm -f "$file"
   fi
+}
+
+stop_ui() {
+  stop_port "${VIKNOW_UI_PORT}"
+  stop_port "${VIKNOW_PORT}"
+  stop_pidfile "$UI_PIDFILE"
+  stop_pidfile "$API_PIDFILE"
 }
 
 ensure_s3_public_endpoint() {
@@ -134,6 +155,39 @@ ensure_s3_public_endpoint() {
   if [[ -z "${VIKNOW_S3_PUBLIC_ENDPOINT:-}" ]]; then
     export VIKNOW_S3_PUBLIC_ENDPOINT="http://36.103.198.236:19191"
   fi
+}
+
+start_api() {
+  nohup bash -lc "
+    IFS=':' read -ra _env_files <<< \"${VIKNOW3_ENV_FILE}\"
+    for _f in \"\${_env_files[@]}\"; do
+      [[ -n \"\$_f\" && -f \"\$_f\" ]] && source \"\$_f\"
+    done
+    cd \"${ROOT}\"
+    export PYTHONPATH=\"${PYTHONPATH}\"
+    export VIKNOW3_ROOT=\"${VIKNOW3_ROOT}\"
+    export VIKNOW_HOST=\"${VIKNOW_HOST:-0.0.0.0}\"
+    export VIKNOW_PORT=\"${VIKNOW_PORT}\"
+    export VIKNOW_CORS_ORIGINS=\"${VIKNOW_CORS_ORIGINS}\"
+    export JIEBA_CACHE_DIR=\"${JIEBA_CACHE_DIR}\"
+    export TMPDIR=\"${TMPDIR}\"
+    exec \"${PYTHON}\" -m viknow3
+  " >>"$API_LOG" 2>&1 &
+  echo $! >"$API_PIDFILE"
+  ready=0
+  for _ in $(seq 1 45); do
+    if curl -sf -o /dev/null "http://127.0.0.1:${VIKNOW_PORT}/docs"; then
+      ready=1
+      break
+    fi
+    sleep 2
+  done
+  if [[ "$ready" != 1 ]]; then
+    echo "ViKnow API failed to start; tail $API_LOG"
+    tail -20 "$API_LOG" || true
+    exit 1
+  fi
+  echo "ViKnow API http://127.0.0.1:${VIKNOW_PORT} (pid $(cat "$API_PIDFILE"))"
 }
 
 start_ui() {
@@ -148,14 +202,24 @@ start_ui() {
   export TMPDIR="${TMPDIR:-${VIKNOW_SCRATCH_DIR}/tmp}"
   mkdir -p "$TMPDIR"
   stop_ui
-  "$PYTHON" -c "import deepagents, deepagents_sandbox, langchain_openai, langgraph.checkpoint.postgres, psycopg_pool" || {
+  "$PYTHON" -c "import deepagents, deepagents_sandbox, langchain_openai, langgraph.checkpoint.postgres, psycopg_pool, google.adk" || {
     echo "$PYTHON lacks the agent dependencies; install with: $PYTHON -m pip install -e $ROOT && $PYTHON -m pip install -e /home/cursor-agent/work/viknow2/external/deepagents-sandbox[langchain]"
     exit 1
   }
-  nohup env PYTHONPATH="${PYTHONPATH}" VIKNOW3_ROOT="${VIKNOW3_ROOT}" VIKNOW3_ENV_FILE="${VIKNOW3_ENV_FILE:-}" \
-    JIEBA_CACHE_DIR="${JIEBA_CACHE_DIR}" TMPDIR="${TMPDIR}" \
+  start_api
+  load_env_files
+  export VIKNOW_STORAGE_PUBLIC_HOST="${VIKNOW_STORAGE_PUBLIC_HOST:-36.103.198.236}"
+  export VIKNOW_STORAGE_PUBLIC_PORT="${VIKNOW_STORAGE_PUBLIC_PORT:-5219}"
+  export VIKNOW_STORAGE_BROWSER_URL="http://${VIKNOW_STORAGE_PUBLIC_HOST}:${VIKNOW_STORAGE_PUBLIC_PORT}"
+  export VIKNOW_STORAGE_URL="${VIKNOW_STORAGE_URL:-http://127.0.0.1:${VIKNOW_STORAGE_PUBLIC_PORT}}"
+  nohup env PYTHONPATH="${PYTHONPATH}" VIKNOW3_ROOT="${VIKNOW3_ROOT}" \
+    VIKNOW_UI_HOST="${VIKNOW_UI_HOST:-0.0.0.0}" VIKNOW_UI_PORT="${VIKNOW_UI_PORT}" \
+    VIKNOW_PLAYGROUND_API_URL="${VIKNOW_PLAYGROUND_API_URL}" \
+    VIKNOW_STORAGE_BROWSER_URL="${VIKNOW_STORAGE_BROWSER_URL}" \
+    VIKNOW_STORAGE_URL="${VIKNOW_STORAGE_URL:-}" VIKNOW_STORAGE_TOKEN="${VIKNOW_STORAGE_TOKEN:-}" \
+    VIKNOW3_APP_KEY="${VIKNOW3_APP_KEY:-}" \
     "$PYTHON" -m ui.server >>"$LOG" 2>&1 &
-  echo $! >"$PIDFILE"
+  echo $! >"$UI_PIDFILE"
   ready=0
   for _ in $(seq 1 45); do
     if curl -sf -o /dev/null "http://127.0.0.1:${VIKNOW_UI_PORT}/playground"; then
@@ -172,7 +236,7 @@ start_ui() {
   if [[ -f "$ROOT/scripts/set-playground-s3-cors.py" ]] && [[ -n "${VIKNOW_OPS_DSN:-}" ]]; then
     "$PYTHON" "$ROOT/scripts/set-playground-s3-cors.py" || echo "warn: bucket CORS setup failed (browser presign PUT may fail)" >&2
   fi
-  echo "Playground UI http://127.0.0.1:${VIKNOW_UI_PORT}/playground (pid $(cat "$PIDFILE"))"
+  echo "Playground UI http://127.0.0.1:${VIKNOW_UI_PORT}/playground (pid $(cat "$UI_PIDFILE"))"
 }
 
 case "${1:-restart}" in
@@ -180,10 +244,15 @@ case "${1:-restart}" in
   start) start_ui ;;
   restart) start_ui ;;
   status)
-    if [[ -f "$PIDFILE" ]] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then
-      echo "running pid $(cat "$PIDFILE")"
+    if [[ -f "$API_PIDFILE" ]] && kill -0 "$(cat "$API_PIDFILE")" 2>/dev/null; then
+      echo "api running pid $(cat "$API_PIDFILE") :${VIKNOW_PORT}"
     else
-      echo "stopped"
+      echo "api stopped"
+    fi
+    if [[ -f "$UI_PIDFILE" ]] && kill -0 "$(cat "$UI_PIDFILE")" 2>/dev/null; then
+      echo "ui running pid $(cat "$UI_PIDFILE") :${VIKNOW_UI_PORT}"
+    else
+      echo "ui stopped"
     fi
     ;;
   *) echo "usage: $0 [restart|start|stop|status]" >&2; exit 2 ;;

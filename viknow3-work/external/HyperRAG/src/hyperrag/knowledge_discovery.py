@@ -117,7 +117,7 @@ def _catalog_search_sql(*, assets: bool = False, ids_only: bool = False) -> str:
 
 
 SQL_TEMPLATES_KNOWLEDGE_DISCOVERY = {
-    "create_trigram_extension": "CREATE EXTENSION IF NOT EXISTS pg_trgm",
+    "create_trigram_extension": "CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA public",
     "create_libraries_table": """
         CREATE TABLE IF NOT EXISTS hyperrag_knowledge_discovery_libraries (
             library_id VARCHAR(255) PRIMARY KEY,

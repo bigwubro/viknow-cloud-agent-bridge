@@ -28,7 +28,7 @@
             <div>
               <p class="pg-overline">Knowledge</p>
               <h1>知识库</h1>
-              <p class="pg-muted">Library 与 Asset 走 <code class="pg-mono">/api/v1/knowledge</code>；文件经预签名上传至对象网关后登记。</p>
+              <p class="pg-muted">本页 <code class="pg-mono">:5198</code> 仅静态 Playground UI；库/文件直连 <code class="pg-mono">viknow-storage</code>；索引/Agent 直连 ViKnow API（见 <code class="pg-mono">playground-config.js</code>）。</p>
             </div>
           </header>
 
@@ -61,8 +61,10 @@
         </div>
       </main>
     </div>
-    <script src="/playground/assets/user.js?v=7"></script>
-    <script src="/playground/assets/library.js?v=6"></script>
+    <script src="/playground/assets/playground-config.js?v=5219"></script>
+    <script src="/playground/assets/playground-api.js"></script>
+    <script src="/playground/assets/user.js?v=8"></script>
+    <script src="/playground/assets/library.js?v=11"></script>
     <script>
       PlaygroundLibrary.requireUser();
       document.getElementById("btn-logout").addEventListener("click", () => {

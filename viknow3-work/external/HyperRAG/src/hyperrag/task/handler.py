@@ -34,12 +34,31 @@ from .models import TaskResult
 
 logger = logging.getLogger(__name__)
 
-try:
-    from actio.video_parser import VideoParser as ActioVideoParser
-    from actio.video_parser import VideoParserConfig as ActioVideoParserConfig
-except ModuleNotFoundError:  # pragma: no cover - optional dependency in standalone HyperRAG tests
-    ActioVideoParser = None
-    ActioVideoParserConfig = None
+# Tests replace these names. Production leaves them unset and uses the shell-installed port.
+_UNSET = object()
+ActioVideoParser: Any = _UNSET
+ActioVideoParserConfig: Any = _UNSET
+
+
+class _PermissiveParserConfig:
+    """Config stand-in when a test replaces only the parser class."""
+
+    def __init__(self, **kwargs: Any) -> None:
+        self.__dict__.update(kwargs)
+
+
+def _video_parser_types() -> tuple[Any, Any]:
+    parser = ActioVideoParser
+    config_type = ActioVideoParserConfig
+    if parser is _UNSET and config_type is _UNSET:
+        from hyperrag.actio_port import video_parser_class, video_parser_config_class
+
+        return video_parser_class(), video_parser_config_class()
+    if parser is _UNSET:
+        parser = None
+    if config_type is _UNSET:
+        config_type = _PermissiveParserConfig
+    return parser, config_type
 
 if TYPE_CHECKING:
     from hyperrag.artifact_store import ArtifactStore
@@ -1200,7 +1219,8 @@ class VideoParseHandler(BaseTaskHandler):
         merge_config = self.actio_config["merge_config"]
         segment_config = self.actio_config["segment_config"]
 
-        if ActioVideoParser is None or ActioVideoParserConfig is None:
+        parser_cls, config_cls = _video_parser_types()
+        if parser_cls is None or config_cls is None:
             return TaskResult(
                 status="failed",
                 error=(
@@ -1208,7 +1228,7 @@ class VideoParseHandler(BaseTaskHandler):
                 ),
             )
 
-        parser_config = ActioVideoParserConfig(
+        parser_config = config_cls(
             segment_config=str(segment_config),
             models_config=str(models_config_path),
             aggregate_config=str(aggregate_config),
@@ -1231,7 +1251,7 @@ class VideoParseHandler(BaseTaskHandler):
             keep_intermediate=True,
             segmentation_mode=str(_get_param("segmentation_mode", "general")),
         )
-        video_parser = ActioVideoParser(parser_config)
+        video_parser = parser_cls(parser_config)
 
         try:
             parse_kwargs: Dict[str, Any] = {}
@@ -1249,8 +1269,7 @@ class VideoParseHandler(BaseTaskHandler):
                 parse_kwargs["edited_sop_full_path"] = Path(str(edited_sop_full_path))
 
             def parse_with_observer():
-                from actio.video_caption import observe_caption_generations
-
+                from hyperrag.actio_port import observe_caption_generations
                 from hyperrag.observability.index_usage import record_generation
 
                 with observe_caption_generations(record_generation):
@@ -1416,7 +1435,8 @@ class SOPVideoHandler(BaseTaskHandler):
             segment_config = self.actio_config["segment_config"]
             sop_schema = self.actio_config["sop_schema_path"]
 
-            if ActioVideoParser is None or ActioVideoParserConfig is None:
+            parser_cls, config_cls = _video_parser_types()
+            if parser_cls is None or config_cls is None:
                 return TaskResult(
                     status="failed",
                     error=(
@@ -1428,7 +1448,7 @@ class SOPVideoHandler(BaseTaskHandler):
             unified_path = video_cache_root / task.asset_id / "sop-full.json"
             unified_path.parent.mkdir(parents=True, exist_ok=True)
 
-            parser_config = ActioVideoParserConfig(
+            parser_config = config_cls(
                 segment_config=str(segment_config),
                 models_config=str(models_config_path),
                 aggregate_config=str(aggregate_config),
@@ -1452,7 +1472,7 @@ class SOPVideoHandler(BaseTaskHandler):
                 ),
                 keep_intermediate=True,
             )
-            video_parser = ActioVideoParser(parser_config)
+            video_parser = parser_cls(parser_config)
 
             logger.info(f"SOP video parsing via actio: video={asset_path}, sop={sop_doc_path}")
             parse_result = await asyncio.to_thread(

@@ -52,7 +52,7 @@ Two logical “knowledge” Postgres databases on `127.0.0.1:16432`:
 ViKnow 3 code paths:
 
 - **Catalog**: `src/viknow3/access/knowledge/store.py` → `connect(HYPERRAG)` / `VIKNOW_HYPERRAG_DSN`, `_ensure()` creates `knowledge_*` with composite PK `(library_id, app_key[, asset_id])`.
-- **Engine**: `src/viknow3/application/hyperrag/ops_bootstrap.py` copies ops **`postgres_connection`** into HyperRAG env (`POSTGRES_HOST` … `POSTGRES_DATABASE`).
+- **Engine**: `src/viknow3/service/hyperrag/ops_bootstrap.py` copies ops **`postgres_connection`** into HyperRAG env (`POSTGRES_HOST` … `POSTGRES_DATABASE`).
 - **Workspace mapping**: `HyperRAGAdapter` passes `workspace=library_id` (no `app_key`).
 
 HyperRAG storage (submodule `external/HyperRAG`):

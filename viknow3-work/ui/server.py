@@ -1,35 +1,45 @@
-"""ViKnow Playground UI — static pages + user BFF + mounted /api/v1/knowledge."""
+"""ViKnow Playground UI — static pages only (integrator service).
+
+Business APIs run on ``viknow3.server`` (``VIKNOW_PORT``). The browser calls
+viknow-storage and ViKnow API directly (see ``playground-config.js``).
+This process serves HTML/JS only.
+"""
 
 from __future__ import annotations
 
 import os
-from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse, PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
-from ui.playground_access import mount_knowledge_api
+from ui.playground_config import playground_config_js
 from ui.playground_routes import router as playground_router
 
 STATIC = Path(__file__).resolve().parent / "static"
 PLAYGROUND = STATIC / "playground"
 
-@asynccontextmanager
-async def _playground_lifespan(application: FastAPI):
-    from viknow3.application.hyperrag.runtime import init_hyperrag, shutdown_background_runtime
-
-    await init_hyperrag()
-    try:
-        yield
-    finally:
-        await shutdown_background_runtime()
-
-
-app = FastAPI(title="ViKnow Playground", docs_url=None, redoc_url=None, lifespan=_playground_lifespan)
-mount_knowledge_api(app)
+app = FastAPI(title="ViKnow Playground", docs_url=None, redoc_url=None)
 app.include_router(playground_router)
+
+
+@app.get("/playground/assets/playground-config.js")
+def playground_runtime_config() -> PlainTextResponse:
+    return PlainTextResponse(
+        playground_config_js(),
+        media_type="application/javascript",
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+@app.get("/playground/assets/storage-config.js")
+def playground_storage_config_compat() -> PlainTextResponse:
+    """Deprecated alias; use playground-config.js."""
+
+    return PlainTextResponse(playground_config_js(), media_type="application/javascript")
+
+
 app.mount("/playground/assets", StaticFiles(directory=PLAYGROUND / "assets"), name="playground-assets")
 
 

@@ -1,4 +1,4 @@
-"""Playground UI: static pages + /api/v1/* mount (no /ui/playground business BFF)."""
+"""Playground UI: static pages only (ViKnow API runs on VIKNOW_PORT)."""
 
 from __future__ import annotations
 
@@ -55,18 +55,13 @@ class PlaygroundUserUiTests(unittest.TestCase):
         self.assertNotIn("查看进度", library_js.text)
         self.assertNotIn("查看索引状态", library_js.text)
 
-    @mock.patch("viknow3.storage.s3.put_object_stream", return_value="knowledge/assets/a1/upload/a1.normalized.mp4")
-    @mock.patch("viknow3.access.knowledge.store.get_library", return_value={"library_id": "demo-lib"})
-    def test_direct_library_upload_route(self, _lib: mock.Mock, _put: mock.Mock) -> None:
+    def test_knowledge_upload_routes_removed(self) -> None:
         response = self.client.post(
             "/api/v1/knowledge/libraries/demo-lib/uploads/direct",
             files={"file": ("clip.mp4", b"fake-video", "video/mp4")},
             headers={"X-App-Key": "dev-app-key"},
         )
-        self.assertEqual(response.status_code, 200)
-        body = response.json()
-        self.assertEqual(body["asset_id"], body["asset_path"].split("/")[2])
-        self.assertIn(".normalized.mp4", body["asset_path"])
+        self.assertEqual(response.status_code, 404)
 
     def test_legacy_bff_removed(self) -> None:
         self.assertEqual(self.client.post("/ui/playground/users", json={"display_name": "x"}).status_code, 404)
@@ -101,7 +96,7 @@ class PlaygroundUserUiTests(unittest.TestCase):
     @mock.patch("viknow3.access.agent.service.session_runs")
     def test_nested_session_runs_route(self, session_runs: mock.Mock) -> None:
         session_runs.return_value = [{"id": "run-1", "session_id": "sess-1", "status": "completed"}]
-        response = self.client.get("/api/v1/agent/agents/deepagents/sessions/sess-1/runs")
+        response = self.client.get("/api/v1/agent/agents/expertbuddy-deepagents/sessions/sess-1/runs")
         self.assertEqual(response.status_code, 200)
         session_runs.assert_called_once()
         self.assertEqual(response.json()[0]["id"], "run-1")

@@ -257,7 +257,11 @@ def interrupt(run_id: str, app_key: AppKey) -> dict[str, Any]:
         raise AgentError(exc.status, exc.body) from exc
     with STORE.lock:
         run = STORE.runs[run_id]
-        return {"run_id": run.id, "status": run.status}
+        return {
+            "run_id": run.id,
+            "session_id": run.session_id,
+            "status": run.status,
+        }
 
 
 def delete_run(app_key: AppKey, agent_id: str, session_id: str, run_id: str) -> None:

@@ -381,8 +381,10 @@ const PlaygroundAgent = (() => {
     return `${AGENT_API}/agents/${encodeURIComponent(agentId)}/sessions/${encodeURIComponent(sessionId)}`;
   }
 
-  async function consumeRunEvents(agentId, sessionId, runId, handlers) {
-    const response = await fetch(`${sessionPath(agentId, sessionId)}/runs/${encodeURIComponent(runId)}/events`);
+  async function consumeRunEvents(agentId, sessionId, runId, handlers, signal) {
+    const response = await fetch(`${sessionPath(agentId, sessionId)}/runs/${encodeURIComponent(runId)}/events`, {
+      signal,
+    });
     if (!response.ok) {
       throw new Error("无法订阅 run events");
     }
@@ -442,6 +444,12 @@ const PlaygroundAgent = (() => {
     return payload;
   }
 
+  async function interruptRun(agentId, sessionId, runId) {
+    return api(`${sessionPath(agentId, sessionId)}/runs/${encodeURIComponent(runId)}/interrupt`, {
+      method: "POST",
+    });
+  }
+
   async function initAgentListPage() {
     const loading = document.querySelector("#agents-loading");
     const list = document.querySelector("#agent-list");
@@ -483,6 +491,7 @@ const PlaygroundAgent = (() => {
     const input = document.querySelector("#chat-input");
     const modelSelect = document.querySelector("#model-select");
     const sendBtn = document.querySelector("#chat-send");
+    const stopBtn = document.querySelector("#chat-stop");
     const attachBtn = document.querySelector("#btn-attach");
     const fileInput = document.querySelector("#attachment-input");
     const attachmentSlot = document.querySelector("#attachment-slot");
@@ -510,6 +519,54 @@ const PlaygroundAgent = (() => {
     let libraryLocked = false;
     let introShown = false;
     const libraryNames = new Map();
+    /** @type {Map<string, { runId: string, turn: ReturnType<typeof createAssistantTurn>, controller: AbortController }>} */
+    const runningBySession = new Map();
+
+    function updateStopButton() {
+      if (!stopBtn) {
+        return;
+      }
+      const active = sessionId && runningBySession.get(sessionId);
+      stopBtn.hidden = !active;
+      stopBtn.disabled = !active;
+    }
+
+    function trackRun(sessionKey, runId, turn, controller) {
+      runningBySession.set(sessionKey, { runId, turn, controller });
+      updateStopButton();
+    }
+
+    function untrackRun(sessionKey) {
+      runningBySession.delete(sessionKey);
+      updateStopButton();
+    }
+
+    function followRunEvents(targetSessionId, runId, turn, controller) {
+      void (async () => {
+        try {
+          await consumeRunEvents(agentId, targetSessionId, runId, {
+            onEvent(type, data) {
+              if (targetSessionId === sessionId) {
+                turn.apply(type, data.payload || {}, data.created_at);
+              }
+            },
+          }, controller.signal);
+          if (targetSessionId === sessionId) {
+            turn.seal();
+          }
+        } catch (error) {
+          if (error?.name !== "AbortError" && targetSessionId === sessionId) {
+            turn.seal();
+            appendMessage(messages, "assistant", error.message || "运行失败");
+          } else if (targetSessionId === sessionId) {
+            turn.seal();
+          }
+        } finally {
+          untrackRun(targetSessionId);
+          refreshSessionList();
+        }
+      })();
+    }
 
     const layout = document.querySelector(".pg-chat-layout");
     const railToggle = document.querySelector("#btn-toggle-sessions");
@@ -624,7 +681,9 @@ const PlaygroundAgent = (() => {
           titleEl.textContent = title;
           const metaEl = document.createElement("span");
           metaEl.className = "pg-session-link-meta";
-          metaEl.textContent = formatSessionTime(row.updated_at);
+          metaEl.textContent = runningBySession.has(row.id)
+            ? "运行中…"
+            : formatSessionTime(row.updated_at);
           btn.append(titleEl, metaEl);
           btn.addEventListener("click", () => {
             openSession(row.id);
@@ -733,6 +792,7 @@ const PlaygroundAgent = (() => {
       }
       await refreshSessionList();
       syncSendState();
+      updateStopButton();
     }
 
     function startNewSession() {
@@ -749,6 +809,7 @@ const PlaygroundAgent = (() => {
       showIntro(agent?.label || agentId);
       refreshSessionList();
       syncSendState();
+      updateStopButton();
       input.focus();
     }
 
@@ -978,10 +1039,6 @@ const PlaygroundAgent = (() => {
       clearAttachment();
       syncSendState();
 
-      input.disabled = true;
-      sendBtn.disabled = true;
-      attachBtn.disabled = true;
-
       const turn = createAssistantTurn(messages);
 
       try {
@@ -994,27 +1051,45 @@ const PlaygroundAgent = (() => {
           libraryForRun,
           needsLibrary,
         );
-        sessionId = run.session_id || sessionId;
+        const targetSessionId = run.session_id || sessionId;
+        sessionId = targetSessionId;
         if (needsLibrary && !libraryLocked) {
           applyLibraryFromSession(libraryForRun ? [libraryForRun] : []);
         }
+        const controller = new AbortController();
+        trackRun(targetSessionId, run.run_id, turn, controller);
         refreshSessionList();
-        await consumeRunEvents(agentId, run.session_id, run.run_id, {
-          onEvent(type, data) {
-            turn.apply(type, data.payload || {}, data.created_at);
-          },
-        });
-        turn.seal();
+        followRunEvents(targetSessionId, run.run_id, turn, controller);
       } catch (error) {
         turn.seal();
         appendMessage(messages, "assistant", error.message || "发送失败");
       } finally {
-        input.disabled = false;
-        attachBtn.disabled = false;
         syncSendState();
         input.focus();
       }
     });
+
+    if (stopBtn) {
+      stopBtn.hidden = true;
+      stopBtn.addEventListener("click", async () => {
+        if (!sessionId) {
+          return;
+        }
+        const active = runningBySession.get(sessionId);
+        if (!active) {
+          return;
+        }
+        stopBtn.disabled = true;
+        try {
+          active.controller.abort();
+          await interruptRun(agentId, sessionId, active.runId);
+        } catch (error) {
+          appendMessage(messages, "assistant", error.message || "停止失败");
+        } finally {
+          updateStopButton();
+        }
+      });
+    }
   }
 
   return { requireUser, initAgentListPage, initChatPage };

@@ -69,14 +69,20 @@ class StorageClient:
         return self._json("GET", f"/libraries/{library_id}/assets/{asset_id}")
 
     def asset_exists(self, library_id: str, asset_id: str) -> bool:
-        response = self._http.head(f"/libraries/{library_id}/assets/{asset_id}")
+        try:
+            response = self._http.head(f"/libraries/{library_id}/assets/{asset_id}")
+        except httpx.HTTPError as exc:
+            raise StorageClientError(503, "viknow-storage is unreachable") from exc
         if response.status_code == 404:
             return False
         self._raise(response)
         return True
 
     def download(self, library_id: str, asset_id: str) -> bytes:
-        response = self._http.get(f"/libraries/{library_id}/assets/{asset_id}/content")
+        try:
+            response = self._http.get(f"/libraries/{library_id}/assets/{asset_id}/content")
+        except httpx.HTTPError as exc:
+            raise StorageClientError(503, "viknow-storage is unreachable") from exc
         self._raise(response)
         return response.content
 
@@ -87,7 +93,10 @@ class StorageClient:
         return f"{self._http.base_url}/libraries/{library_id}/assets/{asset_id}/content"
 
     def _json(self, method: str, path: str, **kwargs: Any) -> Any:
-        response = self._http.request(method, path, **kwargs)
+        try:
+            response = self._http.request(method, path, **kwargs)
+        except httpx.HTTPError as exc:
+            raise StorageClientError(503, "viknow-storage is unreachable") from exc
         self._raise(response)
         if response.status_code == 204 or not response.content:
             return None

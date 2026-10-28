@@ -34,7 +34,7 @@
 - 环境：SSH `cursor-agent@36.103.198.236`；Playground demo
 - 对象：ECS `36.103.198.236` 上 `viknow-storage` Docker 发布端口；Playground `VIKNOW_STORAGE_*`
 - 动作：将 host 映射由 `8090:8080` 改为 `5219:8080`（与 ViKnow API `:5218` 相邻）；更新 `pg-demo.env` 与 deploy 默认 `VIKNOW_STORAGE_PUBLIC_PORT=5219`
-- 结果：待公网 curl 验证（原 8090 安全组未放行导致浏览器超时）
+- 结果：storage 已监听 `5219`；公网 GET 可用；Playground 跨域需 `STORAGE_CORS_ORIGINS`（已配 `5198` 来源）
 - 证据：`ss`/curl（无密钥）
 - 回滚：compose 改回 `VIKNOW_STORAGE_HTTP_PORT=8090` 并 `docker compose up -d`
 

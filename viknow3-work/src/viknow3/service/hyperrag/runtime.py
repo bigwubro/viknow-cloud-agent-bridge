@@ -93,6 +93,9 @@ async def init_hyperrag() -> None:
     _prepare_hyperrag_process_env()
     try:
         install_actio_port()
+        from viknow3.service.hyperrag.storage_video_split import install_storage_video_split
+
+        install_storage_video_split()
     except Exception:
         log.warning("Actio client was not installed; video indexing stays unavailable", exc_info=True)
     _bootstrap_engine_adapter()

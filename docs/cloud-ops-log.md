@@ -29,6 +29,15 @@
 
 ## 变更记录（倒序）
 
+### 2026-10-28 236 停服 Actio Runtime（:8703）
+
+- 环境：SSH `cursor-agent@36.103.198.236`
+- 对象：Docker 容器 `actio-server-online`（镜像 `actio-server:unified-b88e438-20260922`，`0.0.0.0:8703->8703`，UI 标题 Actio Runtime）
+- 动作：`docker update --restart=no actio-server-online`；`docker stop actio-server-online`
+- 结果：成功；本机 `8703` 无监听；`curl http://127.0.0.1:8703/` 连接失败
+- 回滚：`docker start actio-server-online`（如需恢复需确认是否改回 `--restart=unless-stopped`）
+- 残留：容器仍存在（Exited），未 `docker rm`
+
 ### 2026-10-28 viknow-storage 索引 version/artifact MVP 部署（236 demo）
 
 - 环境：SSH `cursor-agent@36.103.198.236`；仓库 `/home/cursor-agent/src/viknow-storage`

@@ -63,13 +63,13 @@ class DeepAgentsLangfuseProjectTests(unittest.TestCase):
             clear=False,
         ), patch.dict(sys.modules, {"langfuse": langfuse_mod, "langfuse.langchain": langchain_mod}):
             callbacks = build_langfuse_callbacks(LangfuseTracingConfig())
-        self.assertEqual(handlers, ["pk-lf-deepagents"])
-        self.assertEqual(created["public_key"], "pk-lf-deepagents")
-        self.assertEqual(created["secret_key"], "sk-lf-deepagents")
-        self.assertEqual(created["host"], "http://127.0.0.1:3000")
-        self.assertEqual(created["environment"], "viknow3")
-        self.assertIs(callbacks[0].__class__, FakeHandler)
-        self.assertEqual(os.environ["LANGFUSE_PUBLIC_KEY"], "pk-hyperrag")
+            self.assertEqual(handlers, ["pk-lf-deepagents"])
+            self.assertEqual(created["public_key"], "pk-lf-deepagents")
+            self.assertEqual(created["secret_key"], "sk-lf-deepagents")
+            self.assertEqual(created["host"], "http://127.0.0.1:3000")
+            self.assertEqual(created["environment"], "viknow3")
+            self.assertIs(callbacks[0].__class__, FakeHandler)
+            self.assertEqual(os.environ["LANGFUSE_PUBLIC_KEY"], "pk-hyperrag")
 
     def test_stock_handler_without_record_generation_is_quiet(self) -> None:
         recorder = GenerationRecorder("run-1", handler=object())

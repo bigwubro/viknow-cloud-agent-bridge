@@ -2,7 +2,7 @@
 sop_schema_path: ../../external/actio/docs/specs/sop_schema.md
 toolkit:
   segmentation:
-    selected: fixed
+    selected: semantic
     fixed:
       segment_backend: fixed
       fixed_segment_duration_s: 30

@@ -109,7 +109,7 @@ ssh viknow236 'echo ok'
 ### 冒烟命令（连通性）
 
 ```bash
-ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=accept-new cursor-agent@36.103.198.236 \
+ssh viknow236 \
   'docker exec viknow2-test-dev bash -lc "
     cd /workspace &&
     git fetch origin &&
@@ -151,6 +151,6 @@ python3 -c "import hashlib,base64,sys; b=base64.b64decode(sys.stdin.read().split
 2. **经 236 推送**（236 上已有例如 `~/.ssh/gitea_ljs_ed25519`）：
 
 ```bash
-ssh -i ~/.ssh/id_ed25519 cursor-agent@36.103.198.236 \
+ssh viknow236 \
   'cd /home/cursor-agent/src/viknow3 && GIT_SSH_COMMAND="ssh -i ~/.ssh/gitea_ljs_ed25519 -o BatchMode=yes" git push origin main'
 ```

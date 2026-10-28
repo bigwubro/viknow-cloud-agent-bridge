@@ -29,6 +29,14 @@
 
 ## 变更记录（倒序）
 
+### 2026-10-28 viknow-storage 索引 version/artifact MVP 部署（236 demo）
+
+- 环境：SSH `cursor-agent@36.103.198.236`；仓库 `/home/cursor-agent/src/viknow-storage`
+- 对象：`viknow-storage-storage-1`（host `:5219`）；Gitea `castmeta-research/viknow-storage` `main` `b8ec1f6`（及后续移除 `.env` 跟踪）
+- 动作：`docker compose --env-file deploy/storage.env up -d --build`；新增表 `asset_index_versions` / `asset_index_artifacts` 与 REST API（`version_id` 从 0 递增、`job_id` 唯一）
+- 结果：容器 Running；`PYTHONPATH=src pytest` 7 passed
+- 回滚：compose 回退上一镜像 tag / git revert；Postgres 新表由 SQLAlchemy `create_all` 创建，回滚代码不自动删表
+
 ### 2026-10-28 viknow-storage 修复 Content-Disposition 语法错误并重建（236 demo）
 
 - 环境：SSH `cursor-agent@36.103.198.236`；仓库 `/home/cursor-agent/src/viknow-storage`

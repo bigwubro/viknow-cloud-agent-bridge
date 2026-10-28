@@ -12,11 +12,11 @@
 ### 必做
 
 1. 用 Secret `VIKNOW_236_SSH_KEY` 写入 `~/.ssh/id_ed25519`（chmod 600）
-2. **236 用 SSH 长连接（ControlMaster）**，不要每条命令新建 TCP（易被 reset）：
+2. **236 用 SSH 长连接（ControlMaster）**，不要每条命令新建 TCP（易被 reset / `Exceeded MaxStartups`）：
 
 ```bash
-# ~/.ssh/config 片段
-Host viknow236
+# ~/.ssh/config 片段（Cloud Agent 镜像里应包含 Host 36.103.198.236 与 Host viknow236 两段，Control 参数一致）
+Host viknow236 36.103.198.236
   HostName 36.103.198.236
   User cursor-agent
   IdentityFile ~/.ssh/id_ed25519
@@ -25,9 +25,24 @@ Host viknow236
   ControlPath ~/.ssh/cm-%r@%h:%p
   ControlPersist 45m
 
-ssh -fN viknow236   # 先拉起 master（可选，auto 也会建）
-ssh viknow236 '...' # 后续命令复用同一条连接
+ssh viknow236 '...'   # 必须用别名或 IP 且命中上述 Host，禁止 ssh -i ... cursor-agent@36.103.198.236 绕过 config
+# 同一任务里所有 236 操作共用一个 master；多条命令用一次 ssh 包 bash -s，不要 scp+ssh 连打
 ```
+
+**为何以前经常 SSH 失败**
+
+| 现象 | 原因 |
+|------|------|
+| `Exceeded MaxStartups`（`ssh -v` 里 banner 一行） | 短时间内太多**未认证**的新 TCP 连接；sshd 默认 `MaxStartups` 会直接关掉新连接 |
+| `Connection reset by peer` / `Connection closed`（握手阶段） | 同上，或刚被限流后仍在**秒级重试** |
+| 偶发能连、连打又挂 | 未走 ControlMaster：`ssh -i ... user@IP` **不匹配** `Host viknow236`，每条命令都是新连接 |
+
+**Agent 必须遵守**
+
+- 只连 `ssh viknow236 '…'` 或 `ssh 36.103.198.236 '…'`（且 `~/.ssh/config` 里为该 IP 配置了 ControlMaster）。
+- **禁止** `for i in 1 2 3 4 5; do ssh … || sleep 2; done` 这类风暴重试；失败一次后**等待 2～3 分钟**再试**一次**，或改用公网 HTTP（如 Playground API `:5218`）。
+- **禁止**同一轮里交替 `scp` + `ssh` 十几次；传补丁用**单次** `ssh viknow236 'patch …'` 或 rsync over multiplex。
+- viknow3 冒烟、拉 agent trace 优先 `http://36.103.198.236:5218`，不必为每条 API 再开 SSH。
 
 3. 进入容器：`docker exec -it viknow2-test-dev bash`（非交互可用 `docker exec viknow2-test-dev bash -lc '...'`）
 4. 在 `/workspace` 开发（viknow2 容器内；viknow3 Playground 见下节 `agent/<topic>` 或 `main` 约定）：
@@ -75,6 +90,7 @@ chmod 600 ~/.ssh/id_ed25519
 - 做完的改动在同一次任务里推进 `main`（Gitea 业务仓和 GitHub 跳板仓）。直接 push 被拒绝时，自己开 PR 并合并，不要等用户说「合」
 - 不要把密钥、密码、license 写进提交
 - 不要假设正式 test 镜像已经等于最新 `origin/main`
+- 不要对 236 **短时间多次** `ssh`/`scp` 重试；不要绕过 `~/.ssh/config` 的 ControlMaster 直连 `cursor-agent@36.103.198.236`
 
 ### SSH 密钥落地（Secret）
 
@@ -87,7 +103,7 @@ printf '%s\n' "$VIKNOW_236_SSH_KEY" > ~/.ssh/id_ed25519
 # 若 Secret 是 base64：
 # echo "$VIKNOW_236_SSH_KEY" | base64 -d > ~/.ssh/id_ed25519
 chmod 600 ~/.ssh/id_ed25519
-ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=accept-new cursor-agent@36.103.198.236 'echo ok'
+ssh viknow236 'echo ok'
 ```
 
 ### 冒烟命令（连通性）

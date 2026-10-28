@@ -1,4 +1,4 @@
-"""Access-layer state in the viknow_access database.
+"""Access-layer state in the viknow3_access database, schema ``access``.
 
 Users, sessions, workspaces, files, runs, run events, and run files live here,
 so deleting a session or a user is one transaction. The LangGraph checkpoint
@@ -18,7 +18,7 @@ from typing import Any, Iterator
 from psycopg.types.json import Json
 
 from viknow3.clock import new_id, now, stamp
-from viknow3.pg import ACCESS, connect, require_test_database
+from viknow3.pg import ACCESS, ACCESS_SCHEMA, connect, require_test_database
 
 MAX_FILE_BYTES = 20 * 1024 * 1024
 
@@ -398,8 +398,11 @@ def _ensure() -> None:
         for table in SOFT_DELETE_TABLES:
             cur.execute(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS deleted_at timestamptz")
             cur.execute(
-                "SELECT 1 FROM information_schema.columns WHERE table_name = %s AND column_name = 'deleted'",
-                (table,),
+                """
+                SELECT 1 FROM information_schema.columns
+                WHERE table_schema = %s AND table_name = %s AND column_name = 'deleted'
+                """,
+                (ACCESS_SCHEMA, table),
             )
             if cur.fetchone():
                 cur.execute(f"UPDATE {table} SET deleted_at = COALESCE(updated_at, created_at) WHERE deleted AND deleted_at IS NULL")
@@ -630,6 +633,26 @@ class Store:
         if session is not None and not session.deleted:
             session.update(updated_at=moment)
 
+    def session_turns(self, session_id: str) -> list[dict[str, str]]:
+        """User and assistant texts recorded for one session, in write order."""
+        with self.lock:
+            rows = _rows(
+                """
+                SELECT type, payload FROM run_events
+                WHERE deleted_at IS NULL
+                  AND payload->>'session_id' = %s
+                  AND type IN ('user_message', 'message_completed')
+                ORDER BY created_at, sequence
+                """,
+                (session_id,),
+            )
+        turns: list[dict[str, str]] = []
+        for event_type, payload in rows:
+            body = payload if isinstance(payload, dict) else {}
+            role = "user" if event_type == "user_message" else "assistant"
+            turns.append({"role": role, "text": str(body.get("text") or "")})
+        return turns
+
     def read_events(self, run_id: str, after_sequence: int) -> list[dict[str, Any]]:
         with self.lock:
             rows = _rows(
@@ -687,6 +710,6 @@ def _page(rows: list[Any], limit: int, after: str | None) -> list[Any]:
     return rows[:limit]
 
 
-_CONN = connect(ACCESS)
+_CONN = connect(ACCESS, schema=ACCESS_SCHEMA)
 _ensure()
 STORE = Store()

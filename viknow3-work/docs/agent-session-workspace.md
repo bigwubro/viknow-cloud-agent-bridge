@@ -42,10 +42,10 @@ finalize_session_run(session_id)
 
 有授权 `library_id` 时统一追加：
 
-- 必须先 `knowledge_discover` / `knowledge_search`（及 skill 要求的 inspect）。
+- 按 `knowledge-qa-v2` 查证，最终答案通过 `final_check()` 提交。
 - **禁止**用 `glob`/`grep`/`ls` 在 workspace 猜知识库答案。
 - DeepAgents：首工具 `read_file` `knowledge-qa-v2/SKILL.md`。
-- ADK：先 `load_skill("knowledge-qa-v2")`。
+- ADK：同一份 `knowledge-qa-v2` 已经写在指令里。
 
 ## 安全边界
 
@@ -64,8 +64,7 @@ finalize_session_run(session_id)
 
 ## 会话消息（`session_messages`）
 
-- `session_messages("deepagents", session_id)`：LangGraph Postgres checkpointer 中的 `messages`。
-- `session_messages("adk", session_id)`：ADK `adk` schema 中该 session 的 events，转换为 LangChain `HumanMessage` / `AIMessage` / `ToolMessage`（需 access 库中存在该 `session_id` 以解析 `user_id`）。
+`session_messages(profile_id, session_id)` 只读 `run_events` 里的 `user_message` 和 `message_completed`。外壳不读 LangGraph checkpoint。runtime 自己用 user、workspace、session 作为对话上下文的键。
 
 ## 与 Access API 的关系
 

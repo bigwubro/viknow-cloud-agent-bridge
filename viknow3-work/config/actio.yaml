@@ -2,7 +2,7 @@
 sop_schema_path: ../../external/actio/docs/specs/sop_schema.md
 toolkit:
   segmentation:
-    selected: fixed
+    selected: semantic
     fixed:
       segment_backend: fixed
       fixed_segment_duration_s: 30
@@ -22,7 +22,8 @@ toolkit:
         min_duration_s: 3
         max_duration_s: 30
         max_segments: 120
-        upload_base64: true
+        # With install_storage_video_split(), auto mode sends media.type=viknow_storage.
+        upload_base64: false
         upload_max_mb: 1024
   asr:
     indexing_selected: ark_vad

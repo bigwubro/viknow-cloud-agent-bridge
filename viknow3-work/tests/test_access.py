@@ -30,8 +30,9 @@ def setUpModule() -> None:
     scratch.mkdir(parents=True, exist_ok=True)
     os.environ.setdefault("VIKNOW_SCRATCH_DIR", str(scratch))
 
-    from viknow3.application.agentcore.runtime.checkpoint import reset_agent_tables
-    from viknow3.application.hyperrag import client as hyper_client
+    from viknow3.agents.runtimes.deepagents.agent_adapters.checkpointer import reset_checkpoint_tables
+    from viknow3.pg import AGENT, dsn, require_test_database
+    from viknow3.service.hyperrag import client as hyper_client
     from viknow3.store import STORE
 
     from hyperrag_stub import ScriptHyperrag
@@ -40,17 +41,18 @@ def setUpModule() -> None:
     _REAL_HYPERAG = hyper_client.HYPERAG
     stub = ScriptHyperrag()
     hyper_client.HYPERAG = stub
-    import viknow3.access.rag.service as rag_service
+    import viknow3.access.knowledge.service as rag_service
 
     rag_service.HYPERAG = stub
     STORE.reset()
     stub.reset()
-    reset_agent_tables()
+    require_test_database(AGENT)
+    reset_checkpoint_tables(dsn(AGENT))
 
 
 def tearDownModule() -> None:
-    from viknow3.application.hyperrag import client as hyper_client
-    import viknow3.access.rag.service as rag_service
+    from viknow3.service.hyperrag import client as hyper_client
+    import viknow3.access.knowledge.service as rag_service
 
     global _REAL_HYPERAG
     if _REAL_HYPERAG is not None:
@@ -81,35 +83,40 @@ class AccessTests(unittest.TestCase):
         self.assertEqual(status, 401)
 
         status, profiles = self.request("GET", "/api/v1/agent/profiles")
-        self.assertEqual(profiles["default_profile"], "deepagents")
-        self.assertEqual([item["id"] for item in profiles["profiles"]], ["deepagents", "adk"])
+        self.assertEqual(profiles["default_profile"], "expertbuddy-deepagents")
+        from viknow3.agents.layout import discover_agents
+
+        expected_ids = [public for package in discover_agents() for public in package.public_ids()]
+        self.assertEqual([item["id"] for item in profiles["profiles"]], expected_ids)
+        self.assertIn("expertbuddy-deepagents", expected_ids)
 
         status, agents = self.request("GET", "/api/v1/agent/agents")
         self.assertEqual(status, 200)
-        self.assertEqual([item["id"] for item in agents], ["deepagents", "adk"])
+        self.assertEqual([item["id"] for item in agents], expected_ids)
 
         status, _ = self.request("GET", "/api/v1/agent/profiles/deepagents", key="nope")
         self.assertEqual(status, 401)
 
+        agent = "/api/v1/agent/agents/expertbuddy-deepagents"
         status, no_lib = self.request(
             "POST",
-            "/api/v1/agent/runs",
-            {"user_id": user["id"], "message": "你好", "profile_id": "deepagents"},
+            f"{agent}/sessions",
+            {"user_id": user["id"], "message": "你好"},
         )
         self.assertEqual(status, 422)
 
         status, run = self.request(
             "POST",
-            "/api/v1/agent/runs",
+            f"{agent}/sessions",
             {"user_id": user["id"], "message": "你好", "library_ids": ["library-1"]},
         )
         self.assertEqual(status, 200)
-        self.assertEqual(run["status"], "running")
+        self.assertEqual(run["agent_id"], "expertbuddy-deepagents")
 
         status, busy = self.request(
             "POST",
-            "/api/v1/agent/runs",
-            {"user_id": user["id"], "message": "第二句", "session_id": run["session_id"]},
+            f"{agent}/sessions/{run['session_id']}/runs",
+            {"user_id": user["id"], "message": "第二句"},
         )
         self.assertEqual(status, 409)
         self.assertEqual(busy["code"], "session_busy")
@@ -121,7 +128,7 @@ class AccessTests(unittest.TestCase):
         self.assertTrue(allowed["allowed"])
 
         raw = self.client.get(
-            f"/api/v1/agent/runs/{run['run_id']}/events",
+            f"{agent}/sessions/{run['session_id']}/runs/{run['run_id']}/events",
             headers={"Authorization": "Bearer dev-app-key"},
         ).text
         self.assertIn("event: run_completed", raw)
@@ -131,65 +138,59 @@ class AccessTests(unittest.TestCase):
 
         status, again = self.request(
             "POST",
-            "/api/v1/agent/runs",
-            {"user_id": user["id"], "message": "继续", "session_id": run["session_id"]},
+            f"{agent}/sessions/{run['session_id']}/runs",
+            {"user_id": user["id"], "message": "继续"},
         )
         self.assertEqual(status, 200, again)
-        status, interrupted = self.request("POST", f"/api/v1/agent/runs/{again['run_id']}/interrupt", {})
+        status, interrupted = self.request(
+            "POST",
+            f"{agent}/sessions/{again['session_id']}/runs/{again['run_id']}/interrupt",
+            {},
+        )
         self.assertEqual(status, 200)
+        self.assertEqual(interrupted["run_id"], again["run_id"])
+        self.assertEqual(interrupted["session_id"], again["session_id"])
 
         status, missing = self.request("POST", "/api/v1/knowledge/search", {"library_id": "nope", "query": "步骤"})
         self.assertEqual(status, 200)
         self.assertEqual(missing["status"], "error")
         self.assertEqual(missing["code"], "unknown_library")
 
-        status, library = self.request(
-            "POST",
-            "/api/v1/knowledge/libraries",
-            {"library_id": "library-1", "title": "库"},
-        )
-        self.assertIn(status, (201, 409), library)
-        asset_path = "knowledge/assets/asset-1/upload/asset-1.mp4"
-        with patch("viknow3.access.knowledge.service.s3.head_object", return_value={}):
-            status, asset = self.request(
-                "POST",
-                "/api/v1/knowledge/libraries/library-1/assets",
-                {
-                    "asset_id": "asset-1",
-                    "asset_path": asset_path,
-                    "title": "动作演示.mp4",
-                    "modality": "video",
-                },
-            )
-        self.assertIn(status, (201, 409), asset)
-        from pathlib import Path
+        from viknow3.service.hyperrag.object_gateway import IndexObject
 
-        from viknow3.application.hyperrag.object_gateway import install_object_store, reset_object_store
+        class _StorageClient:
+            def asset_exists(self, library_id: str, asset_id: str) -> bool:
+                return library_id == "library-1" and asset_id == "asset-1"
 
-        class _Objects:
-            def exists(self, key: str) -> bool:
-                return key == asset_path
+            def get_asset(self, library_id: str, asset_id: str) -> dict:
+                return {"title": "动作演示.mp4", "modality": "video"}
 
-            def get_to_path(self, key: str, path: Path) -> None:
-                path.parent.mkdir(parents=True, exist_ok=True)
-                path.write_bytes(b"video")
+            def list_assets(self, library_id: str, *, limit: int | None = None):
+                return [{"asset_id": "asset-1"}]
 
-            def put_bytes(self, key: str, payload: bytes, *, content_type: str = "application/octet-stream") -> None:
-                del key, payload, content_type
+            def get_library(self, library_id: str) -> dict:
+                return {"library_id": library_id}
 
-        install_object_store(_Objects())
-        try:
+        with (
+            patch("viknow3.access.knowledge.service.storage_configured", return_value=True),
+            patch("viknow3.access.knowledge.service.get_storage_client", return_value=_StorageClient()),
+            patch("viknow3.service.storage.gateway.storage_configured", return_value=True),
+            patch("viknow3.service.storage.gateway.get_storage_client", return_value=_StorageClient()),
+            patch("viknow3.access.knowledge.index_status.storage_configured", return_value=True),
+            patch("viknow3.access.knowledge.index_status.get_storage_client", return_value=_StorageClient()),
+            patch("viknow3.access.knowledge.service.fetch_index_asset", return_value=IndexObject("storage://library-1/asset-1", Path("/tmp/asset-1.mp4"))),
+        ):
             status, job = self.request(
                 "POST",
                 "/api/v1/knowledge/index-jobs",
                 {
                     "library_id": "library-1",
                     "asset_id": "asset-1",
-                    "asset_path": asset_path,
                     "compile_mode": "fast_ingest",
                     "params": {"title": "动作演示.mp4"},
                 },
             )
+            self.assertEqual(status, 200, job)
             self.assertEqual(job["status"], "pending")
             self.assertIsNone(job["metadata"])
             status, done = self.request("GET", f"/api/v1/knowledge/index-jobs/{job['job_id']}")
@@ -201,25 +202,19 @@ class AccessTests(unittest.TestCase):
                 "GET",
                 "/api/v1/knowledge/libraries/library-1/assets/asset-1/index-status",
             )
-            self.assertEqual(status, 200)
+            self.assertEqual(status, 200, index_status)
             self.assertEqual(index_status["status"], "indexed")
             self.assertEqual(index_status["current_index_version_id"], job["job_id"])
-            with patch("viknow3.access.knowledge.service.s3.head_object", return_value={}):
-                status, assets = self.request("GET", "/api/v1/knowledge/libraries/library-1/assets")
-            self.assertEqual(status, 200)
-            self.assertEqual(assets[0]["current_index_version_id"], job["job_id"])
-        finally:
-            reset_object_store()
-
-        status, learning_body = self.request("GET", "/api/v1/learning")
-        self.assertEqual(learning_body["module"], "self-learning")
 
         status, _om = self.request("GET", "/api/v1/om/config")
         self.assertEqual(status, 401)
         status, config = self.request("GET", "/api/v1/om/config", key="dev-admin-key")
-        self.assertIn("VIKNOW_LANGFUSE_ENABLED", config["switches"])
-        status, backup = self.request("POST", "/api/v1/om/backups", {}, key="dev-admin-key")
-        self.assertIn("backup_id", backup)
+        self.assertEqual(status, 200)
+        self.assertIn("observe_setting", config)
+        self.assertIn("model", config)
+        status, changes = self.request("GET", "/api/v1/om/config/changes", key="dev-admin-key")
+        self.assertEqual(status, 200)
+        self.assertIn("changes", changes)
 
 
 if __name__ == "__main__":

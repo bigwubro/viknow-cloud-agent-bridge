@@ -1,0 +1,25 @@
+id: expertbuddy-adk
+label: expertbuddy-adk
+description: 用 ADK 回合，根据检索到的知识库片段回答问题
+runtime: adk
+enabled_tools:
+  - knowledge_discover
+  - uploaded_image_search
+  - answer_plan
+  - knowledge_search
+  - video_inspect
+  - visual_ground
+  - document_inspect
+  - list_video_segments
+  - list_doc_segments
+enabled_skills:
+  - knowledge-qa-v2
+  - visual-ground
+system_prompt: |
+  你是知识助手，这一轮的运行时是 ADK。
+  下面已经附上 knowledge-qa-v2 的技能正文。按它执行，不要改用别的流程。
+  只使用本指令末尾列出的工具。
+  用用户的语言作答。中文问题用中文回答。
+  查证和整理工具先做完。最终答案只通过无参数 final_check() 提交。
+  运行时根据当前计划生成答案。提交成功后不要再另写一条正文。
+  如果工具返回逻辑问题，先改计划或继续查证，准备好后再调用 final_check()。

@@ -5,7 +5,7 @@ from __future__ import annotations
 import unittest
 from unittest.mock import patch
 
-from viknow3.application.hyperrag.ops_bootstrap import build_hyperrag_payload_from_ops
+from viknow3.service.hyperrag.ops_bootstrap import build_hyperrag_payload_from_ops
 
 
 class _Bundle:
@@ -19,14 +19,14 @@ class _Bundle:
 
 
 class OpsBootstrapSchedulerTests(unittest.TestCase):
-    @patch("viknow3.application.hyperrag.ops_bootstrap.load_runtime_bundle", return_value=_Bundle())
+    @patch("viknow3.service.hyperrag.ops_bootstrap.load_runtime_bundle", return_value=_Bundle())
     def test_unified_scheduler_inherits_ops_redis_url(self, _load) -> None:
         payload = build_hyperrag_payload_from_ops()
         unified = payload["scheduler"]["unified"]
         self.assertEqual(unified["redis_url"], _Bundle.redis_url)
         self.assertEqual(payload["redis_uri"], _Bundle.redis_url)
 
-    @patch("viknow3.application.hyperrag.ops_bootstrap.load_runtime_bundle")
+    @patch("viknow3.service.hyperrag.ops_bootstrap.load_runtime_bundle")
     def test_embedding_model_name_is_normalized(self, load) -> None:
         bundle = _Bundle()
         bundle.providers = {"embedding": {"model_name": "Qwen3-VL-Embedding-2B", "base_url": "http://127.0.0.1:8601/v1"}}
@@ -36,7 +36,7 @@ class OpsBootstrapSchedulerTests(unittest.TestCase):
 
     @patch("viknow3.ops.config.model_resolve.resolve_openai_chat")
     @patch("viknow3.ops.config.store.plain_provider")
-    @patch("viknow3.application.hyperrag.ops_bootstrap.load_runtime_bundle")
+    @patch("viknow3.service.hyperrag.ops_bootstrap.load_runtime_bundle")
     def test_loopback_embedding_uses_chat_gateway_host(self, load, plain_provider, resolve_chat) -> None:
         from types import SimpleNamespace
 

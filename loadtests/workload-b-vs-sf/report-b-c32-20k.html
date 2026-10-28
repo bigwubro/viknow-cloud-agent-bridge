@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>约 2 万 token · 32 并发：自建四卡与云端对照</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&family=Noto+Serif+SC:wght@500;600;700&family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      color-scheme: light;
+      --sp-ink: #212c33;
+      --sp-muted: rgb(33 44 51 / 0.72);
+      --sp-soft: rgb(33 44 51 / 0.56);
+      --sp-paper: #f8f5ec;
+      --sp-strong: rgb(251 249 242 / 0.92);
+      --sp-line: #dadcd6;
+      --sp-green: #4f6d5f;
+      --sp-green-deep: #2f453d;
+      --sp-shadow-soft: 0 16px 42px rgb(33 44 51 / 0.05);
+      --font-display: "Cormorant Garamond", "Noto Serif SC", Georgia, serif;
+      --font-ui: "Source Sans 3", "Noto Sans SC", ui-sans-serif, system-ui, sans-serif;
+      --c8500: #4E79A7;
+      --csf: #F28E2B;
+      --cnl: #76B7B2;
+      --cdanger: #E15759;
+      --cgood: #59A14F;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; background: var(--sp-paper); color: var(--sp-ink); }
+    body {
+      font-family: var(--font-ui);
+      line-height: 1.55;
+      -webkit-font-smoothing: antialiased;
+      background:
+        radial-gradient(circle at top left, rgb(122 158 141 / 0.08), transparent 28%),
+        radial-gradient(circle at top right, rgb(79 109 95 / 0.05), transparent 22%),
+        var(--sp-paper);
+    }
+    a { color: var(--sp-green-deep); }
+    .wrap { max-width: 1080px; margin: 0 auto; padding: 28px 28px 72px; }
+    header.top {
+      display: flex; justify-content: space-between; align-items: flex-start; gap: 16px;
+      padding-bottom: 22px; border-bottom: 1px solid var(--sp-line); margin-bottom: 28px;
+    }
+    .brand { display: flex; gap: 12px; align-items: center; }
+    .mark {
+      width: 36px; height: 36px; border-radius: 10px;
+      background: linear-gradient(135deg, var(--sp-green), var(--c8500));
+      box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.25);
+    }
+    .brand small {
+      display: block; letter-spacing: 0.14em; text-transform: uppercase;
+      font-size: 11px; font-weight: 700; color: var(--sp-green);
+    }
+    .brand strong { font-family: var(--font-display); font-size: 22px; font-weight: 600; }
+    .meta { text-align: right; color: var(--sp-soft); font-size: 13px; }
+    h1 {
+      font-family: var(--font-display); font-weight: 600;
+      font-size: clamp(34px, 5vw, 52px); line-height: 1.12; margin: 0 0 12px;
+    }
+    .lede { max-width: 760px; color: var(--sp-muted); font-size: 17px; margin: 0 0 22px; }
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 28px; }
+    .chip {
+      display: inline-flex; align-items: center; gap: 8px;
+      border: 1px solid rgb(79 109 95 / 0.24); border-radius: 999px;
+      background: rgb(122 158 141 / 0.14); color: var(--sp-green);
+      font-weight: 700; font-size: 12px; padding: 5px 10px;
+    }
+    .swatch { width: 10px; height: 10px; border-radius: 99px; display: inline-block; }
+    .kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin: 8px 0 32px; }
+    .panel {
+      border: 1px solid var(--sp-line); background: var(--sp-strong);
+      box-shadow: var(--sp-shadow-soft); border-radius: 16px; padding: 18px 18px 16px;
+    }
+    .kpis .panel { padding: 16px 18px 14px; }
+    .k { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--sp-green); font-weight: 700; }
+    .v { font-family: var(--font-display); font-size: 34px; line-height: 1.05; margin: 6px 0 4px; }
+    .s { color: var(--sp-soft); font-size: 13px; }
+    h2 { font-family: var(--font-display); font-size: 28px; font-weight: 600; margin: 36px 0 8px; }
+    h3 { font-size: 15px; margin: 0 0 8px; }
+    .figcap { color: var(--sp-soft); font-size: 13px; margin: 0 0 14px; }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    svg.chart { width: 100%; height: auto; display: block; }
+    table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+    th, td { padding: 8px 8px; border-bottom: 1px solid var(--sp-line); text-align: right; }
+    th:first-child, td:first-child { text-align: left; }
+    th { color: var(--sp-green); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 700; }
+    .note {
+      border-left: 3px solid var(--sp-green);
+      padding: 2px 0 2px 12px; color: var(--sp-muted); font-size: 13.5px;
+    }
+    .methods { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    footer {
+      margin-top: 40px; padding-top: 16px; border-top: 1px solid var(--sp-line);
+      color: var(--sp-soft); font-size: 12px;
+    }
+    .palette { display: flex; height: 18px; border-radius: 99px; overflow: hidden; margin: 10px 0 0; }
+    .palette i { flex: 1; display: block; }
+    .warn { color: #9a3b3c; }
+    @media (max-width: 820px) {
+      .kpis, .grid2, .methods { grid-template-columns: 1fr; }
+      .meta { text-align: left; }
+      header.top { flex-direction: column; }
+      .wrap { padding: 20px 16px 48px; }
+    }
+    @media print {
+      body { background: white; }
+      .panel { box-shadow: none; break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <div class="brand">
+        <div class="mark" aria-hidden="true"></div>
+        <div>
+          <small>测试报告 · 2026-09-19</small>
+          <strong>约 2 万 token · 32 并发对照</strong>
+        </div>
+      </div>
+      <div class="meta">
+        自建 3P+1D · 硅基流动 · 世纪互联 / Neolink<br />
+        版式参照 SciPalette · Nature Muted 8
+      </div>
+    </header>
+
+    <h1>同一套长上下文，三处服务同时开 32 路</h1>
+    <p class="lede">
+      每条请求目标约 2 万输入 token、184 个输出 token。各请求共用同一段长上下文，仅末尾不同；关闭思考模式。
+      对照三处：本机四张 GPU 上的自建接口（3 张预填充 + 1 张出词）、硅基流动的 <code>Qwen/Qwen3.6-35B-A3B</code>、世纪互联 Neolink 的 <code>qwen3.6-flash</code>（对标开源 35B-A3B）。
+      本地校准：共享前缀 11057 token，独特尾巴 8866 token，探活输入 19934；接口回传的 prompt 因对话模板约 2.18–2.19 万。
+      每档打量 180 秒，完成速度按成功条数除以含收尾的墙钟。成功只计 HTTP 200。
+      自建成本只计购卡摊销，不含电费。硅基流动按本账号实付。Neolink 未公布单价，表中参考价取阿里云百炼华北 2 同名模型，不是发票。
+    </p>
+    <div class="chips">
+      <span class="chip"><i class="swatch" style="background:#4E79A7"></i>自建四卡</span>
+      <span class="chip"><i class="swatch" style="background:#F28E2B"></i>硅基流动</span>
+      <span class="chip"><i class="swatch" style="background:#76B7B2"></i>Neolink</span>
+      <span class="chip">并发 32 · 约 2 万 token · 180 秒</span>
+      <span class="chip">自建不含电费</span>
+    </div>
+    <div class="palette" title="Nature Muted 8">
+      <i style="background:#4E79A7"></i><i style="background:#F28E2B"></i>
+      <i style="background:#E15759"></i><i style="background:#76B7B2"></i>
+      <i style="background:#59A14F"></i><i style="background:#EDC948"></i>
+      <i style="background:#B07AA1"></i><i style="background:#FF9DA7"></i>
+    </div>
+
+    <div class="kpis">
+      <div class="panel">
+        <div class="k">每秒成功完成多少条</div>
+        <div class="v">3.70 · 0.44 · 7.91</div>
+        <div class="s">自建 · 硅基流动 · Neolink</div>
+      </div>
+      <div class="panel">
+        <div class="k">成功请求延迟中位数</div>
+        <div class="v">6.30s · 33.3s · 3.32s</div>
+        <div class="s">只统计 HTTP 200，不含失败样本</div>
+      </div>
+      <div class="panel">
+        <div class="k">一千条成功请求</div>
+        <div class="v">¥1.71 · 41.2 · 27.6</div>
+        <div class="s">自建卡费 · 硅基实付 · 百炼参考价</div>
+      </div>
+    </div>
+
+    <h2>图 1　完成速度与等待时间</h2>
+    <p class="figcap">
+      仅统计返回成功的请求。横轴为三处服务，不是并发档。Neolink 在本档提交了 2597 条，其中 1127 条服务端错误，成功请求的中位延迟仍约 3.3 秒。
+    </p>
+    <p class="figcap" style="margin-top:-6px">
+      <span class="chip"><i class="swatch" style="background:#4E79A7"></i>自建</span>
+      <span class="chip"><i class="swatch" style="background:#F28E2B"></i>硅基流动</span>
+      <span class="chip"><i class="swatch" style="background:#76B7B2"></i>Neolink</span>
+    </p>
+    <div class="grid2">
+      <div class="panel">
+        <h3>每秒成功完成请求数</h3>
+        <svg class="chart" id="qps" viewBox="0 0 460 260" role="img" aria-label="每秒成功完成请求数"></svg>
+      </div>
+      <div class="panel">
+        <h3>成功请求延迟中位数（秒）</h3>
+        <svg class="chart" id="p50" viewBox="0 0 460 260" role="img" aria-label="延迟中位数"></svg>
+      </div>
+    </div>
+
+    <h2>图 2　单条成本和每分钟处理量</h2>
+    <p class="figcap">左图：一条成功请求多少钱。自建按本次实际完成速度分摊购卡。右图：每分钟处理的 token 约数 = 每秒成功条数 × 单条 token 数 × 60。</p>
+    <div class="grid2">
+      <div class="panel">
+        <h3>单条成功请求成本（元）</h3>
+        <svg class="chart" id="cost" viewBox="0 0 460 260" role="img" aria-label="单条成本柱状图"></svg>
+      </div>
+      <div class="panel">
+        <h3>每分钟处理 token（百万）</h3>
+        <svg class="chart" id="tpm" viewBox="0 0 460 260" role="img" aria-label="每分钟 token 柱状图"></svg>
+      </div>
+    </div>
+
+    <h2>图 3　成功请求延迟分位</h2>
+    <p class="figcap">同一批成功样本的 50 / 90 / 95 / 99 分位。自建中位 6.3 秒，但最慢一条 50.9 秒；硅基成功样本挤在 33–43 秒；Neolink 成功样本几乎都在 11 秒以内。</p>
+    <div class="panel">
+      <svg class="chart" id="pcts" viewBox="0 0 920 280" role="img" aria-label="延迟分位分组柱状图"></svg>
+    </div>
+
+    <h2>表 1　端到端延迟（秒，仅成功）</h2>
+    <div class="panel" style="overflow:auto">
+      <table>
+        <thead>
+          <tr>
+            <th>服务</th>
+            <th>最小</th>
+            <th>中位</th>
+            <th>90 分位</th>
+            <th>95 分位</th>
+            <th>99 分位</th>
+            <th>最大</th>
+            <th>平均</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>自建四卡</td><td>2.22</td><td>6.30</td><td>15.26</td><td>20.41</td><td>31.16</td><td>50.85</td><td>8.45</td></tr>
+          <tr><td>硅基流动</td><td>4.37</td><td>33.30</td><td>40.29</td><td>42.50</td><td>42.71</td><td>42.79</td><td>26.81</td></tr>
+          <tr><td>Neolink</td><td>2.44</td><td>3.32</td><td>4.39</td><td>6.78</td><td>8.35</td><td>11.09</td><td>3.66</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2>表 2　完成量、失败与等效吞吐</h2>
+    <div class="panel" style="overflow:auto;margin-top:12px">
+      <table>
+        <thead>
+          <tr>
+            <th>服务</th>
+            <th>成功 / 提交</th>
+            <th>成功率</th>
+            <th>墙钟</th>
+            <th>每秒完成</th>
+            <th>prompt 均值</th>
+            <th>每分钟 token</th>
+            <th>异常</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>自建四卡</td>
+            <td>698 / 698</td>
+            <td>100%</td>
+            <td>188.6s</td>
+            <td>3.702</td>
+            <td>21892</td>
+            <td>4.90M</td>
+            <td>无</td>
+          </tr>
+          <tr>
+            <td>硅基流动</td>
+            <td>91 / 155</td>
+            <td>58.7%</td>
+            <td>209.0s</td>
+            <td>0.435</td>
+            <td>21788</td>
+            <td>0.57M</td>
+            <td class="warn">64 次限流耗尽；另有 512 次限流后重试</td>
+          </tr>
+          <tr>
+            <td>Neolink</td>
+            <td>1470 / 2597</td>
+            <td>56.6%</td>
+            <td>185.9s</td>
+            <td>7.908</td>
+            <td>21935</td>
+            <td>10.50M</td>
+            <td class="warn">1127 次服务端错误（500）</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2>表 3　一条成功请求的成本（元）</h2>
+    <div class="panel" style="overflow:auto;margin-top:12px">
+      <table>
+        <thead>
+          <tr>
+            <th>服务</th>
+            <th>口径</th>
+            <th>每秒完成</th>
+            <th>单条</th>
+            <th>一千条</th>
+            <th>本档合计</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>自建四卡</td>
+            <td>36 万 / 3 年 / 每天 60%，不含电</td>
+            <td>3.702</td>
+            <td>0.00171</td>
+            <td>1.71</td>
+            <td>约 1.19（188.6s × ¥22.82/h）</td>
+          </tr>
+          <tr>
+            <td>硅基流动</td>
+            <td>输入 / 输出每百万 1.80 / 10.80，本账号实付</td>
+            <td>0.435</td>
+            <td>0.0412</td>
+            <td>41.2</td>
+            <td>¥3.75（91 条成功）</td>
+          </tr>
+          <tr>
+            <td>Neolink</td>
+            <td>百炼华北 2 同名模型参考，不是发票</td>
+            <td>7.908</td>
+            <td>0.0276</td>
+            <td>27.6</td>
+            <td>约 ¥40.6（按参考价 × 1470 条）</td>
+          </tr>
+        </tbody>
+      </table>
+      <p class="figcap" style="margin:10px 0 0">
+        常用摊销：四卡购价 36 万元，按 3 年、每天使用 60% 分摊，使用中每小时约 22.82 元。
+        自建每秒完成超过约 0.10 条时，单条已低于硅基实付；本次 3.70 条/秒，单条大约是硅基的 1/24、百炼参考的 1/16。
+      </p>
+    </div>
+
+    <h2>表 4　要达到某一完成速度，大约需要几份供给</h2>
+    <p class="figcap">按「限流可叠加」做数量级估计，不是合同报价。失败请求不能算作自建机器的有效产出。</p>
+    <div class="panel" style="overflow:auto">
+      <table>
+        <thead>
+          <tr>
+            <th>目标：每秒完成多少条</th>
+            <th>自建四卡</th>
+            <th>硅基流动（本测试账号）</th>
+            <th>Neolink</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>3.70（自建本次）</td>
+            <td>一套四卡即可，使用中约 22.8 元/小时</td>
+            <td>约 8.5 个同等账号；若能买到，token 约 548 元/小时</td>
+            <td>1 个账号即可；按百炼参考约 368 元/小时</td>
+          </tr>
+          <tr>
+            <td>7.91（Neolink 本次）</td>
+            <td>约 2.1 套四卡（8–9 张卡），卡费约 49 元/小时</td>
+            <td>约 18 个同等账号</td>
+            <td>1 个账号，单条仍约 0.028 元（参考）</td>
+          </tr>
+          <tr>
+            <td>0.44（硅基本次）</td>
+            <td>四卡吃不饱，单条摊销升高</td>
+            <td>1 个账号，每条 0.0412 元</td>
+            <td>1 个账号即可，额度有富余</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2>表 5　同一脚本、约 3 万 token 的旧档对照</h2>
+    <p class="figcap">旧档是 2026-09-18 的 3 万 token、同样 32 并发、10 分钟。输入大约短了三分之一，三处成功吞吐都上去了。自建还叠了预填充/出词拆分和更大的预填充 token 预算，不能把倍数全部算在长度上。</p>
+    <div class="panel" style="overflow:auto">
+      <table>
+        <thead>
+          <tr>
+            <th></th>
+            <th>自建 完成/秒 · 中位</th>
+            <th>硅基流动</th>
+            <th>Neolink</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>3 万 token · 旧四卡混跑</td>
+            <td>1.260 / 25.8 秒</td>
+            <td>0.134 / 42.8 秒</td>
+            <td>4.035 / 2.50 秒</td>
+          </tr>
+          <tr>
+            <td>2 万 token · 现网 3P+1D</td>
+            <td>3.702 / 6.30 秒</td>
+            <td>0.435 / 33.3 秒</td>
+            <td>7.908 / 3.32 秒</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2>阅读说明</h2>
+    <div class="methods">
+      <div class="panel">
+        <h3>测的是什么</h3>
+        <p class="note">工作负载 B：共享长上下文 + 每条不同的尾巴。目标 20000 / 独特 9000。本地用 <code>:8500 /tokenize</code> 校准后，硅基和 Neolink 复用同一份前缀，不再打本地接口。思考模式关闭。并发固定 32。模型名称不同，权重不能当成同一份。</p>
+      </div>
+      <div class="panel">
+        <h3>如何计成功和失败</h3>
+        <p class="note">每发出一次完整问答记一条。只有接口明确返回成功才计入完成速度和延迟。硅基流动遇到「请求过多」最多自动重试 6 次，重试成功仍算成功。Neolink 遇到服务端错误不重试，记一次失败。自建本档没有失败。</p>
+      </div>
+      <div class="panel">
+        <h3>钱怎么算</h3>
+        <p class="note">自建：购卡 36 万 ÷（3 年 × 365.25 × 24 × 60%），忙时 22.82 元/小时，不含电。硅基中国区输入 / 输出为每百万 1.80 / 10.80 元，本档实付 3.75 元。Neolink 价格未公布；百炼同档每百万 1.2 / 7.2 元仅供对照。</p>
+      </div>
+      <div class="panel">
+        <h3>云端为什么加并发也快不起来</h3>
+        <p class="note">硅基本账号本档每秒最多完成 0.44 条（约每分钟 57 万 token），155 条里 64 条在限流上耗尽。Neolink 每秒完成 7.91 条（约每分钟 1050 万 token），再多发出去的请求大量变成 500。自建没有账号额度上限，快慢取决于四张卡；本档前缀命中约 38%，最慢一条 50.9 秒，来自预填充排队和 20 GiB KV 上的抢占。</p>
+      </div>
+      <div class="panel">
+        <h3>自建现网</h3>
+        <p class="note">对外仍是 <code>127.0.0.1:8500</code>。三张预填充卡 + 一张出词卡，代理按在途最少选预填充。预填充侧开了 Mooncake 存储，出词侧只走 NIXL。预填充 token 预算 65536、序列 256、KV 钉在 20 GiB，以便和已有的 rerank / embed / whisper 进程并排。没有改 8501–8506 上的容器。</p>
+      </div>
+      <div class="panel">
+        <h3>什么情况下更划算</h3>
+        <p class="note">若业务每秒完成不到约 0.1 条、机器经常空闲，直接买云端按量更省事。若需要每秒 0.4–3.7 条且四卡能持续打满，自建单条大约低一个数量级，且本硅基账号达不到这个速度。若需要每秒约 8 条、且多数成功请求 3.3 秒内返回，本次只有 Neolink 做到，但一半以上提交是 500，费用应按该平台计价，不能用自建的 3.7 条/秒去外推。</p>
+      </div>
+    </div>
+
+    <footer>
+      测试时间（世界时）2026-09-19：自建 05:59–06:02；硅基流动与 Neolink 06:11–06:15。
+      06:04–06:07 另有一档双方全部 401，未计入上表，随后用同一份文件密钥重跑。
+      原始记录在 236 <code>/tmp/pd-b-c32-20k</code>。配色为 Nature Muted 8。
+    </footer>
+  </div>
+
+  <script>
+    const C = { a: "#4E79A7", b: "#F28E2B", c: "#76B7B2", ink: "#212c33", mute: "rgba(33,44,51,.56)", line: "#dadcd6" };
+    const labels = ["自建", "硅基流动", "Neolink"];
+    const colors = [C.a, C.b, C.c];
+    const qps = [3.702, 0.435, 7.908];
+    const p50 = [6.297, 33.30, 3.323];
+    const cost = [0.00171, 0.04121, 0.02764];
+    const tpm = [4.90, 0.57, 10.50];
+    const pctLabels = ["p50", "p90", "p95", "p99"];
+    const pcts = {
+      a: [6.30, 15.26, 20.41, 31.16],
+      b: [33.30, 40.29, 42.50, 42.71],
+      c: [3.32, 4.39, 6.78, 8.35]
+    };
+
+    function svgEl(name, attrs) {
+      const el = document.createElementNS("http://www.w3.org/2000/svg", name);
+      for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+      return el;
+    }
+    function bars(id, values, ymax, yfmt) {
+      const svg = document.getElementById(id);
+      const W = 460, H = 260, L = 48, R = 16, T = 16, B = 36;
+      const iw = W - L - R, ih = H - T - B;
+      for (let t = 0; t <= 4; t++) {
+        const y = T + (t / 4) * ih;
+        svg.appendChild(svgEl("line", { x1: L, y1: y, x2: W - R, y2: y, stroke: C.line, "stroke-width": 1 }));
+        const lab = svgEl("text", { x: L - 8, y: y + 4, "text-anchor": "end", fill: C.mute, "font-size": 11, "font-family": "Source Sans 3, sans-serif" });
+        lab.textContent = yfmt(ymax * (1 - t / 4));
+        svg.appendChild(lab);
+      }
+      const slot = iw / 3;
+      values.forEach((v, i) => {
+        const h = (v / ymax) * ih;
+        const bw = slot * 0.46;
+        const x = L + i * slot + (slot - bw) / 2;
+        svg.appendChild(svgEl("rect", { x, y: T + ih - h, width: bw, height: Math.max(h, 0.5), fill: colors[i], rx: 3 }));
+        const t = svgEl("text", { x: L + i * slot + slot / 2, y: H - 12, "text-anchor": "middle", fill: C.mute, "font-size": 11, "font-family": "Source Sans 3, sans-serif" });
+        t.textContent = labels[i];
+        svg.appendChild(t);
+      });
+    }
+    function grouped(id, series, ymax, yfmt) {
+      const svg = document.getElementById(id);
+      const W = 920, H = 280, L = 48, R = 16, T = 16, B = 36;
+      const iw = W - L - R, ih = H - T - B;
+      for (let t = 0; t <= 4; t++) {
+        const y = T + (t / 4) * ih;
+        svg.appendChild(svgEl("line", { x1: L, y1: y, x2: W - R, y2: y, stroke: C.line, "stroke-width": 1 }));
+        const lab = svgEl("text", { x: L - 8, y: y + 4, "text-anchor": "end", fill: C.mute, "font-size": 11, "font-family": "Source Sans 3, sans-serif" });
+        lab.textContent = yfmt(ymax * (1 - t / 4));
+        svg.appendChild(lab);
+      }
+      const groupW = iw / 4;
+      pctLabels.forEach((lab, i) => {
+        const gx = L + i * groupW;
+        [["a", C.a], ["b", C.b], ["c", C.c]].forEach(([key, color], k) => {
+          const h = (series[key][i] / ymax) * ih;
+          const bw = groupW * 0.2;
+          const x = gx + groupW * 0.16 + k * (bw + 6);
+          svg.appendChild(svgEl("rect", { x, y: T + ih - h, width: bw, height: Math.max(h, 0.5), fill: color, rx: 2 }));
+        });
+        const t = svgEl("text", { x: gx + groupW / 2, y: H - 12, "text-anchor": "middle", fill: C.mute, "font-size": 11, "font-family": "Source Sans 3, sans-serif" });
+        t.textContent = lab;
+        svg.appendChild(t);
+      });
+    }
+    bars("qps", qps, 9, v => v.toFixed(1));
+    bars("p50", p50, 40, v => v.toFixed(0) + "s");
+    bars("cost", cost, 0.05, v => v.toFixed(2));
+    bars("tpm", tpm, 12, v => v.toFixed(0) + "M");
+    grouped("pcts", pcts, 45, v => v.toFixed(0) + "s");
+  </script>
+</body>
+</html>

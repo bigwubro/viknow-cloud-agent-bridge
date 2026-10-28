@@ -1,4 +1,4 @@
-"""Logical asset references for citations and inspect (``storage://`` or legacy S3 keys)."""
+"""Logical asset references for citations and inspect (``storage://`` only)."""
 
 from __future__ import annotations
 
@@ -6,7 +6,6 @@ from typing import Any
 
 from viknow3.service.storage.gateway import storage_configured
 
-_PREFIX = "knowledge/assets/"
 _STORAGE_PREFIX = "storage://"
 
 
@@ -28,21 +27,8 @@ def parse_storage_uri(value: Any) -> tuple[str, str] | None:
     return library_id, asset_id
 
 
-def knowledge_object_key(value: Any) -> str | None:
-    """Return ``value`` when it is a ``knowledge/assets/`` object key."""
-
-    if not isinstance(value, str):
-        return None
-    text = value.strip().split("#", 1)[0].split("?", 1)[0].lstrip("/")
-    if not text.startswith(_PREFIX):
-        return None
-    if any(part in {"", ".", ".."} for part in text.split("/")):
-        return None
-    return text
-
-
 def catalog_asset_object_key(library_id: str, asset_id: str) -> str | None:
-    """Resolve logical object key without a PG catalog mirror."""
+    """Resolve ``storage://`` for a library/asset pair when storage is configured."""
 
     library = str(library_id or "").strip()
     asset = str(asset_id or "").strip()
@@ -58,17 +44,12 @@ def resolve_asset_object_key(
     asset_id: str | None,
     *candidates: Any,
 ) -> str | None:
-    """Prefer ``storage://`` when configured, then legacy ``knowledge/assets/`` keys."""
-
     library = str(library_id or "").strip()
     asset = str(asset_id or "").strip()
     for candidate in candidates:
         parsed = parse_storage_uri(candidate)
         if parsed:
             return storage_uri(parsed[0], parsed[1])
-        key = knowledge_object_key(candidate)
-        if key:
-            return key
     if library and asset and storage_configured():
         return storage_uri(library, asset)
     return catalog_asset_object_key(library, asset)

@@ -37,8 +37,8 @@ from viknow3.service.hyperrag.scheduler_context import get_source_id
 from viknow3.service.hyperrag.table_evidence_source import bind_table_sources
 
 
-def _catalog_object_key(library_id: str, asset_id: str, *candidates: Any) -> str | None:
-    """Catalog ``knowledge/assets/`` key for preview. Local paths and /media URLs are ignored."""
+def _storage_object_key(library_id: str, asset_id: str, *candidates: Any) -> str | None:
+    """``storage://`` key for preview/materialize. Local paths and /media URLs are ignored."""
 
     try:
         from viknow3.agents.runtimes.deepagents.core.knowledge.object_key import resolve_asset_object_key
@@ -1851,7 +1851,7 @@ class HyperRAGAdapter:
         if library_id and asset_id and storage_configured():
             object_key = storage_uri(library_id, asset_id)
         else:
-            object_key = _catalog_object_key(
+            object_key = _storage_object_key(
                 library_id,
                 asset_id,
                 evidence_metadata.get("asset_path"),

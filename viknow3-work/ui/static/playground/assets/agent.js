@@ -92,19 +92,16 @@ const PlaygroundAgent = (() => {
     if (typeof value !== "string") {
       return "";
     }
-    const text = value.trim().split("#")[0].split("?")[0].replace(/^\/+/, "");
-    if (text.startsWith("storage://")) {
-      const rest = text.slice("storage://".length);
-      const slash = rest.indexOf("/");
-      if (slash > 0 && rest.slice(slash + 1)) {
-        return text;
-      }
+    const text = value.trim().split("#")[0].split("?")[0];
+    if (!text.startsWith("storage://")) {
       return "";
     }
-    if (!text.startsWith("knowledge/assets/")) {
+    const rest = text.slice("storage://".length);
+    const slash = rest.indexOf("/");
+    if (slash <= 0 || !rest.slice(slash + 1)) {
       return "";
     }
-    if (text.split("/").some((part) => part === "" || part === "." || part === "..")) {
+    if (rest.split("/").some((part) => part === "" || part === "." || part === "..")) {
       return "";
     }
     return text;

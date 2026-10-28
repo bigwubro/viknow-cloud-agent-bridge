@@ -8,29 +8,10 @@ from unittest import mock
 
 from viknow3.access.knowledge import store
 from viknow3.access.knowledge.service import KnowledgeError, create_index_job
-from viknow3.service.hyperrag.object_gateway import install_object_store, reset_object_store
 from viknow3.service.storage.client import StorageClientError
 
 
-class _MemoryStore:
-    def exists(self, key: str) -> bool:
-        return False
-
-    def get_to_path(self, key: str, path) -> None:
-        raise AssertionError("legacy store should not be used")
-
-    def put_bytes(self, key: str, payload: bytes, *, content_type: str = "application/octet-stream") -> None:
-        del key, payload, content_type
-
-
 class StorageIndexJobTests(unittest.TestCase):
-    def setUp(self) -> None:
-        reset_object_store()
-        install_object_store(_MemoryStore())
-
-    def tearDown(self) -> None:
-        reset_object_store()
-
     def test_create_index_job_without_asset_path_uses_storage(self) -> None:
         library_id = f"lib-a-{uuid.uuid4().hex[:8]}"
         asset_id = "file-1"

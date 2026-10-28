@@ -156,10 +156,7 @@ class AccessTests(unittest.TestCase):
         self.assertEqual(missing["status"], "error")
         self.assertEqual(missing["code"], "unknown_library")
 
-        from pathlib import Path
-        from unittest.mock import patch
-
-        from viknow3.service.hyperrag.object_gateway import IndexObject, install_object_store, reset_object_store
+        from viknow3.service.hyperrag.object_gateway import IndexObject
 
         class _StorageClient:
             def asset_exists(self, library_id: str, asset_id: str) -> bool:
@@ -174,39 +171,26 @@ class AccessTests(unittest.TestCase):
             def get_library(self, library_id: str) -> dict:
                 return {"library_id": library_id}
 
-        class _Objects:
-            def exists(self, key: str) -> bool:
-                return True
-
-            def get_to_path(self, key: str, path: Path) -> None:
-                path.parent.mkdir(parents=True, exist_ok=True)
-                path.write_bytes(b"video")
-
-            def put_bytes(self, key: str, payload: bytes, *, content_type: str = "application/octet-stream") -> None:
-                del key, payload, content_type
-
-        install_object_store(_Objects())
-        try:
-            with (
-                patch("viknow3.access.knowledge.service.storage_configured", return_value=True),
-                patch("viknow3.access.knowledge.service.get_storage_client", return_value=_StorageClient()),
-                patch("viknow3.access.knowledge.index_status.storage_configured", return_value=True),
-                patch("viknow3.access.knowledge.index_status.get_storage_client", return_value=_StorageClient()),
-                patch(
-                    "viknow3.service.hyperrag.object_gateway.fetch_index_asset",
-                    return_value=IndexObject("storage://library-1/asset-1", Path("/tmp/asset-1.mp4")),
-                ),
-            ):
-                status, job = self.request(
-                    "POST",
-                    "/api/v1/knowledge/index-jobs",
-                    {
-                        "library_id": "library-1",
-                        "asset_id": "asset-1",
-                        "compile_mode": "fast_ingest",
-                        "params": {"title": "动作演示.mp4"},
-                    },
-                )
+        with (
+            patch("viknow3.access.knowledge.service.storage_configured", return_value=True),
+            patch("viknow3.access.knowledge.service.get_storage_client", return_value=_StorageClient()),
+            patch("viknow3.service.storage.gateway.storage_configured", return_value=True),
+            patch("viknow3.service.storage.gateway.get_storage_client", return_value=_StorageClient()),
+            patch("viknow3.access.knowledge.index_status.storage_configured", return_value=True),
+            patch("viknow3.access.knowledge.index_status.get_storage_client", return_value=_StorageClient()),
+            patch("viknow3.access.knowledge.service.fetch_index_asset", return_value=IndexObject("storage://library-1/asset-1", Path("/tmp/asset-1.mp4"))),
+        ):
+            status, job = self.request(
+                "POST",
+                "/api/v1/knowledge/index-jobs",
+                {
+                    "library_id": "library-1",
+                    "asset_id": "asset-1",
+                    "compile_mode": "fast_ingest",
+                    "params": {"title": "动作演示.mp4"},
+                },
+            )
+            self.assertEqual(status, 200, job)
             self.assertEqual(job["status"], "pending")
             self.assertIsNone(job["metadata"])
             status, done = self.request("GET", f"/api/v1/knowledge/index-jobs/{job['job_id']}")
@@ -218,11 +202,9 @@ class AccessTests(unittest.TestCase):
                 "GET",
                 "/api/v1/knowledge/libraries/library-1/assets/asset-1/index-status",
             )
-            self.assertEqual(status, 200)
+            self.assertEqual(status, 200, index_status)
             self.assertEqual(index_status["status"], "indexed")
             self.assertEqual(index_status["current_index_version_id"], job["job_id"])
-        finally:
-            reset_object_store()
 
         status, _om = self.request("GET", "/api/v1/om/config")
         self.assertEqual(status, 401)

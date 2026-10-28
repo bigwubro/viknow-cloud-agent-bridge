@@ -77,7 +77,7 @@ class ObjectKeyTests(unittest.TestCase):
             render = _inspect_claim_render("video_inspect", claim, evidence, source)
         dumped = json.dumps(source.model_dump(mode="json"), ensure_ascii=False)
         self.assertNotIn("/media/", dumped)
-        self.assertEqual(source.asset_path, VIDEO_URI)
+        self.assertEqual(source.asset_path, "/tmp/clip.mp4")
         self.assertEqual(source.timestamp_start, 3.0)
         self.assertEqual(source.anchors[0]["video_url"], VIDEO_URI)
         self.assertEqual(source.anchors[0]["timestamp_start"], 3.0)

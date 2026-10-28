@@ -3,7 +3,12 @@ const PlaygroundAgent = (() => {
   const AGENT_API = "/api/v1/agent";
   const KNOWLEDGE_API = "/api/v1/knowledge";
 
-  const AGENTS_NEED_LIBRARY = new Set(["deepagents", "adk"]);
+  const AGENTS_NEED_LIBRARY = new Set([
+    "deepagents",
+    "adk",
+    "expertbuddy-deepagents",
+    "expertbuddy-adk",
+  ]);
 
   function detailMessage(payload) {
     if (!payload || typeof payload !== "object") return "请求失败";

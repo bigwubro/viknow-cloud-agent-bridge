@@ -26,7 +26,11 @@ app.include_router(playground_router)
 
 @app.get("/playground/assets/playground-config.js")
 def playground_runtime_config() -> PlainTextResponse:
-    return PlainTextResponse(playground_config_js(), media_type="application/javascript")
+    return PlainTextResponse(
+        playground_config_js(),
+        media_type="application/javascript",
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 @app.get("/playground/assets/storage-config.js")

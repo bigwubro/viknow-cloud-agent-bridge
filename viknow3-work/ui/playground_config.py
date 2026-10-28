@@ -23,9 +23,6 @@ def browser_storage_url() -> str:
     if public_host:
         scheme = os.environ.get("VIKNOW_STORAGE_PUBLIC_SCHEME", "http").strip() or "http"
         return f"{scheme}://{public_host}:{public_port}".rstrip("/")
-    internal = os.environ.get("VIKNOW_STORAGE_URL", "").strip().rstrip("/")
-    if internal and not _is_loopback_url(internal):
-        return internal
     return ""
 
 

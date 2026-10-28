@@ -2,7 +2,7 @@
 const PlaygroundLibrary = (() => {
   const STORAGE_KEY = "viknow_playground_user";
   const APP_KEY_STORAGE = "viknow_app_key";
-  const KNOWLEDGE = "/api/v1/knowledge";
+  const knowledgeApi = () => (window.PlaygroundApi ? window.PlaygroundApi.knowledge() : "/api/v1/knowledge");
   const storageBase = () => String(window.VIKNOW_STORAGE_URL || "").replace(/\/$/, "");
   const storageToken = () => String(window.VIKNOW_STORAGE_TOKEN || "").trim();
   const storageEnabled = () => Boolean(storageBase() && storageToken());
@@ -164,7 +164,7 @@ const PlaygroundLibrary = (() => {
 
   async function fetchLibraryAssetsIndexStatusBatch(libraryId) {
     return api(
-      `${KNOWLEDGE}/libraries/${encodeURIComponent(libraryId)}/assets/index-status-batch?limit=100`,
+      `${knowledgeApi()}/libraries/${encodeURIComponent(libraryId)}/assets/index-status-batch?limit=100`,
     );
   }
 
@@ -176,18 +176,18 @@ const PlaygroundLibrary = (() => {
     if (compileMode === "fast_ingest" || compileMode === "pre_compile") {
       body.compile_mode = compileMode;
     }
-    return api(`${KNOWLEDGE}/index-jobs`, {
+    return api(`${knowledgeApi()}/index-jobs`, {
       method: "POST",
       body: JSON.stringify(body),
     });
   }
 
   async function fetchIndexJob(jobId) {
-    return api(`${KNOWLEDGE}/index-jobs/${encodeURIComponent(jobId)}`);
+    return api(`${knowledgeApi()}/index-jobs/${encodeURIComponent(jobId)}`);
   }
 
   async function fetchIndexJobTasks(jobId) {
-    return api(`${KNOWLEDGE}/index-jobs/${encodeURIComponent(jobId)}/tasks`);
+    return api(`${knowledgeApi()}/index-jobs/${encodeURIComponent(jobId)}/tasks`);
   }
 
   function initLibraryListPage() {

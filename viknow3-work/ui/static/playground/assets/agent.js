@@ -1,7 +1,7 @@
 const PlaygroundAgent = (() => {
   const STORAGE_KEY = "viknow_playground_user";
-  const AGENT_API = "/api/v1/agent";
-  const KNOWLEDGE_API = "/api/v1/knowledge";
+  const agentApi = () => (window.PlaygroundApi ? window.PlaygroundApi.agent() : "/api/v1/agent");
+  const knowledgeApi = () => (window.PlaygroundApi ? window.PlaygroundApi.knowledge() : "/api/v1/knowledge");
 
   const AGENTS_NEED_LIBRARY = new Set(["expertbuddy-deepagents", "expertbuddy-adk"]);
 
@@ -376,7 +376,7 @@ const PlaygroundAgent = (() => {
       : storageIdsFromUri(objectKey);
     const pending = storageIds
       ? fetch(
-          `${KNOWLEDGE_API}/libraries/${encodeURIComponent(storageIds.library_id)}/assets/${encodeURIComponent(storageIds.asset_id)}/preview`,
+          `${knowledgeApi()}/libraries/${encodeURIComponent(storageIds.library_id)}/assets/${encodeURIComponent(storageIds.asset_id)}/preview`,
           { headers: { "Content-Type": "application/json" } },
         ).then(async (response) => {
           if (!response.ok) {
@@ -385,7 +385,7 @@ const PlaygroundAgent = (() => {
           }
           return URL.createObjectURL(await response.blob());
         })
-      : api(`${KNOWLEDGE_API}/downloads`, {
+      : api(`${knowledgeApi()}/downloads`, {
           method: "POST",
           body: JSON.stringify({ asset_path: objectKey }),
         }).then((body) => {
@@ -1052,7 +1052,7 @@ const PlaygroundAgent = (() => {
   }
 
   function sessionPath(agentId, sessionId) {
-    return `${AGENT_API}/agents/${encodeURIComponent(agentId)}/sessions/${encodeURIComponent(sessionId)}`;
+    return `${agentApi()}/agents/${encodeURIComponent(agentId)}/sessions/${encodeURIComponent(sessionId)}`;
   }
 
   async function consumeRunEvents(agentId, sessionId, runId, handlers) {
@@ -1104,7 +1104,7 @@ const PlaygroundAgent = (() => {
     }
     const target = sessionId
       ? `${sessionPath(agentId, sessionId)}/runs`
-      : `${AGENT_API}/agents/${encodeURIComponent(agentId)}/sessions`;
+      : `${agentApi()}/agents/${encodeURIComponent(agentId)}/sessions`;
     const response = await fetch(target, {
       method: "POST",
       body: form,
@@ -1121,7 +1121,7 @@ const PlaygroundAgent = (() => {
     const list = document.querySelector("#agent-list");
     const empty = document.querySelector("#agent-list-empty");
     try {
-      const agents = await api(`${AGENT_API}/agents`);
+      const agents = await api(`${agentApi()}/agents`);
       loading.hidden = true;
       if (!agents.length) {
         empty.hidden = false;
@@ -1271,7 +1271,7 @@ const PlaygroundAgent = (() => {
       sessionErrorEl.hidden = true;
       try {
         const rows = await api(
-          `${AGENT_API}/agents/${encodeURIComponent(agentId)}/sessions?user_id=${encodeURIComponent(userId)}&limit=50`,
+          `${agentApi()}/agents/${encodeURIComponent(agentId)}/sessions?user_id=${encodeURIComponent(userId)}&limit=50`,
         );
         sessionLoadingEl.hidden = true;
         if (!rows.length) {
@@ -1346,7 +1346,7 @@ const PlaygroundAgent = (() => {
 
     async function loadSessionHistory(targetSessionId) {
       const runs = await api(
-        `${AGENT_API}/agents/${encodeURIComponent(agentId)}/sessions/${encodeURIComponent(targetSessionId)}/runs?limit=100`,
+        `${agentApi()}/agents/${encodeURIComponent(agentId)}/sessions/${encodeURIComponent(targetSessionId)}/runs?limit=100`,
       );
       const ordered = [...runs].sort((a, b) => String(a.created_at || "").localeCompare(String(b.created_at || "")));
       const histories = await Promise.all(
@@ -1397,7 +1397,7 @@ const PlaygroundAgent = (() => {
       setLibrarySelection(null);
       try {
         const session = await api(
-          `${AGENT_API}/agents/${encodeURIComponent(agentId)}/sessions/${encodeURIComponent(targetSessionId)}`,
+          `${agentApi()}/agents/${encodeURIComponent(agentId)}/sessions/${encodeURIComponent(targetSessionId)}`,
         );
         applyLibraryFromSession(session.library_ids);
         await loadSessionHistory(targetSessionId);
@@ -1472,7 +1472,21 @@ const PlaygroundAgent = (() => {
       }
       pickerSection.hidden = false;
       try {
-        const rows = await api(`${KNOWLEDGE_API}/libraries?limit=100`);
+        const storageBase = String(window.VIKNOW_STORAGE_URL || "").replace(/\/$/, "");
+        const storageToken = String(window.VIKNOW_STORAGE_TOKEN || "").trim();
+        let rows = [];
+        if (storageBase && storageToken) {
+          const response = await fetch(`${storageBase}/libraries?limit=100`, {
+            headers: { Authorization: `Bearer ${storageToken}` },
+          });
+          const payload = await response.json().catch(() => []);
+          if (!response.ok) {
+            throw new Error(detailMessage(payload));
+          }
+          rows = Array.isArray(payload) ? payload : [];
+        } else {
+          rows = await api(`${knowledgeApi()}/libraries?limit=100`);
+        }
         pickerLoading.hidden = true;
         if (!rows.length) {
           pickerEmpty.hidden = false;
@@ -1537,7 +1551,7 @@ const PlaygroundAgent = (() => {
 
     let agent;
     try {
-      agent = await api(`${AGENT_API}/agents/${encodeURIComponent(agentId)}`);
+      agent = await api(`${agentApi()}/agents/${encodeURIComponent(agentId)}`);
     } catch (error) {
       appendMessage(messages, "assistant", error.message || "无法加载智能体");
       return;
@@ -1558,7 +1572,7 @@ const PlaygroundAgent = (() => {
 
     let modelsPayload;
     try {
-      modelsPayload = await api(`${AGENT_API}/models`);
+      modelsPayload = await api(`${agentApi()}/models`);
     } catch {
       modelsPayload = { default_model: agent.default_model, models: [] };
     }

@@ -1,48 +1,38 @@
-"""ViKnow Playground UI — static pages + user BFF + mounted /api/v1/knowledge."""
+"""ViKnow Playground UI — static pages only (integrator service).
+
+Business APIs run on ``viknow3.server`` (``VIKNOW_PORT``). Storage runs on
+``VIKNOW_STORAGE_URL``. This process serves HTML/JS and ``playground-config.js``.
+"""
 
 from __future__ import annotations
 
 import os
-from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.responses import FileResponse, PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
-from ui.playground_access import mount_knowledge_api
+from ui.playground_config import playground_config_js
 from ui.playground_routes import router as playground_router
 
 STATIC = Path(__file__).resolve().parent / "static"
 PLAYGROUND = STATIC / "playground"
 
-@asynccontextmanager
-async def _playground_lifespan(application: FastAPI):
-    from viknow3.service.hyperrag.runtime import init_hyperrag, shutdown_background_runtime
-
-    await init_hyperrag()
-    try:
-        yield
-    finally:
-        await shutdown_background_runtime()
-
-
-app = FastAPI(title="ViKnow Playground", docs_url=None, redoc_url=None, lifespan=_playground_lifespan)
-mount_knowledge_api(app)
+app = FastAPI(title="ViKnow Playground", docs_url=None, redoc_url=None)
 app.include_router(playground_router)
 
 
-@app.get("/playground/assets/storage-config.js")
-def playground_storage_config() -> PlainTextResponse:
-    """Expose viknow-storage URL/token to the Playground (dev / trusted networks only)."""
+@app.get("/playground/assets/playground-config.js")
+def playground_runtime_config() -> PlainTextResponse:
+    return PlainTextResponse(playground_config_js(), media_type="application/javascript")
 
-    base = os.environ.get("VIKNOW_STORAGE_URL", "").strip().rstrip("/")
-    token = os.environ.get("VIKNOW_STORAGE_TOKEN", "").strip()
-    lines = [
-        f'window.VIKNOW_STORAGE_URL = "{base}";',
-        f'window.VIKNOW_STORAGE_TOKEN = "{token}";',
-    ]
-    return PlainTextResponse("\n".join(lines) + "\n", media_type="application/javascript")
+
+@app.get("/playground/assets/storage-config.js")
+def playground_storage_config_compat() -> PlainTextResponse:
+    """Deprecated alias; use playground-config.js."""
+
+    return PlainTextResponse(playground_config_js(), media_type="application/javascript")
 
 
 app.mount("/playground/assets", StaticFiles(directory=PLAYGROUND / "assets"), name="playground-assets")

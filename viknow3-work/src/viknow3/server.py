@@ -10,6 +10,7 @@ from viknow3.ops.config.envfile import load_local_env
 load_local_env()
 
 from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from viknow3.access.agent.routes import router as agent_router
@@ -42,6 +43,15 @@ async def _lifespan(application: FastAPI):
 
 def create_app() -> FastAPI:
     application = FastAPI(title="ViKnow access layer", lifespan=_lifespan)
+    origins = [item.strip() for item in os.environ.get("VIKNOW_CORS_ORIGINS", "").split(",") if item.strip()]
+    if origins:
+        application.add_middleware(
+            CORSMiddleware,
+            allow_origins=origins,
+            allow_credentials=True,
+            allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+            allow_headers=["Authorization", "Content-Type", "X-App-Key"],
+        )
 
     def handle_access_error(_request: Request, exc: Exception) -> JSONResponse:
         return JSONResponse(exc.body, status_code=exc.status)

@@ -35,7 +35,8 @@ async function createUser() {
   clearError();
   try {
     const display_name = nameInput?.value?.trim() || null;
-    const response = await fetch("/api/v1/users", {
+    const usersApi = window.PlaygroundApi ? window.PlaygroundApi.users() : "/api/v1/users";
+    const response = await fetch(usersApi, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ display_name }),
@@ -69,7 +70,8 @@ async function login(event) {
   }
   if (submit) submit.disabled = true;
   try {
-    const response = await fetch(`/api/v1/users/${encodeURIComponent(userId)}`, {
+    const usersApi = window.PlaygroundApi ? window.PlaygroundApi.users() : "/api/v1/users";
+    const response = await fetch(`${usersApi}/${encodeURIComponent(userId)}`, {
       method: "GET",
       headers: { "Content-Type": "application/json" },
     });
@@ -117,7 +119,8 @@ async function forgetDeletedUser() {
     userId = "";
   }
   if (!userId) return;
-  const response = await fetch(`/api/v1/users/${encodeURIComponent(userId)}`).catch(() => null);
+  const usersApi = window.PlaygroundApi ? window.PlaygroundApi.users() : "/api/v1/users";
+  const response = await fetch(`${usersApi}/${encodeURIComponent(userId)}`).catch(() => null);
   if (response && response.status === 404) {
     localStorage.removeItem(STORAGE_KEY);
     window.location.replace("/playground");

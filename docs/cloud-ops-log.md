@@ -29,6 +29,15 @@
 
 ## 变更记录（倒序）
 
+### 2026-10-28 Actio viknow-storage 拉取 + 236 热更新（8600）
+
+- 环境：SSH `cursor-agent@36.103.198.236`
+- 对象：`actio-server-8600`；Gitea `castmeta-research/actio` `main` `be6c94b`；236 `/home/cursor-agent/src/viknow3` Playground 同步
+- 动作：Actio 增加 `media.type=viknow_storage`；容器热更新 `media_input.py` 并在 entrypoint 注入 `VIKNOW_STORAGE_*` 后 restart；viknow3 增加 `install_storage_video_split`
+- 结果：成功（Gitea main 已 push；**未**重建 Actio Docker 镜像）
+- 证据：Actio pytest 19 passed；容器内 viknow_storage/object 下载 OK；viknow2-test 仍为 `media.type=object`；viknow3 hook 为 `viknow_storage`
+- 回滚：恢复 Actio 旧镜像或去掉 entrypoint export；viknow3 恢复 base64 上传
+
 ### 2026-10-28 236 停服 Actio Runtime（:8703）
 
 - 环境：SSH `cursor-agent@36.103.198.236`

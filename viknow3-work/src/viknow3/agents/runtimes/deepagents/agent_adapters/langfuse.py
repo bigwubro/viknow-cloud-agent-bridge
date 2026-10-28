@@ -116,10 +116,13 @@ class GenerationRecorder:
             tool_scope.add(model, counts)
         if self._handler is None:
             return
+        record_generation = getattr(self._handler, "record_generation", None)
+        if not callable(record_generation):
+            return
         try:
             metadata = dict(metadata or {})
             metadata["viknow_run_id"] = self.viknow_run_id
-            self._handler.record_generation(
+            record_generation(
                 viknow_run_id=self.viknow_run_id,
                 name=name,
                 model=_clean_model_name(model),
@@ -255,20 +258,63 @@ def record_model_generation(
         tool_scope.add(model, counts)
 
 
-def build_langfuse_callbacks(config: LangfuseTracingConfig) -> list[Any]:
-    """Build LangChain callbacks for Langfuse tracing."""
+_DEEPAGENTS_LANGFUSE_HOST = "VIKNOW_DEEPAGENTS_LANGFUSE_HOST"
+_DEEPAGENTS_LANGFUSE_PUBLIC_KEY = "VIKNOW_DEEPAGENTS_LANGFUSE_PUBLIC_KEY"
+_DEEPAGENTS_LANGFUSE_SECRET_KEY = "VIKNOW_DEEPAGENTS_LANGFUSE_SECRET_KEY"
 
-    if not _is_enabled(config):
+
+def deepagents_langfuse_credentials() -> dict[str, str] | None:
+    """Credentials for the DeepAgents-only Langfuse project.
+
+    ``VIKNOW_LANGFUSE_*`` and ``LANGFUSE_*`` belong to other projects (agent
+    legacy switch and HyperRAG). This runtime does not read or overwrite them.
+    """
+
+    host = os.getenv(_DEEPAGENTS_LANGFUSE_HOST, "").strip()
+    public_key = os.getenv(_DEEPAGENTS_LANGFUSE_PUBLIC_KEY, "").strip()
+    secret_key = os.getenv(_DEEPAGENTS_LANGFUSE_SECRET_KEY, "").strip()
+    if not host or not public_key or not secret_key:
+        return None
+    return {"host": host, "public_key": public_key, "secret_key": secret_key}
+
+
+def build_langfuse_callbacks(config: LangfuseTracingConfig) -> list[Any]:
+    """Build the DeepAgents LangChain callback for its own Langfuse project.
+
+    ``config`` stays in the signature for the runtime builder. Enablement is
+    the dedicated project credentials, not ``config.enabled`` and not
+    ``VIKNOW_LANGFUSE_ENABLED``.
+    """
+
+    if not isinstance(config, LangfuseTracingConfig):
+        raise TypeError("observability.langfuse config is required")
+    creds = deepagents_langfuse_credentials()
+    if creds is None:
         return []
 
-    configure_langfuse_sdk_env()
     try:
+        from langfuse import Langfuse
         from langfuse.langchain import CallbackHandler
     except ImportError as exc:
         raise RuntimeError(
-            "langfuse is required when observability.langfuse.enabled is true"
+            "langfuse is required when VIKNOW_DEEPAGENTS_LANGFUSE_PUBLIC_KEY is set"
         ) from exc
-    return [_ViKnowLangfuseCallbackHandler(CallbackHandler)]
+
+    # One client per public key. Leave process LANGFUSE_* untouched so HyperRAG
+    # keeps the other project.
+    Langfuse(
+        public_key=creds["public_key"],
+        secret_key=creds["secret_key"],
+        host=creds["host"],
+        environment="viknow3",
+        tracing_enabled=True,
+    )
+    logger.info(
+        "[langfuse] deepagents tracing enabled host={} public_key={}…",
+        creds["host"],
+        creds["public_key"][:12],
+    )
+    return [CallbackHandler(public_key=creds["public_key"])]
 
 
 class _ViKnowLangfuseCallbackHandler:

@@ -1,10 +1,10 @@
 # 知识库
 
-知识库是外壳持有的 HyperRAG 引擎。调用方通过接入层上传、建索引和检索。agent 的一轮不启动第二份引擎，只调用装配时注入的 `KnowledgeClient`。
+知识库是外壳持有的 HyperRAG 引擎。Playground 把**库与文件**交给 **viknow-storage**，把**索引、检索、在线状态**交给 **ViKnow API**（`viknow3.server`，默认 `:5175`）。agent 的一轮不启动第二份引擎，只调用装配时注入的 `KnowledgeClient`。
 
 你可以用知识库做这些事：
 
-- 建库、上传资产、查询索引进度。
+- 在 storage 建库、上传资产；在 ViKnow 提交索引任务、查询索引进度。
 - 用检索接口查询一个库。
 - 让启用了知识库工具的 agent 在本轮被授予的那一个库里发现和检索。
 
@@ -28,39 +28,23 @@ Actio 和 HyperRAG 用同一种接法。索引和多模态工具调用外壳注�
 
 `import hyperrag` 只出现在 `src/viknow3/service/hyperrag/`。
 
-## HTTP
+## HTTP（ViKnow API）
 
-库管理在 `/api/v1/knowledge`，要 app key。
+路径前缀 `/api/v1/knowledge`，需要 app key（`X-App-Key` 或 Bearer）。
 
-| 方法 | 路径 | 结果 |
+| 方法 | 路径 | 说明 |
 | --- | --- | --- |
-| POST | `/libraries` | 201。body 只允许 `library_id`、`title` |
-| GET | `/libraries` | 列表。可带 `limit`、`after` |
-| GET | `/libraries/{library_id}` | 一个库 |
-| POST | `/libraries/{library_id}/assets` | 201，登记资产 |
-| GET | `/libraries/{library_id}/assets` | 资产列表 |
+| POST | `/index-jobs` | 提交索引（body：`library_id`、`asset_id`；从 storage 拉字节） |
+| GET | `/index-jobs/{job_id}` | 任务状态 |
+| GET | `/index-jobs/{job_id}/tasks` | 子任务 |
 | GET | `/libraries/{library_id}/assets/index-status-batch` | 批量索引进度 |
-| POST | `/libraries/{library_id}/uploads` | 上传 |
-| POST | `/libraries/{library_id}/uploads/direct` | 直接上传 |
-| GET | `/libraries/{library_id}/assets/{asset_id}/index-status` | 一个资产的进度 |
-| GET | `/libraries/{library_id}/assets/{asset_id}/index-jobs/latest` | 最近一条索引任务 |
-| POST | `/downloads` | 下载 |
+| GET | `/libraries/{library_id}/assets/{asset_id}/index-status` | 单资产进度 |
+| GET | `/libraries/{library_id}/assets/{asset_id}/index-jobs/latest` | 最近索引任务 |
+| POST | `/search` | 检索 |
+| DELETE | `/indexes` | 删除索引 |
+| GET | `/api/v1/online/libraries/{library_id}/assets/{asset_id}/index` | 在线索引元数据 |
 
-索引和检索在这些路径，同样要 app key：
-
-| 方法 | 路径 |
-| --- | --- |
-| POST | `/api/v1/knowledge/uploads` |
-| POST | `/api/v1/knowledge/index-jobs` |
-| GET | `/api/v1/knowledge/index-jobs/{job_id}` |
-| GET | `/api/v1/knowledge/index-jobs/{job_id}/tasks` |
-| DELETE | `/api/v1/knowledge/indexes` |
-| POST | `/api/v1/knowledge/search` |
-| GET | `/api/v1/online/libraries/{library_id}/assets/{asset_id}/index` |
-
-预览和下载走 `POST /api/v1/knowledge/downloads`，请求体里的 `asset_path` 是 `knowledge/assets/` 对象键。
-
-agent 第一轮如果启用了 `knowledge_search` 或 `knowledge_discover`，必须在请求里给出恰好一个库。这个限制在接入层，不在引擎里。
+库列表、上传、预览、下载不在 ViKnow API 上；Playground 直连 **viknow-storage**（`VIKNOW_STORAGE_URL` + Bearer token）。
 
 索引任务的阶段和进度字段见 [索引任务状态](../guide/knowledge-index-job-status.md)。部署和子模块见 [HyperRAG Runbook](../guide/hyperrag-runbook.md)。
 

@@ -205,7 +205,6 @@ def main() -> int:
         {
             "library_id": library_id,
             "asset_id": asset_id,
-            "asset_path": uploaded["asset_path"],
             "compile_mode": args.compile_mode,
             "params": {"title": source.name},
         },

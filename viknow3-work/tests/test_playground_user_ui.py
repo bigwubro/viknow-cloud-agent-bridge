@@ -1,4 +1,4 @@
-"""Playground UI: static pages + /api/v1/* mount (no /ui/playground business BFF)."""
+"""Playground UI: static pages only (ViKnow API runs on VIKNOW_PORT)."""
 
 from __future__ import annotations
 

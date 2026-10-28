@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""API-only smoke: tiny video → presign PUT → asset → index-jobs → poll (default 5 min)."""
+"""API smoke: storage upload → index-jobs on ViKnow API → poll (default 5 min)."""
 
 from __future__ import annotations
 
@@ -14,6 +14,8 @@ import uuid
 from pathlib import Path
 from typing import Any
 from urllib import error, request
+
+import httpx
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -133,7 +135,15 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--base-url",
-        default=os.environ.get("VIKNOW_SMOKE_BASE_URL", "http://127.0.0.1:5198"),
+        default=os.environ.get("VIKNOW_SMOKE_BASE_URL", "http://127.0.0.1:5175"),
+    )
+    parser.add_argument(
+        "--storage-url",
+        default=os.environ.get("VIKNOW_STORAGE_URL", ""),
+    )
+    parser.add_argument(
+        "--storage-token",
+        default=os.environ.get("VIKNOW_STORAGE_TOKEN", ""),
     )
     parser.add_argument("--app-key", default=os.environ.get("VIKNOW3_APP_KEY", ""))
     parser.add_argument("--repo-root", type=Path, default=ROOT)
@@ -159,79 +169,45 @@ def main() -> int:
         return 2
 
     base = args.base_url.rstrip("/")
+    storage_url = args.storage_url.strip().rstrip("/")
+    storage_token = args.storage_token.strip()
+    if not storage_url or not storage_token:
+        print("VIKNOW_STORAGE_URL and VIKNOW_STORAGE_TOKEN are required", file=sys.stderr)
+        return 2
+
     library_id = f"smoke-vid-{uuid.uuid4().hex[:10]}"
     video_path = Path("/tmp") / f"viknow-smoke-{uuid.uuid4().hex[:8]}.mp4"
     video_path = prepare_tiny_video(video_path, args.repo_root.resolve())
     content = video_path.read_bytes()
     print(f"video={video_path} bytes={len(content)} library={library_id}", flush=True)
 
-    body = json.dumps({"library_id": library_id, "title": f"Smoke video {library_id}"}).encode()
-    status, created = _http(
-        "POST",
-        f"{base}/api/v1/knowledge/libraries",
-        headers=_auth_headers(app_key, {"Content-Type": "application/json"}),
-        body=body,
-    )
-    if status not in (201, 409):
-        print(f"create library failed {status}: {created}", file=sys.stderr)
-        return 1
-    print("library ok", flush=True)
-
-    presign_body = json.dumps(
-        {"file_name": "smoke-tiny.mp4", "content_type": "video/mp4"},
-    ).encode()
-    status, presign = _http(
-        "POST",
-        f"{base}/api/v1/knowledge/libraries/{library_id}/uploads",
-        headers=_auth_headers(app_key, {"Content-Type": "application/json"}),
-        body=presign_body,
-    )
-    if status != 200 or not isinstance(presign, dict):
-        print(f"presign failed {status}: {presign}", file=sys.stderr)
-        return 1
-    asset_id = str(presign.get("asset_id") or "")
-    asset_path = str(presign.get("asset_path") or "")
-    put_url = str(presign.get("url") or "")
-    ctype = str(presign.get("content_type") or "video/mp4")
-    print(f"presign asset_id={asset_id} path={asset_path}", flush=True)
-
-    put_req = request.Request(
-        put_url,
-        data=content,
-        method="PUT",
-        headers={"Content-Type": ctype},
-    )
-    try:
-        with request.urlopen(put_req, timeout=120) as resp:
-            print(f"PUT upload HTTP {resp.status}", flush=True)
-    except error.HTTPError as exc:
-        print(f"PUT failed HTTP {exc.code}: {exc.read()[:500]}", file=sys.stderr)
-        return 1
-
-    asset_body = json.dumps(
-        {
-            "asset_id": asset_id,
-            "asset_path": asset_path,
-            "title": "smoke-tiny.mp4",
-            "modality": "video",
-        },
-    ).encode()
-    status, asset = _http(
-        "POST",
-        f"{base}/api/v1/knowledge/libraries/{library_id}/assets",
-        headers=_auth_headers(app_key, {"Content-Type": "application/json"}),
-        body=asset_body,
-    )
-    if status not in (201, 409):
-        print(f"create asset failed {status}: {asset}", file=sys.stderr)
-        return 1
-    print("asset ok", flush=True)
+    asset_id = f"asset-{uuid.uuid4().hex[:10]}"
+    with httpx.Client(
+        base_url=storage_url,
+        headers={"Authorization": f"Bearer {storage_token}"},
+        timeout=120.0,
+    ) as storage:
+        lib_resp = storage.post(
+            "/libraries",
+            json={"library_id": library_id, "title": f"Smoke video {library_id}"},
+        )
+        if lib_resp.status_code not in (201, 409):
+            print(f"storage create library failed {lib_resp.status_code}: {lib_resp.text}", file=sys.stderr)
+            return 1
+        up = storage.post(
+            f"/libraries/{library_id}/assets",
+            data={"asset_id": asset_id, "title": "smoke-tiny.mp4"},
+            files={"file": ("smoke-tiny.mp4", content, "video/mp4")},
+        )
+        if up.status_code not in (201, 409):
+            print(f"storage upload failed {up.status_code}: {up.text}", file=sys.stderr)
+            return 1
+    print(f"storage asset_id={asset_id}", flush=True)
 
     job_body = json.dumps(
         {
             "library_id": library_id,
             "asset_id": asset_id,
-            "asset_path": asset_path,
             "compile_mode": args.compile_mode,
             "params": {"title": "smoke-tiny.mp4"},
         },

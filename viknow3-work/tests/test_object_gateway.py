@@ -8,7 +8,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from viknow3.access.knowledge.service import KnowledgeError, create_index_job
+from viknow3.access.knowledge.service import KnowledgeError
 from viknow3.service.hyperrag.client import HyperragClient
 from viknow3.service.hyperrag.object_gateway import (
     ObjectFetchError,

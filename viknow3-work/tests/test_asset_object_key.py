@@ -12,10 +12,12 @@ from unittest.mock import patch
 from viknow3.agents.runtimes.deepagents.core.answer_review.claim_bundle import citation_payload
 from viknow3.agents.runtimes.deepagents.core.evidence import Evidence, EvidencePart, EvidencePartKind, EvidenceTimeRange
 from viknow3.agents.runtimes.deepagents.core.knowledge.object_key import (
+    parse_storage_reference,
     parse_storage_uri,
     resolve_asset_object_key,
     storage_uri,
 )
+from viknow3.service.storage.inspect_artifacts import artifact_storage_uri
 from viknow3.agents.runtimes.deepagents.core.tools.knowledge import _segment_preview_payload
 from viknow3.agents.runtimes.deepagents.core.tools.multimodal import (
     _enrich_evidence_with_video_url,
@@ -60,8 +62,22 @@ def _video_evidence(*, asset_path: str | None = VIDEO_URI, video_url: str | None
 class ObjectKeyTests(unittest.TestCase):
     def test_parse_storage_uri(self) -> None:
         self.assertEqual(parse_storage_uri(VIDEO_URI), ("video-lib", "asset-1"))
+        inspect_uri = artifact_storage_uri("docs", "asset-1", "inspect.page-0002.png")
+        self.assertEqual(parse_storage_uri(inspect_uri), ("docs", "asset-1"))
+        ref = parse_storage_reference(inspect_uri)
+        assert ref is not None
+        self.assertEqual(ref.artifact_id, "inspect.page-0002.png")
         self.assertIsNone(parse_storage_uri("/media/libraries/lib/assets/asset-1/video"))
         self.assertIsNone(parse_storage_uri("/tmp/clip.mp4"))
+
+    def test_resolve_asset_object_key_prefers_inspect_artifact(self) -> None:
+        inspect_uri = artifact_storage_uri("docs", "asset-1", "inspect.page-0001.png")
+        with patch(
+            "viknow3.agents.runtimes.deepagents.core.knowledge.object_key.storage_configured",
+            return_value=True,
+        ):
+            key = resolve_asset_object_key("docs", "asset-1", inspect_uri)
+        self.assertEqual(key, inspect_uri)
 
     def test_video_inspect_source_uses_storage_uri(self) -> None:
         with (

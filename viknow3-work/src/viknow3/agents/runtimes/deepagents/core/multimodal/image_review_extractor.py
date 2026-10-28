@@ -21,7 +21,7 @@ from langchain_core.messages import HumanMessage
 from loguru import logger
 
 from viknow3.agents.runtimes.deepagents.core.evidence import Evidence, EvidencePart, EvidencePartKind
-from viknow3.agents.runtimes.deepagents.core.multimodal.evidence_utils import first_text, resolve_media_path
+from viknow3.agents.runtimes.deepagents.core.multimodal.evidence_utils import first_text, read_evidence_image_bytes
 from viknow3.agents.runtimes.deepagents.core.multimodal.image_review_claim import (
     ImageClaimScore,
     ImageClaimScoreResult,
@@ -66,9 +66,12 @@ class ImageEvidenceExtractor:
             for part in image_parts[:_MAX_IMAGES]:
                 if not (part.uri or "").strip():
                     continue
-                image_path = resolve_media_path(self.repo_root, part.uri)
-                mime_type = part.mime_type or _DEFAULT_MIME
-                img_b64 = base64.b64encode(image_path.read_bytes()).decode("ascii")
+                img_bytes, mime_type = read_evidence_image_bytes(self.repo_root, part)
+                if not part.mime_type:
+                    mime_type = mime_type or _DEFAULT_MIME
+                else:
+                    mime_type = part.mime_type
+                img_b64 = base64.b64encode(img_bytes).decode("ascii")
                 image_id = part.uri or ""
 
                 stage1_started = perf_counter()

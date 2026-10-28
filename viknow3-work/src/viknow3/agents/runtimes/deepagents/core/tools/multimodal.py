@@ -20,7 +20,12 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from viknow3.agents.runtimes.deepagents.core.actio.client import ActioClient
 from viknow3.agents.runtimes.deepagents.core.config import ModelProvider, ToolConfigs
 from viknow3.agents.runtimes.deepagents.core.evidence import Evidence, EvidencePart, EvidencePartKind, EvidenceTimeRange
-from viknow3.agents.runtimes.deepagents.core.knowledge.object_key import resolve_asset_object_key
+from viknow3.agents.runtimes.deepagents.core.knowledge.object_key import (
+    parse_storage_reference,
+    resolve_asset_object_key,
+)
+from viknow3.service.storage.gateway import storage_configured
+from viknow3.service.storage.inspect_artifacts import inspect_page_artifact_id, upload_inspect_page_artifact
 from viknow3.agents.runtimes.deepagents.core.model_gateway import model_connection_options
 from viknow3.agents.runtimes.deepagents.core.multimodal.asr import EvidenceTranscriber
 from viknow3.agents.runtimes.deepagents.core.multimodal.document_page_renderer import (
@@ -1430,6 +1435,20 @@ class MultimodalToolHandlers:
                     page_number=page_number,
                     spreadsheet_context=spreadsheet_context,
                 ) as rendered_page:
+                    png_bytes = rendered_page.path.read_bytes()
+                    library_id = _metadata_string(evidence.metadata, "library_id")
+                    asset_id = _metadata_string(evidence.metadata, "asset_id") or _metadata_string(
+                        evidence.metadata, "full_doc_id"
+                    )
+                    image_uri = str(rendered_page.path)
+                    image_part_metadata: dict[str, Any] = {"document_page": page_number}
+                    if storage_configured() and library_id and asset_id:
+                        image_uri = upload_inspect_page_artifact(
+                            library_id, asset_id, page_number, png_bytes
+                        )
+                        image_part_metadata["inspect_artifact_id"] = inspect_page_artifact_id(
+                            page_number
+                        )
                     page_evidence = citation_evidence.model_copy(
                         update={
                             "parts": [
@@ -1453,18 +1472,31 @@ class MultimodalToolHandlers:
                                 ),
                                 EvidencePart(
                                     kind=EvidencePartKind.IMAGE,
-                                    uri=str(rendered_page.path),
+                                    uri=image_uri,
                                     mime_type="image/png",
-                                    metadata={"document_page": page_number},
+                                    metadata=image_part_metadata,
                                 ),
-                            ]
+                            ],
+                            "metadata": {
+                                **citation_evidence.metadata,
+                                **(
+                                    {
+                                        "inspect_artifact_uri": image_uri,
+                                        "inspect_artifact_id": image_part_metadata.get(
+                                            "inspect_artifact_id"
+                                        ),
+                                    }
+                                    if image_uri.startswith("storage://")
+                                    else {}
+                                ),
+                            },
                         }
                     )
                     result = self.get_document_inspect_extractor().extract(page_evidence, question)
                 if not result.success:
                     raise RuntimeError(result.error or "document page inspection failed")
                 result = _with_inspect_claim_citations(
-                    "document_inspect", result, citation_evidence
+                    "document_inspect", result, page_evidence
                 )
                 all_claims.extend(result.claims)
             result = result.model_copy(update={"claims": all_claims})
@@ -2565,12 +2597,31 @@ def _inspect_claim_source(tool_name: str, claim: Any, evidence: Evidence) -> Ins
         )
     if tool_name == "document_inspect":
         page_number = evidence.metadata["document_inspect_page"]
+        inspect_uri = _document_inspect_storage_uri(evidence)
         document_url = _library_asset_document_url(evidence)
+        preview_uri = inspect_uri or document_url
+        artifact_label = (
+            str(evidence.metadata.get("inspect_artifact_id") or "")
+            or inspect_page_artifact_id(page_number)
+            if inspect_uri
+            else f"page-{page_number}.png"
+        )
         source_metadata = {
             **_base_source_metadata(evidence),
             "document_page": page_number,
             "inspection_dpi": 144,
         }
+        if inspect_uri:
+            source_metadata["inspect_artifact_uri"] = inspect_uri
+            source_metadata["inspect_artifact_id"] = artifact_label
+        object_key = resolve_asset_object_key(
+            library_id,
+            asset_id,
+            inspect_uri,
+            preview_uri,
+        )
+        if object_key:
+            source_metadata["object_key"] = object_key
         return InspectClaimSource(
             type="image",
             library_id=library_id,
@@ -2578,8 +2629,8 @@ def _inspect_claim_source(tool_name: str, claim: Any, evidence: Evidence) -> Ins
             evidence_id=evidence.id,
             title=evidence.title,
             segment_id=evidence.id,
-            source_image_id=f"page-{page_number}.png",
-            uri=document_url,
+            source_image_id=artifact_label,
+            uri=preview_uri,
             anchors=[
                 _drop_empty_fields(
                     {
@@ -2587,6 +2638,7 @@ def _inspect_claim_source(tool_name: str, claim: Any, evidence: Evidence) -> Ins
                         "document_url": document_url,
                         "page": page_number - 1,
                         "segment_id": evidence.id,
+                        "inspect_artifact_uri": inspect_uri,
                     }
                 )
             ],
@@ -2985,6 +3037,21 @@ def _visual_ground_document_source_path(
             "visual_ground document evidence requires a local PDF file or a "
             "resolvable knowledge asset"
         ) from exc
+
+
+def _document_inspect_storage_uri(evidence: Evidence) -> str | None:
+    for part in evidence.parts:
+        if part.kind != EvidencePartKind.IMAGE:
+            continue
+        uri = (part.uri or "").strip()
+        ref = parse_storage_reference(uri)
+        if ref is not None and ref.artifact_id:
+            return uri
+    meta = evidence.metadata if isinstance(evidence.metadata, dict) else {}
+    stored = meta.get("inspect_artifact_uri")
+    if isinstance(stored, str) and parse_storage_reference(stored):
+        return stored.strip()
+    return None
 
 
 def _document_source_path(self: MultimodalToolHandlers, evidence: Evidence) -> Path:

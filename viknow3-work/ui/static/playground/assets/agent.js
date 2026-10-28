@@ -102,11 +102,12 @@ const PlaygroundAgent = (() => {
     if (typeof value !== "string") {
       return "";
     }
-    const text = value.trim().split("#")[0].split("?")[0];
+    const text = value.trim().split("#")[0];
     if (!text.startsWith("storage://")) {
       return "";
     }
-    const rest = text.slice("storage://".length);
+    const pathOnly = text.split("?")[0];
+    const rest = pathOnly.slice("storage://".length);
     const slash = rest.indexOf("/");
     if (slash <= 0 || !rest.slice(slash + 1)) {
       return "";
@@ -121,17 +122,24 @@ const PlaygroundAgent = (() => {
     if (typeof value !== "string" || !value.startsWith("storage://")) {
       return null;
     }
-    const rest = value.slice("storage://".length);
-    const slash = rest.indexOf("/");
+    const noHash = value.slice("storage://".length).split("#")[0];
+    const qIdx = noHash.indexOf("?");
+    const pathPart = qIdx >= 0 ? noHash.slice(0, qIdx) : noHash;
+    const query = qIdx >= 0 ? noHash.slice(qIdx + 1) : "";
+    const slash = pathPart.indexOf("/");
     if (slash < 0) {
       return null;
     }
-    const libraryId = rest.slice(0, slash).trim();
-    const assetId = rest.slice(slash + 1).trim();
+    const libraryId = pathPart.slice(0, slash).trim();
+    const assetId = pathPart.slice(slash + 1).trim();
     if (!libraryId || !assetId) {
       return null;
     }
-    return { library_id: libraryId, asset_id: assetId };
+    let artifactId = null;
+    if (query) {
+      artifactId = new URLSearchParams(query).get("artifact");
+    }
+    return { library_id: libraryId, asset_id: assetId, artifact_id: artifactId };
   }
 
   function finite(value) {
@@ -283,20 +291,30 @@ const PlaygroundAgent = (() => {
 
   function previewFromNode(node, marker) {
     const nodes = nearby(node);
-    const ids = idsFrom(nodes);
     const [key, raw] = keyFrom(nodes);
+    const ids = idsFrom(nodes) || (key ? storageIdsFromUri(key) : null);
     if (!key && !ids) {
       return null;
     }
-    const objectKey = key || (ids ? `storage://${ids.library_id}/${ids.asset_id}` : "");
+    const parsed = key ? storageIdsFromUri(key) : null;
+    const objectKey = key
+      || (parsed?.artifact_id
+        ? `storage://${parsed.library_id}/${parsed.asset_id}?artifact=${encodeURIComponent(parsed.artifact_id)}`
+        : ids
+          ? `storage://${ids.library_id}/${ids.asset_id}`
+          : "");
+    const artifactId = parsed?.artifact_id || ids?.artifact_id || null;
+    const libraryId = parsed?.library_id || ids?.library_id || "";
+    const assetId = parsed?.asset_id || ids?.asset_id || "";
     const [begin, end] = rangeFrom(nodes, raw);
     const page = pageFrom(nodes);
     const named = node.title || (node.source && node.source.title) || "";
     const title = String(named || ((begin == null && page == null) ? node.display_label : "") || "");
     return {
       object_key: objectKey,
-      library_id: ids?.library_id || "",
-      asset_id: ids?.asset_id || "",
+      library_id: libraryId,
+      asset_id: assetId,
+      artifact_id: artifactId,
       begin_seconds: begin != null && end != null && end >= begin ? begin : null,
       end_seconds: begin != null && end != null && end >= begin ? end : null,
       page,
@@ -372,13 +390,16 @@ const PlaygroundAgent = (() => {
     }
   }
 
-  function storageAssetUrl(libraryId, assetId, preview = true) {
+  function storageAssetUrl(libraryId, assetId, preview = true, artifactId = null) {
     const base = String(window.VIKNOW_STORAGE_URL || "").replace(/\/$/, "");
     const token = String(window.VIKNOW_STORAGE_TOKEN || "").trim();
     if (!base || !token) {
       throw new Error("未配置 viknow-storage");
     }
     const segment = preview ? "preview" : "content";
+    if (artifactId) {
+      return `${base}/libraries/${encodeURIComponent(libraryId)}/assets/${encodeURIComponent(assetId)}/artifacts/${encodeURIComponent(artifactId)}/${segment}`;
+    }
     return `${base}/libraries/${encodeURIComponent(libraryId)}/assets/${encodeURIComponent(assetId)}/${segment}`;
   }
 
@@ -403,12 +424,19 @@ const PlaygroundAgent = (() => {
 
   function signedUrlForCitation(citation) {
     const fromIds = citation.library_id && citation.asset_id
-      ? { library_id: citation.library_id, asset_id: citation.asset_id }
+      ? {
+          library_id: citation.library_id,
+          asset_id: citation.asset_id,
+          artifact_id: citation.artifact_id || null,
+        }
       : storageIdsFromUri(citation.object_key);
     if (!fromIds) {
       return Promise.reject(new Error("无法预览：缺少 library_id / asset_id"));
     }
-    return storageBlobObjectUrl(storageAssetUrl(fromIds.library_id, fromIds.asset_id, true));
+    const artifactId = citation.artifact_id || fromIds.artifact_id || null;
+    return storageBlobObjectUrl(
+      storageAssetUrl(fromIds.library_id, fromIds.asset_id, true, artifactId),
+    );
   }
 
   function previewBlock(citation) {
@@ -443,12 +471,13 @@ const PlaygroundAgent = (() => {
       return;
     }
     const lower = key.toLowerCase();
+    const artifactName = String(citation.artifact_id || "").toLowerCase();
     const video = citation.modality === "video" || /\.(mp4|webm|mov|mkv)$/.test(lower);
     if (video) {
       mountVideo(host, citation, key);
       return;
     }
-    if (/\.(png|jpe?g|gif|webp)$/.test(lower)) {
+    if (/\.(png|jpe?g|gif|webp)$/.test(lower) || /\.(png|jpe?g|gif|webp)$/.test(artifactName)) {
       const image = document.createElement("img");
       image.className = "pg-preview-image";
       image.alt = citation.display_label || "预览";

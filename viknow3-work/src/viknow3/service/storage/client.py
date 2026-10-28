@@ -92,6 +92,51 @@ class StorageClient:
     def content_url(self, library_id: str, asset_id: str) -> str:
         return f"{self._http.base_url}/libraries/{library_id}/assets/{asset_id}/content"
 
+    def list_artifacts(self, library_id: str, asset_id: str) -> list[dict[str, Any]]:
+        return self._json("GET", f"/libraries/{library_id}/assets/{asset_id}/artifacts")
+
+    def upload_artifact(
+        self,
+        library_id: str,
+        asset_id: str,
+        *,
+        artifact_id: str,
+        filename: str,
+        content: bytes,
+        content_type: str = "application/octet-stream",
+    ) -> dict[str, Any]:
+        return self._json(
+            "POST",
+            f"/libraries/{library_id}/assets/{asset_id}/artifacts",
+            data={"artifact_id": artifact_id},
+            files={"file": (filename, content, content_type)},
+        )
+
+    def download_artifact(self, library_id: str, asset_id: str, artifact_id: str) -> bytes:
+        try:
+            response = self._http.get(
+                f"/libraries/{library_id}/assets/{asset_id}/artifacts/{artifact_id}/content"
+            )
+        except httpx.HTTPError as exc:
+            raise StorageClientError(503, "viknow-storage is unreachable") from exc
+        self._raise(response)
+        return response.content
+
+    def delete_artifact(self, library_id: str, asset_id: str, artifact_id: str) -> None:
+        try:
+            response = self._http.delete(
+                f"/libraries/{library_id}/assets/{asset_id}/artifacts/{artifact_id}"
+            )
+        except httpx.HTTPError as exc:
+            raise StorageClientError(503, "viknow-storage is unreachable") from exc
+        self._raise(response)
+
+    def artifact_preview_url(self, library_id: str, asset_id: str, artifact_id: str) -> str:
+        return (
+            f"{self._http.base_url}/libraries/{library_id}/assets/{asset_id}"
+            f"/artifacts/{artifact_id}/preview"
+        )
+
     def _json(self, method: str, path: str, **kwargs: Any) -> Any:
         try:
             response = self._http.request(method, path, **kwargs)

@@ -29,6 +29,15 @@
 
 ## 变更记录（倒序）
 
+### 2026-10-28 viknow-storage 修复 Content-Disposition 语法错误并重建（236 demo）
+
+- 环境：SSH `cursor-agent@36.103.198.236`；仓库 `/home/cursor-agent/src/viknow-storage`
+- 对象：`viknow-storage-storage-1` Docker 服务（host 端口 5219）
+- 动作：修正 `app.py` 中 `_content_disposition`（此前 inline patch 导致 SyntaxError、容器 Restarting）；`docker compose up -d --build`；提交并 push Gitea `castmeta-research/viknow-storage` `main`（`9f1c694`）
+- 结果：容器 Up；`/health` 200；中文文件名 preview/content 200；CORS 允许 `:5198` 来源
+- 证据：236 上 curl health、preview/content、OPTIONS preflight；`index-status-batch` 200（无密钥）
+- 回滚：checkout 上一镜像/提交后 rebuild compose
+
 ### 2026-10-28 viknow-storage 公网端口 8090→5219（236 demo）
 
 - 环境：SSH `cursor-agent@36.103.198.236`；Playground demo

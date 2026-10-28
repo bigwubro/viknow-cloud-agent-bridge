@@ -25,7 +25,7 @@ export VIKNOW_STATE_DIR="${VIKNOW_STATE_DIR:-/tmp/viknow3-state}"
 
 echo "Materialize from ops..."
 python3 - <<'PY'
-from viknow3.application.hyperrag.config import load_app_config, materialize_hyperrag_config
+from viknow3.service.hyperrag.config import load_app_config, materialize_hyperrag_config
 
 cfg = load_app_config()
 path = materialize_hyperrag_config(cfg)

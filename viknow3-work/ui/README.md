@@ -8,7 +8,7 @@ From the repository root:
 
 ```bash
 export PYTHONPATH="$(pwd)/src:$(pwd)"
-export VIKNOW_ACCESS_DSN='postgresql://…/viknow_access'
+export VIKNOW_ACCESS_DSN='postgresql://…/viknow3_access'
 # optional: load DSN from a file
 export VIKNOW3_ENV_FILE=/path/to/runtime.env
 

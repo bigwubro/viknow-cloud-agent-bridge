@@ -46,6 +46,6 @@ def init_hyperrag_for_tests() -> None:
 
     if not configured():
         return
-    from viknow3.application.hyperrag.runtime import init_hyperrag
+    from viknow3.service.hyperrag.runtime import init_hyperrag
 
     asyncio.run(init_hyperrag())

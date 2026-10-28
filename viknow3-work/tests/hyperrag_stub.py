@@ -20,6 +20,32 @@ def _search_error(library_id: str, query: str, code: str, message: str) -> dict:
     }
 
 
+class _SearchResult:
+    def __init__(self, library_id: str, query: str) -> None:
+        self.library_id = library_id
+        self.query = query
+        self.evidence: list[Any] = []
+        self.metadata: dict[str, Any] = {}
+
+
+class ScriptKnowledgeAdapter:
+    """Enough of the injected knowledge client for a scripted turn to call search."""
+
+    default_library_id = ""
+
+    def search(self, library_id: str, query: str, top_k: int | None = None, threshold: float | None = None, **kwargs: Any):
+        del top_k, threshold, kwargs
+        return _SearchResult(library_id, query)
+
+
+def install_script_engine() -> None:
+    """Tests do not boot HyperRAG. The runtime still wants a non-empty adapter."""
+    from viknow3.service.hyperrag import runtime as hyper_runtime
+
+    adapter = ScriptKnowledgeAdapter()
+    hyper_runtime.get_engine_adapter = lambda: adapter
+
+
 class ScriptHyperrag:
     def __init__(self) -> None:
         self._jobs: dict[str, dict[str, Any]] = {}
@@ -103,7 +129,7 @@ class ScriptHyperrag:
     def get_index(self, job_id: str) -> dict[str, Any]:
         record = self._jobs.get(job_id)
         if record is None:
-            from viknow3.application.hyperrag.client import HyperragClientError
+            from viknow3.service.hyperrag.client import HyperragClientError
 
             raise HyperragClientError(404, {"detail": "index job not found"})
         return {
@@ -128,7 +154,7 @@ class ScriptHyperrag:
 
     def get_index_job_tasks(self, job_id: str) -> list[dict[str, Any]]:
         if job_id not in self._jobs:
-            from viknow3.application.hyperrag.client import HyperragClientError
+            from viknow3.service.hyperrag.client import HyperragClientError
 
             raise HyperragClientError(404, {"detail": "index job not found"})
         return []
@@ -144,8 +170,3 @@ class ScriptHyperrag:
 
     def asset_index(self, library_id: str, asset_id: str) -> dict[str, Any]:
         return {"library_id": library_id, "asset_id": asset_id, "status": "indexed"}
-
-    def media(self, library_id: str, asset_id: str, kind: str) -> tuple[str, bytes]:
-        del library_id, asset_id
-        mime = "video/mp4" if kind == "video" else "application/octet-stream"
-        return mime, b"stub"

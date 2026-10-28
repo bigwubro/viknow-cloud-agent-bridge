@@ -1,4 +1,4 @@
-"""S3 gateway helpers using viknow_ops s3_client (Postgres-backed config)."""
+"""Ops S3 client helpers (bucket CORS / admin scripts only — not the Playground upload path)."""
 
 from __future__ import annotations
 
@@ -51,72 +51,3 @@ def _signing_endpoint(cfg: dict[str, Any]) -> str:
     if env:
         return env
     return (cfg.get("public_endpoint") or cfg.get("endpoint") or "").rstrip("/")
-
-
-def _internal_endpoint(cfg: dict[str, Any]) -> str:
-    return (cfg.get("endpoint") or "").rstrip("/")
-
-
-def object_key(asset_path: str) -> str:
-    path = asset_path.strip().lstrip("/")
-    if not path.startswith("knowledge/assets/"):
-        raise StorageError(400, "asset_path must start with knowledge/assets/")
-    return path
-
-
-def head_object(asset_path: str) -> dict[str, Any]:
-    cfg = _cfg()
-    client, cfg = _client(endpoint_url=_internal_endpoint(cfg))
-    bucket = cfg.get("bucket") or ""
-    if not bucket:
-        raise StorageError(503, "s3 bucket is not configured")
-    key = object_key(asset_path)
-    try:
-        return client.head_object(Bucket=bucket, Key=key)
-    except client.exceptions.ClientError as exc:
-        code = exc.response.get("Error", {}).get("Code", "")
-        if code in {"404", "NoSuchKey", "NotFound"}:
-            raise StorageError(400, "asset_path does not exist or is not a file") from exc
-        raise StorageError(400, "asset_path is not an available storage object key or absolute file path") from exc
-    except Exception as exc:
-        raise StorageError(400, "asset_path is not an available storage object key or absolute file path") from exc
-
-
-def put_object_stream(asset_path: str, stream: Any, content_type: str) -> str:
-    """Server-side upload (Playground BFF); uses internal gateway endpoint."""
-
-    cfg = _cfg()
-    client, cfg = _client(endpoint_url=_internal_endpoint(cfg))
-    bucket = cfg.get("bucket") or ""
-    if not bucket:
-        raise StorageError(503, "s3 bucket is not configured")
-    key = object_key(asset_path)
-    client.upload_fileobj(stream, bucket, key, ExtraArgs={"ContentType": content_type or "application/octet-stream"})
-    return key
-
-
-def presign_put(asset_path: str, content_type: str) -> dict[str, Any]:
-    cfg = _cfg()
-    client, cfg = _client(endpoint_url=_signing_endpoint(cfg))
-    bucket = cfg.get("bucket") or ""
-    expires = int(cfg.get("url_expires_seconds") or 3600)
-    key = object_key(asset_path)
-    url = client.generate_presigned_url(
-        "put_object",
-        Params={"Bucket": bucket, "Key": key, "ContentType": content_type},
-        ExpiresIn=expires,
-    )
-    return {"method": "PUT", "url": url, "asset_path": key, "expires_in": expires, "content_type": content_type}
-
-
-def presign_get(asset_path: str, *, download_name: str | None = None) -> dict[str, Any]:
-    cfg = _cfg()
-    client, cfg = _client(endpoint_url=_signing_endpoint(cfg))
-    bucket = cfg.get("bucket") or ""
-    expires = int(cfg.get("url_expires_seconds") or 3600)
-    key = object_key(asset_path)
-    params: dict[str, Any] = {"Bucket": bucket, "Key": key}
-    if download_name:
-        params["ResponseContentDisposition"] = f'attachment; filename="{download_name}"'
-    url = client.generate_presigned_url("get_object", Params=params, ExpiresIn=expires)
-    return {"method": "GET", "url": url, "asset_path": key, "expires_in": expires}

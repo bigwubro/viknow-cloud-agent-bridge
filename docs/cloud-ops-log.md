@@ -29,7 +29,42 @@
 
 ## 变更记录（倒序）
 
-### 2026-09-20 探测 Push ViKnow to ACR（跳过 CI / Deploy test）
+### 2026-10-28 236 停服 Actio Runtime（:8703）
+
+- 环境：SSH `cursor-agent@36.103.198.236`
+- 对象：Docker 容器 `actio-server-online`（镜像 `actio-server:unified-b88e438-20260922`，`0.0.0.0:8703->8703`，UI 标题 Actio Runtime）
+- 动作：`docker update --restart=no actio-server-online`；`docker stop actio-server-online`
+- 结果：成功；本机 `8703` 无监听；`curl http://127.0.0.1:8703/` 连接失败
+- 回滚：`docker start actio-server-online`（如需恢复需确认是否改回 `--restart=unless-stopped`）
+- 残留：容器仍存在（Exited），未 `docker rm`
+
+### 2026-10-28 viknow-storage 索引 version/artifact MVP 部署（236 demo）
+
+- 环境：SSH `cursor-agent@36.103.198.236`；仓库 `/home/cursor-agent/src/viknow-storage`
+- 对象：`viknow-storage-storage-1`（host `:5219`）；Gitea `castmeta-research/viknow-storage` `main` `b8ec1f6`（及后续移除 `.env` 跟踪）
+- 动作：`docker compose --env-file deploy/storage.env up -d --build`；新增表 `asset_index_versions` / `asset_index_artifacts` 与 REST API（`version_id` 从 0 递增、`job_id` 唯一）
+- 结果：容器 Running；`PYTHONPATH=src pytest` 7 passed
+- 回滚：compose 回退上一镜像 tag / git revert；Postgres 新表由 SQLAlchemy `create_all` 创建，回滚代码不自动删表
+
+### 2026-10-28 viknow-storage 修复 Content-Disposition 语法错误并重建（236 demo）
+
+- 环境：SSH `cursor-agent@36.103.198.236`；仓库 `/home/cursor-agent/src/viknow-storage`
+- 对象：`viknow-storage-storage-1` Docker 服务（host 端口 5219）
+- 动作：修正 `app.py` 中 `_content_disposition`（此前 inline patch 导致 SyntaxError、容器 Restarting）；`docker compose up -d --build`；提交并 push Gitea `castmeta-research/viknow-storage` `main`（`9f1c694`）
+- 结果：容器 Up；`/health` 200；中文文件名 preview/content 200；CORS 允许 `:5198` 来源
+- 证据：236 上 curl health、preview/content、OPTIONS preflight；`index-status-batch` 200（无密钥）
+- 回滚：checkout 上一镜像/提交后 rebuild compose
+
+### 2026-10-28 viknow-storage 公网端口 8090→5219（236 demo）
+
+- 环境：SSH `cursor-agent@36.103.198.236`；Playground demo
+- 对象：ECS `36.103.198.236` 上 `viknow-storage` Docker 发布端口；Playground `VIKNOW_STORAGE_*`
+- 动作：将 host 映射由 `8090:8080` 改为 `5219:8080`（与 ViKnow API `:5218` 相邻）；更新 `pg-demo.env` 与 deploy 默认 `VIKNOW_STORAGE_PUBLIC_PORT=5219`
+- 结果：storage 已监听 `5219`；公网 GET 可用；Playground 跨域需 `STORAGE_CORS_ORIGINS`（已配 `5198` 来源）
+- 证据：`ss`/curl（无密钥）
+- 回滚：compose 改回 `VIKNOW_STORAGE_HTTP_PORT=8090` 并 `docker compose up -d`
+
+---
 
 - 环境：SSH `cursor-agent@36.103.198.236`；Gitea runner 用户 `cursor-agent`；viknow2 `HEAD` `d3f41894eb37`
 - 对象：ACR 杭州 `registry.cn-hangzhou.aliyuncs.com` / 命名空间 `litesense` / 仓库 `viknow2-app:d3f41894eb37`

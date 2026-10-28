@@ -16,14 +16,19 @@ from viknow3.server import app
 from viknow3.store import STORE, RunRef, _rows
 
 AUTH = {"Authorization": "Bearer dev-app-key"}
-AGENT = "/api/v1/agent/agents/deepagents"
+AGENT = "/api/v1/agent/agents/expertbuddy-deepagents"
 
 
 def setUpModule() -> None:
-    from viknow3.application.agentcore.runtime.checkpoint import reset_agent_tables
+    from viknow3.agents.runtimes.deepagents.agent_adapters.checkpointer import reset_checkpoint_tables
+    from viknow3.pg import AGENT, dsn, require_test_database
 
     STORE.reset()
-    reset_agent_tables()
+    require_test_database(AGENT)
+    reset_checkpoint_tables(dsn(AGENT))
+    from hyperrag_stub import install_script_engine
+
+    install_script_engine()
 
 
 def _parse_sse(raw: str) -> list[dict]:
@@ -68,7 +73,7 @@ class SessionLifecycleTests(unittest.TestCase):
         from viknow3.clock import new_id, now
 
         moment = now()
-        ref = RunRef(new_id(), session_id, self.user["id"], "deepagents", [], "running", moment, input="x", updated_at=moment)
+        ref = RunRef(new_id(), session_id, self.user["id"], "expertbuddy-deepagents", [], "running", moment, input="x", updated_at=moment)
         STORE.runs[ref.id] = ref
         return ref
 
@@ -143,7 +148,10 @@ class SessionLifecycleTests(unittest.TestCase):
         other = self.client.post("/api/v1/users", json={"display_name": "别人"}, headers=AUTH).json()
         self.assertEqual(self.client.delete(f"{AGENT}/sessions/{session_id}?user_id={other['id']}", headers=AUTH).status_code, 404)
         self.assertEqual(
-            self.client.delete(f"/api/v1/agent/agents/deepagents/sessions/{session_id}?user_id={self.user['id']}", headers=AUTH).status_code,
+            self.client.delete(
+                f"/api/v1/agent/agents/not-registered/sessions/{session_id}?user_id={self.user['id']}",
+                headers=AUTH,
+            ).status_code,
             404,
         )
 
@@ -155,8 +163,6 @@ class SessionLifecycleTests(unittest.TestCase):
         run_base = f"{base}/runs/{submitted['run_id']}"
         for path in (base, f"{base}/runs", f"{base}/files", run_base, f"{run_base}/history", f"{run_base}/events"):
             self.assertEqual(self.client.get(path, headers=AUTH).status_code, 404, path)
-        self.assertEqual(self.client.get(f"/api/v1/agent/runs/{submitted['run_id']}", headers=AUTH).status_code, 404)
-        self.assertEqual(self.client.get(f"/api/v1/agent/files/{file_id}?agent_id=deepagents", headers=AUTH).status_code, 404)
         listed = self.client.get(f"{AGENT}/sessions?user_id={self.user['id']}", headers=AUTH).json()
         self.assertNotIn(session_id, [item["id"] for item in listed])
         again = self.client.post(f"{base}/runs", json={"user_id": self.user["id"], "message": "还在吗"}, headers=AUTH)

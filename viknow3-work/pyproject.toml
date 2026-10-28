@@ -18,6 +18,7 @@ dependencies = [
     "langchain-openai>=0.2",
     "deepagents>=0.7",
     "deepagents-sandbox[langchain]>=0.0.3",
+    "google-adk>=1.16",
     "pyyaml>=6",
 ]
 

@@ -6,14 +6,12 @@ CONTAINER="${VIKNOW3_PG_CONTAINER:-viknow3-ops-postgres}"
 USER="${VIKNOW3_PG_USER:-viknow_ops}"
 
 databases=(
-  viknow_access
-  viknow_access_test
-  viknow_agent
-  viknow_agent_test
-  viknow_hyperrag
-  viknow_hyperrag_test
-  viknow_ops
-  viknow_ops_test
+  viknow3_access
+  viknow3_access_test
+  viknow3_agent
+  viknow3_agent_test
+  viknow3_ops
+  viknow3_ops_test
   viknow3_knowledge
   viknow3_knowledge_test
 )

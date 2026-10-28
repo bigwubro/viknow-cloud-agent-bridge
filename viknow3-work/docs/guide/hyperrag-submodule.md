@@ -28,7 +28,7 @@ git submodule update --init --remote external/HyperRAG
 
 ## 集成方向
 
-`access/rag` → `application/hyperrag/client.py` → `adapter.py`（5175 同源）→ `external/HyperRAG`（**dev3.0**）。
+`access/knowledge` → `service/hyperrag/client.py` → `adapter.py`（5175 同源）→ `external/HyperRAG`（**dev3.0**）。
 
 SDK 与前端只走 `/api/v1/knowledge/*`。
 

@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 from viknow3.ops.config.runtime_env import load_agent_runtime_env
 
-from viknow3.application.hyperrag.actio_materialize import (
+from viknow3.service.hyperrag.actio_materialize import (
     _materialize_embedding_base_url,
     _materialize_private_llm_base_url,
 )
@@ -26,10 +26,11 @@ class ActioMaterializeUrlTest(unittest.TestCase):
         self.assertEqual(base, "https://ai.qingxiang.tech:8443/v1")
 
     def test_private_upgrades_http_8443_without_env(self) -> None:
-        base = _materialize_private_llm_base_url(
-            "http://ai.qingxiang.tech:8443/v1",
-            "",
-        )
+        with patch.dict(os.environ, {"VIKNOW_PRIVATE_BASE_URL": ""}, clear=False):
+            base = _materialize_private_llm_base_url(
+                "http://ai.qingxiang.tech:8443/v1",
+                "",
+            )
         self.assertEqual(base, "https://ai.qingxiang.tech:8443/v1")
 
     def test_embedding_uses_embedding_env_not_chat(self) -> None:

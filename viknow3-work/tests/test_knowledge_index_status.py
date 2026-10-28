@@ -1,4 +1,4 @@
-"""Catalog index status API and job completion writeback."""
+"""Index status API (storage + jobs / HyperRAG, no PG catalog)."""
 
 from __future__ import annotations
 
@@ -18,51 +18,54 @@ from viknow3.access.knowledge.index_status import (
     persist_index_job_completion,
     sync_index_job_from_api,
 )
+from viknow3.access.knowledge import store
+from viknow3.clock import now
 
 
 class IndexStatusTests(unittest.TestCase):
-    def test_persist_index_job_completion_writes_catalog(self) -> None:
-        with mock.patch("viknow3.access.knowledge.index_status.store.set_current_index_version_id") as setter:
-            persist_index_job_completion(
+    def test_persist_index_job_completion_is_noop(self) -> None:
+        persist_index_job_completion(
+            {"job_id": "job-9", "library_id": "lib-1", "asset_id": "a-1", "status": "done"}
+        )
+
+    def test_sync_index_job_from_api_upserts_row(self) -> None:
+        with mock.patch("viknow3.access.knowledge.index_status.store.upsert_index_job_snapshot") as upsert:
+            sync_index_job_from_api(
                 {
-                    "job_id": "job-9",
+                    "job_id": "job-1",
                     "library_id": "lib-1",
                     "asset_id": "a-1",
                     "status": "done",
                 }
             )
-            setter.assert_called_once_with("lib-1", "a-1", "job-9")
-
-    def test_sync_index_job_from_api_upserts_row(self) -> None:
-        with mock.patch("viknow3.access.knowledge.index_status.store.upsert_index_job_snapshot") as upsert:
-            with mock.patch("viknow3.access.knowledge.index_status.store.set_current_index_version_id") as setter:
-                sync_index_job_from_api(
-                    {
-                        "job_id": "job-1",
-                        "library_id": "lib-1",
-                        "asset_id": "a-1",
-                        "status": "done",
-                    }
-                )
         upsert.assert_called_once()
-        setter.assert_called_once_with("lib-1", "a-1", "job-1")
 
-    def test_persist_skips_non_terminal(self) -> None:
-        with mock.patch("viknow3.access.knowledge.index_status.store.set_current_index_version_id") as setter:
-            persist_index_job_completion({"job_id": "j", "library_id": "l", "asset_id": "a", "status": "running"})
-            setter.assert_not_called()
-
-    def test_indexed_from_catalog_column(self) -> None:
-        asset = mock.Mock(current_index_version_id="ver-1")
-        with mock.patch("viknow3.access.knowledge.index_status.store.get_asset", return_value=asset):
-            payload = get_asset_index_status("lib-1", "a-1")
+    def test_indexed_from_persisted_job(self) -> None:
+        job = store.IndexJobRow(
+            "job-done",
+            "lib-1",
+            "a-1",
+            "done",
+            None,
+            now(),
+            None,
+        )
+        with mock.patch("viknow3.access.knowledge.index_status._assert_storage_asset"):
+            with mock.patch(
+                "viknow3.access.knowledge.index_status.store.get_latest_index_job",
+                return_value=job,
+            ):
+                with mock.patch(
+                    "viknow3.access.knowledge.index_status.store.get_latest_hyperrag_asset_status",
+                    return_value=None,
+                ):
+                    with mock.patch("viknow3.access.knowledge.index_status._redis_job_snapshot", return_value=None):
+                        payload = get_asset_index_status("lib-1", "a-1")
         self.assertEqual(payload["status"], "indexed")
-        self.assertEqual(payload["current_index_version_id"], "ver-1")
+        self.assertEqual(payload["current_index_version_id"], "job-done")
 
-    def test_hyperrag_completed_backfills_catalog(self) -> None:
-        asset = mock.Mock(current_index_version_id=None)
-        refreshed = mock.Mock(current_index_version_id="hr-row-1")
-        with mock.patch("viknow3.access.knowledge.index_status.store.get_asset", side_effect=[asset, refreshed]):
+    def test_hyperrag_completed_returns_indexed(self) -> None:
+        with mock.patch("viknow3.access.knowledge.index_status._assert_storage_asset"):
             with mock.patch("viknow3.access.knowledge.index_status.store.get_latest_index_job", return_value=None):
                 with mock.patch(
                     "viknow3.access.knowledge.index_status.store.get_latest_hyperrag_asset_status",
@@ -75,21 +78,22 @@ class IndexStatusTests(unittest.TestCase):
                     },
                 ):
                     with mock.patch("viknow3.access.knowledge.index_status.store.upsert_index_job_snapshot"):
-                        with mock.patch(
-                            "viknow3.access.knowledge.index_status.store.set_current_index_version_id"
-                        ) as setter:
-                            payload = get_asset_index_status("lib-1", "a-1")
-                            setter.assert_called_once_with("lib-1", "a-1", "hr-row-1")
-                            self.assertEqual(payload["status"], "indexed")
-                            self.assertEqual(payload["current_index_version_id"], "hr-row-1")
+                        payload = get_asset_index_status("lib-1", "a-1")
+        self.assertEqual(payload["status"], "indexed")
+        self.assertEqual(payload["current_index_version_id"], "hr-row-1")
 
     def test_list_library_assets_index_status_batch(self) -> None:
-        asset_a = mock.Mock(asset_id="a-1")
-        asset_b = mock.Mock(asset_id="a-2")
-        with mock.patch("viknow3.access.knowledge.index_status.store.get_library", return_value=mock.Mock()):
+        class FakeClient:
+            def get_library(self, library_id: str) -> dict:
+                return {"library_id": library_id}
+
+            def list_assets(self, library_id: str, *, limit: int | None = None):
+                return [{"asset_id": "a-1"}, {"asset_id": "a-2"}]
+
+        with mock.patch("viknow3.access.knowledge.index_status.storage_configured", return_value=True):
             with mock.patch(
-                "viknow3.access.knowledge.index_status.store.list_assets",
-                return_value=[asset_a, asset_b],
+                "viknow3.access.knowledge.index_status.get_storage_client",
+                return_value=FakeClient(),
             ):
                 with mock.patch(
                     "viknow3.access.knowledge.index_status.get_asset_index_status",

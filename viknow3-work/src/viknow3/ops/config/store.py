@@ -1,4 +1,4 @@
-"""Read and write viknow_ops. One Postgres instance, one database per environment."""
+"""Read and write viknow3_ops, schema ``ops``. One Postgres instance, one database per environment."""
 
 from __future__ import annotations
 
@@ -14,8 +14,7 @@ from psycopg.rows import dict_row
 
 from viknow3.clock import new_id, now, stamp
 from viknow3.ops.config.catalog import ROW_KEY, SINGLETONS, TABLES, Column
-
-SCHEMA = "viknow_ops"
+from viknow3.pg import OPS_SCHEMA as SCHEMA
 
 
 class ConfigError(Exception):
@@ -149,8 +148,8 @@ def server_default_model() -> str | None:
 
 def reset_for_tests() -> None:
     dsn = os.environ.get("VIKNOW_OPS_DSN") or ""
-    if not dsn.rstrip("/").endswith("/viknow_ops_test"):
-        raise ConfigError(400, {"code": "refusing_reset", "message": "reset only runs against viknow_ops_test"})
+    if not dsn.rstrip("/").split("?", 1)[0].endswith("/viknow3_ops_test"):
+        raise ConfigError(400, {"code": "refusing_reset", "message": "reset only runs against viknow3_ops_test"})
     with _session() as conn:
         conn.execute(
             """
@@ -203,7 +202,7 @@ def _connect() -> Connection:
 
 def _ensure(conn: Connection) -> None:
     conn.execute(f"CREATE SCHEMA IF NOT EXISTS {SCHEMA}")
-    conn.execute(f"SET search_path TO {SCHEMA}")
+    conn.execute(f"SET search_path TO {SCHEMA}, public")
     for statement in _STATEMENTS:
         conn.execute(statement)
     conn.execute("SELECT pg_advisory_xact_lock(%s)", (81432026,))
@@ -241,10 +240,7 @@ def _seed(conn: Connection) -> None:
             """,
             (model_id, provider_id, name, label, moment, moment),
         )
-    for agent_id, model_id in (
-        ("deepagents", "private:qwen"),
-        ("adk", "private:qwen"),
-    ):
+    for agent_id, model_id in (("expertbuddy-deepagents", "private:qwen"), ("expertbuddy-adk", "private:qwen")):
         conn.execute(
             """
             INSERT INTO agent_model (agent_id, model_id, created_at, updated_at)
@@ -487,6 +483,52 @@ def plain_provider(provider_id: str) -> dict[str, Any] | None:
         "model_name": row.get("model_name"),
         "api_key": _plain_field("model_provider", "api_key", row.get("api_key")),
     }
+
+
+def plain_providers() -> dict[str, dict[str, Any]]:
+    """Every model provider, with api_key decrypted. Empty when ops is not configured."""
+    if not configured():
+        return {}
+    with _session() as conn:
+        rows = conn.execute(
+            """
+            SELECT id, base_url, model_name, api_key
+            FROM model_provider
+            WHERE deleted_at IS NULL
+            """
+        ).fetchall()
+    return {
+        str(row["id"]): {
+            "base_url": row.get("base_url"),
+            "model_name": row.get("model_name"),
+            "api_key": _plain_field("model_provider", "api_key", row.get("api_key")),
+        }
+        for row in rows
+    }
+
+
+def plain_models() -> list[dict[str, str]]:
+    """Chat models the platform exposes. Empty when ops is not configured."""
+    if not configured():
+        return []
+    with _session() as conn:
+        rows = conn.execute(
+            """
+            SELECT id, provider_id, name, label
+            FROM model
+            WHERE deleted_at IS NULL
+            ORDER BY id
+            """
+        ).fetchall()
+    return [
+        {
+            "id": str(row["id"]),
+            "provider_id": str(row["provider_id"]),
+            "name": str(row["name"]),
+            "label": str(row["label"]),
+        }
+        for row in rows
+    ]
 
 
 def _cipher() -> Fernet:

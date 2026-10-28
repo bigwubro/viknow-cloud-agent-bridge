@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from viknow3.application.hyperrag.actio_materialize import resolve_viknow3_repo_root
+from viknow3.service.hyperrag.actio_materialize import resolve_viknow3_repo_root
 
 
 class ActioRepoRootTests(unittest.TestCase):

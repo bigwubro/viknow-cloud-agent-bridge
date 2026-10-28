@@ -1,34 +1,17 @@
-"""HyperRAG client shape, and knowledge tools calling that client."""
+"""HyperRAG client shape."""
 
 from __future__ import annotations
 
-import json
 import unittest
 from typing import Any
-from unittest.mock import patch
 
-from viknow3.application.agent.knowledge_assistant.tools import (
-    knowledge_discover,
-    knowledge_search,
-    list_doc_segments,
-    uploaded_image_search,
-)
-from viknow3.application.agent.qa_expert.grant import bind_grant, reset_grant
-from viknow3.application.hyperrag.client import HyperragClient, HyperragClientError
-from viknow3.application.hyperrag.evidence import Evidence, EvidencePart, EvidencePartKind, EvidenceTimeRange
-from viknow3.application.hyperrag.knowledge_provider import (
+from viknow3.service.hyperrag.client import HyperragClient, HyperragClientError
+from viknow3.service.hyperrag.evidence import Evidence, EvidencePart, EvidencePartKind, EvidenceTimeRange
+from viknow3.service.hyperrag.knowledge_provider import (
     KnowledgeAssetDiscovery,
     KnowledgeLibrary,
     KnowledgeLibrarySearchResult,
 )
-
-
-class _Grant:
-    def __init__(self, libraries: list[str]) -> None:
-        self._libraries = libraries
-
-    def libraries(self) -> list[str]:
-        return self._libraries
 
 
 class _Payload:
@@ -146,43 +129,6 @@ class HyperragClientTests(unittest.TestCase):
         with self.assertRaises(HyperragClientError) as caught:
             client.list_segments("lib-1", "vid-1", modality="video", mode="nope")
         self.assertEqual(caught.exception.status, 422)
-
-
-class KnowledgeToolClientTests(unittest.TestCase):
-    def test_tools_call_the_client_inside_the_grant(self) -> None:
-        token = bind_grant(_Grant(["lib-a"]))
-        try:
-            payload = json.loads(knowledge_discover("q", top_k=1))
-            self.assertEqual(payload["source"], "run_allowlist")
-            self.assertEqual([item["library_id"] for item in payload["libraries"]], ["lib-a"])
-
-            with patch("viknow3.application.hyperrag.client.HYPERAG.search") as search:
-                search.return_value = {"library_id": "lib-a", "query": "q", "evidence": [], "source": "hyperrag"}
-                json.loads(knowledge_search("lib-a", "q", top_k=2, threshold=0.4))
-            self.assertEqual(search.call_args.kwargs["top_k"], 2)
-            denied = json.loads(knowledge_search("lib-b", "q"))
-            self.assertEqual(denied["error"], "permission_denied")
-
-            with patch("viknow3.application.hyperrag.client.HYPERAG.list_segments") as segments:
-                segments.return_value = {"segments": [], "source": "hyperrag"}
-                json.loads(list_doc_segments("lib-a", "doc-1", mode="page", page_size=5))
-            self.assertEqual(segments.call_args.kwargs["modality"], "document")
-            self.assertEqual(segments.call_args.kwargs["page_size"], 5)
-
-            missing = json.loads(uploaded_image_search("外观", library_id="lib-a"))
-            self.assertEqual(missing["error"], "image_data_url is required")
-            with patch("viknow3.application.hyperrag.client.HYPERAG.search_by_image") as image:
-                image.return_value = {"evidence": [], "source": "hyperrag"}
-                json.loads(uploaded_image_search("外观", library_id="lib-a", image_data_url="data:image/png;base64,aa"))
-            self.assertEqual(image.call_args.args[0], "lib-a")
-        finally:
-            reset_grant(token)
-
-    def test_discover_without_a_grant_does_not_call_the_client(self) -> None:
-        with patch("viknow3.application.hyperrag.client.HYPERAG.discover") as discover:
-            payload = json.loads(knowledge_discover("q"))
-        discover.assert_not_called()
-        self.assertEqual(payload["error"], "no_library_granted")
 
 
 if __name__ == "__main__":

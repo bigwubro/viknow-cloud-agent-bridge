@@ -1,4 +1,14 @@
 const STORAGE_KEY = "viknow_playground_user";
+const APP_KEY_STORAGE = "viknow_app_key";
+
+function apiHeaders(extra = {}) {
+  const headers = { "Content-Type": "application/json", ...extra };
+  const key = (localStorage.getItem(APP_KEY_STORAGE) || window.VIKNOW_APP_KEY || "").trim();
+  if (key) {
+    headers["X-App-Key"] = key;
+  }
+  return headers;
+}
 
 function showError(message) {
   const box = document.querySelector("#login-error");
@@ -35,9 +45,10 @@ async function createUser() {
   clearError();
   try {
     const display_name = nameInput?.value?.trim() || null;
-    const response = await fetch("/api/v1/users", {
+    const usersApi = window.PlaygroundApi ? window.PlaygroundApi.users() : "/api/v1/users";
+    const response = await fetch(usersApi, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: apiHeaders(),
       body: JSON.stringify({ display_name }),
     });
     const payload = await response.json().catch(() => ({}));
@@ -69,9 +80,10 @@ async function login(event) {
   }
   if (submit) submit.disabled = true;
   try {
-    const response = await fetch(`/api/v1/users/${encodeURIComponent(userId)}`, {
+    const usersApi = window.PlaygroundApi ? window.PlaygroundApi.users() : "/api/v1/users";
+    const response = await fetch(`${usersApi}/${encodeURIComponent(userId)}`, {
       method: "GET",
-      headers: { "Content-Type": "application/json" },
+      headers: apiHeaders(),
     });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
@@ -117,7 +129,8 @@ async function forgetDeletedUser() {
     userId = "";
   }
   if (!userId) return;
-  const response = await fetch(`/api/v1/users/${encodeURIComponent(userId)}`).catch(() => null);
+  const usersApi = window.PlaygroundApi ? window.PlaygroundApi.users() : "/api/v1/users";
+  const response = await fetch(`${usersApi}/${encodeURIComponent(userId)}`).catch(() => null);
   if (response && response.status === 404) {
     localStorage.removeItem(STORAGE_KEY);
     window.location.replace("/playground");

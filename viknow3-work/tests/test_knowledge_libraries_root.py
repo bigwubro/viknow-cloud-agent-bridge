@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from viknow3.application.hyperrag.ops_bootstrap import _knowledge_libraries_root
+from viknow3.service.hyperrag.ops_bootstrap import _knowledge_libraries_root
 
 
 class KnowledgeLibrariesRootTests(unittest.TestCase):

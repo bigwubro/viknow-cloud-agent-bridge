@@ -23,7 +23,8 @@ if [[ "${VIKNOW_PRIVATE_BASE_URL:-}" == http://*":8443"* ]]; then
   export VIKNOW_PRIVATE_BASE_URL="https://${VIKNOW_PRIVATE_BASE_URL#http://}"
 fi
 # deploy.env carries VIKNOW_PRIVATE_* (same Qwen/LiteLLM path as viknow2-test :5175).
-export VIKNOW3_ENV_FILE="${VIKNOW3_ENV_FILE:-/home/cursor-agent/viknow3/pg-demo.env:/home/cursor-agent/deploy.env:/home/cursor-agent/.viknow3/ops.env}"
+# deepagents-langfuse.env holds only the viknow3-deepagents Langfuse project keys.
+export VIKNOW3_ENV_FILE="${VIKNOW3_ENV_FILE:-/home/cursor-agent/viknow3/pg-demo.env:/home/cursor-agent/deploy.env:/home/cursor-agent/.viknow3/ops.env:/home/cursor-agent/.viknow3/deepagents-langfuse.env}"
 export VIKNOW3_APP_KEY="${VIKNOW3_APP_KEY:-$(grep -m1 '^VIKNOW3_APP_KEY=' /home/cursor-agent/viknow3/demo.env 2>/dev/null | cut -d= -f2-)}"
 export VIKNOW_UI_HOST="${VIKNOW_UI_HOST:-0.0.0.0}"
 PLAYGROUND_DATA_ROOT="${VIKNOW_PLAYGROUND_DATA_ROOT:-/data/viknow/knowledge/libraries/playground-cursor-agent}"

@@ -1,9 +1,19 @@
 const PlaygroundAgent = (() => {
   const STORAGE_KEY = "viknow_playground_user";
+  const APP_KEY_STORAGE = "viknow_app_key";
   const agentApi = () => (window.PlaygroundApi ? window.PlaygroundApi.agent() : "/api/v1/agent");
   const knowledgeApi = () => (window.PlaygroundApi ? window.PlaygroundApi.knowledge() : "/api/v1/knowledge");
 
   const AGENTS_NEED_LIBRARY = new Set(["expertbuddy-deepagents", "expertbuddy-adk"]);
+
+  function apiHeaders(extra = {}) {
+    const headers = { ...extra };
+    const key = (localStorage.getItem(APP_KEY_STORAGE) || window.VIKNOW_APP_KEY || "").trim();
+    if (key) {
+      headers["X-App-Key"] = key;
+    }
+    return headers;
+  }
 
   function detailMessage(payload) {
     if (!payload || typeof payload !== "object") return "请求失败";
@@ -20,7 +30,7 @@ const PlaygroundAgent = (() => {
 
   async function api(path, options = {}) {
     const response = await fetch(path, {
-      headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+      headers: apiHeaders({ "Content-Type": "application/json", ...(options.headers || {}) }),
       ...options,
     });
     const payload = await response.json().catch(() => ({}));
@@ -1050,7 +1060,9 @@ const PlaygroundAgent = (() => {
   }
 
   async function consumeRunEvents(agentId, sessionId, runId, handlers) {
-    const response = await fetch(`${sessionPath(agentId, sessionId)}/runs/${encodeURIComponent(runId)}/events`);
+    const response = await fetch(`${sessionPath(agentId, sessionId)}/runs/${encodeURIComponent(runId)}/events`, {
+      headers: apiHeaders(),
+    });
     if (!response.ok) {
       throw new Error("无法订阅 run events");
     }
@@ -1101,6 +1113,7 @@ const PlaygroundAgent = (() => {
       : `${agentApi()}/agents/${encodeURIComponent(agentId)}/sessions`;
     const response = await fetch(target, {
       method: "POST",
+      headers: apiHeaders(),
       body: form,
     });
     const payload = await response.json().catch(() => ({}));

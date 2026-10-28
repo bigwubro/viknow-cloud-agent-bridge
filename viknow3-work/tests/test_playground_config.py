@@ -14,12 +14,12 @@ class PlaygroundConfigTests(unittest.TestCase):
         with patch.dict(
             os.environ,
             {
-                "VIKNOW_STORAGE_BROWSER_URL": "http://36.103.198.236:8090",
-                "VIKNOW_STORAGE_URL": "http://127.0.0.1:8090",
+                "VIKNOW_STORAGE_BROWSER_URL": "http://36.103.198.236:5219",
+                "VIKNOW_STORAGE_URL": "http://127.0.0.1:5219",
             },
             clear=False,
         ):
-            self.assertEqual(browser_storage_url(), "http://36.103.198.236:8090")
+            self.assertEqual(browser_storage_url(), "http://36.103.198.236:5219")
 
     def test_does_not_expose_loopback_storage_to_browser(self) -> None:
         with patch.dict(
@@ -28,7 +28,7 @@ class PlaygroundConfigTests(unittest.TestCase):
                 "VIKNOW_STORAGE_BROWSER_URL": "",
                 "VIKNOW_STORAGE_PUBLIC_URL": "",
                 "VIKNOW_STORAGE_PUBLIC_HOST": "",
-                "VIKNOW_STORAGE_URL": "http://127.0.0.1:8090",
+                "VIKNOW_STORAGE_URL": "http://127.0.0.1:5219",
             },
             clear=False,
         ):
@@ -39,14 +39,14 @@ class PlaygroundConfigTests(unittest.TestCase):
             os.environ,
             {
                 "VIKNOW_PLAYGROUND_API_URL": "http://36.103.198.236:5218",
-                "VIKNOW_STORAGE_BROWSER_URL": "http://36.103.198.236:8090",
+                "VIKNOW_STORAGE_BROWSER_URL": "http://36.103.198.236:5219",
                 "VIKNOW_STORAGE_TOKEN": "tok",
             },
             clear=False,
         ):
             js = playground_config_js()
         self.assertIn('window.VIKNOW_API_URL = "http://36.103.198.236:5218"', js)
-        self.assertIn('window.VIKNOW_STORAGE_URL = "http://36.103.198.236:8090"', js)
+        self.assertIn('window.VIKNOW_STORAGE_URL = "http://36.103.198.236:5219"', js)
         self.assertNotIn("5198/viknow-storage", js)
 
 

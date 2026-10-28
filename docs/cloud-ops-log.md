@@ -29,7 +29,16 @@
 
 ## 变更记录（倒序）
 
-### 2026-09-20 探测 Push ViKnow to ACR（跳过 CI / Deploy test）
+### 2026-10-28 viknow-storage 公网端口 8090→5219（236 demo）
+
+- 环境：SSH `cursor-agent@36.103.198.236`；Playground demo
+- 对象：ECS `36.103.198.236` 上 `viknow-storage` Docker 发布端口；Playground `VIKNOW_STORAGE_*`
+- 动作：将 host 映射由 `8090:8080` 改为 `5219:8080`（与 ViKnow API `:5218` 相邻）；更新 `pg-demo.env` 与 deploy 默认 `VIKNOW_STORAGE_PUBLIC_PORT=5219`
+- 结果：待公网 curl 验证（原 8090 安全组未放行导致浏览器超时）
+- 证据：`ss`/curl（无密钥）
+- 回滚：compose 改回 `VIKNOW_STORAGE_HTTP_PORT=8090` 并 `docker compose up -d`
+
+---
 
 - 环境：SSH `cursor-agent@36.103.198.236`；Gitea runner 用户 `cursor-agent`；viknow2 `HEAD` `d3f41894eb37`
 - 对象：ACR 杭州 `registry.cn-hangzhou.aliyuncs.com` / 命名空间 `litesense` / 仓库 `viknow2-app:d3f41894eb37`

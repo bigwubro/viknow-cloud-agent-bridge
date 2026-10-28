@@ -19,7 +19,7 @@ def browser_storage_url() -> str:
         if value:
             return value
     public_host = os.environ.get("VIKNOW_STORAGE_PUBLIC_HOST", "").strip()
-    public_port = os.environ.get("VIKNOW_STORAGE_PUBLIC_PORT", "").strip() or "8090"
+    public_port = os.environ.get("VIKNOW_STORAGE_PUBLIC_PORT", "").strip() or "5219"
     if public_host:
         scheme = os.environ.get("VIKNOW_STORAGE_PUBLIC_SCHEME", "http").strip() or "http"
         return f"{scheme}://{public_host}:{public_port}".rstrip("/")

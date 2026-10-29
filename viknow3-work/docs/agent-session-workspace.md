@@ -60,7 +60,7 @@ finalize_session_run(session_id)
 
 - 磁盘：按 session 配额与定期清理 `sessions/*/workspace`（保留 access 元数据即可重建 uploads）。
 - 观测：run 日志带 `session_id`；`finalize` 返回写入 artifact 数量。
-- 236 Playground：`VIKNOW_AGENT_WORKSPACE_ROOT` 默认 `/data/viknow/playground/agent-workspaces`（见 `deploy/236/env/api.env`）。
+- 236 部署示例：`VIKNOW_AGENT_WORKSPACE_ROOT=/data/viknow/agent-workspaces`（见 `deploy/236/env/api.env`）。
 
 ## 会话消息（`session_messages`）
 

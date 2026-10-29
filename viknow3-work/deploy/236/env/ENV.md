@@ -61,6 +61,18 @@ Playground **产品** = 浏览器静态页 + 调用 ViKnow API；**不负责** H
 
 **Playground 236 不使用飞书**：`VIKNOW_FEISHU_*` / `FEISHU_*` 从宿主机 merge 后由 refresh **删除**（见 `docs/project-boundary.md`）。
 
+**236 宿主机磁盘布局（`api.env`，与 Playground UI / Postgres `library_id` 无关）**：
+
+```text
+/data/viknow/                          # VIKNOW3_DATA_DIR
+/data/viknow/hyperrag-wd/              # VIKNOW3_LIBRARIES_ROOT（HyperRAG working_dir）
+/data/viknow/scratch/                  # VIKNOW_SCRATCH_DIR
+/data/viknow/agent-workspaces/         # VIKNOW_AGENT_WORKSPACE_ROOT
+  sessions/{session_id}/workspace/…
+```
+
+旧路径 `…/knowledge/libraries/playground-cursor-agent/…` 与 `…/playground/…` 已废弃。
+
 ## `secrets.env`
 
 见 `secrets.env.example`。典型必填：

@@ -66,6 +66,8 @@ Playground **产品** = 浏览器静态页 + 调用 ViKnow API；**不负责** H
   sessions/{session_id}/workspace/…
 ```
 
+宿主机 DSN 合并源（不提交真实 `pg-demo.env`）：示例 **`deploy/236/env/pg-demo.env.example`**（236 常见 `/home/cursor-agent/viknow3/pg-demo.env`）。
+
 ## `secrets.env`
 
 见 `secrets.env.example`。典型必填：

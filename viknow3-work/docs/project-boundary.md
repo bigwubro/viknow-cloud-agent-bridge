@@ -12,7 +12,6 @@
 | 接入层 API | `src/viknow3/`、`python -m viknow3` |
 | Playground UI | `ui/`、`python -m ui.server` |
 | Playground 236 部署 | `deploy/236/`（应用容器与 env 文件） |
-| Demo 接入层容器（可选） | `deploy/demo/` → `viknow3-demo` :5197 |
 | 运维配置 | `VIKNOW_OPS_DSN` → ops 表（连接信息由 **外部 PG 上的 viknow_ops** 提供） |
 
 ## 在本仓之外
@@ -27,7 +26,6 @@
 
 ```text
 deploy/236/   → viknow3-playground（5198 UI + 5218 API）
-deploy/demo/  → viknow3-demo（5197，可选）
 ```
 
 ## 新增配置 checklist

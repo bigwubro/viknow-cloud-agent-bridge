@@ -60,11 +60,10 @@ curl -s -H "Authorization: Bearer dev-app-key" -H "Content-Type: application/jso
   http://127.0.0.1:5199/api/v1/knowledge/search
 ```
 
-## Docker demo（viknow3-demo）
+## Playground 236 容器
 
-镜像需包含 `requirements-hyperrag.txt`，并设置：
+见 [`deploy/236/README.md`](../../deploy/236/README.md) 与 [`docs/playground-236-container-deploy.md`](../playground-236-container-deploy.md)。镜像含 `requirements-hyperrag.txt`，env 为 `api.env` + `secrets.env` + `ui.env`（`VIKNOW_OPS_DSN` / 业务 DSN 在 secrets）。
 
-- `VIKNOW_OPS_DSN` / `VIKNOW_OPS_SECRET`（以及 access / hyperrag 业务库 DSN 若与 demo 一致）
 - `VIKNOW3_DATA_DIR=/data/viknow`，`VIKNOW3_LIBRARIES_ROOT=/data/viknow/hyperrag-wd`（HyperRAG `working_dir`）
 
 **不要**再挂载仓库内的 `config/hyperrag.yml`。

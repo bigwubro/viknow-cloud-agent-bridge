@@ -65,16 +65,16 @@ def enrich_schema(schema: dict) -> dict:
         }
     )
     schema["tags"] = TAG_META
-    port = os.environ.get("VIKNOW_DOCS_PORT", os.environ.get("VIKNOW_PORT", "5197"))
+    port = os.environ.get("VIKNOW_DOCS_PORT", os.environ.get("VIKNOW_PORT", "5218"))
     public_host = os.environ.get("VIKNOW_DOCS_PUBLIC_HOST", "36.103.198.236")
     schema["servers"] = [
         {
             "url": f"http://{public_host}:{port}",
-            "description": "236 viknow3 接入层（demo 默认 VIKNOW_PORT=5197；5175 为 viknow2-test）",
+            "description": "236 Playground ViKnow API（默认 VIKNOW_PORT=5218；5175 为 viknow2-test）",
         },
         {
             "url": f"http://127.0.0.1:{port}",
-            "description": "本机接入层（与 deploy/demo/runtime.env 一致）",
+            "description": "本机 Playground API（与 deploy/236/env/api.env 一致）",
         },
     ]
     for path, methods in schema.get("paths", {}).items():

@@ -21,7 +21,7 @@ def _postgres_base_from_files() -> str | None:
     repo = Path(__file__).resolve().parents[1]
     candidates = [
         Path.home() / ".viknow3" / "ops.env",
-        repo / "deploy" / "demo" / "pg-demo.env",
+        repo / "deploy" / "236" / "env" / "pg-demo.env",
     ]
     for path in candidates:
         if not path.is_file():
@@ -55,7 +55,7 @@ def apply() -> None:
         if not password:
             raise RuntimeError(
                 "Set VIKNOW_TEST_PG_PASSWORD or VIKNOW_TEST_PG_BASE, "
-                "or provide DSN prefix in ~/.viknow3/ops.env or deploy/demo/pg-demo.env "
+                "or provide DSN prefix in ~/.viknow3/ops.env or deploy/236/env/pg-demo.env "
                 "(Postgres must be provisioned outside viknow3; see docs/external-infra.md)"
             )
         user = os.environ.get("VIKNOW_TEST_PG_USER", "viknow_ops")

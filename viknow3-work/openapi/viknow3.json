@@ -3134,12 +3134,12 @@
   ],
   "servers": [
     {
-      "url": "http://36.103.198.236:5197",
-      "description": "236 viknow3 接入层（demo 默认 VIKNOW_PORT=5197；5175 为 viknow2-test）"
+      "url": "http://36.103.198.236:5218",
+      "description": "236 Playground ViKnow API（默认 VIKNOW_PORT=5218；5175 为 viknow2-test）"
     },
     {
-      "url": "http://127.0.0.1:5197",
-      "description": "本机接入层（与 deploy/demo/runtime.env 一致）"
+      "url": "http://127.0.0.1:5218",
+      "description": "本机 Playground API（与 deploy/236/env/api.env 一致）"
     }
   ]
 }

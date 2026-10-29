@@ -21,7 +21,7 @@ HyperRAG 运行时从 **ops 表** 解析 Redis/Neo4j/embedding，**不要**在 v
 
 ## 单测
 
-设置 `VIKNOW_TEST_PG_PASSWORD` 或 `VIKNOW_TEST_PG_BASE`，或在本机 `~/.viknow3/ops.env` / `deploy/demo/pg-demo.env` 中提供 DSN 前缀；测试库名后缀 `*_test`（见 `tests/pg_test_env.py`）。**单测不会启动数据库。**
+设置 `VIKNOW_TEST_PG_PASSWORD` 或 `VIKNOW_TEST_PG_BASE`，或在本机 `~/.viknow3/ops.env` / 宿主机 `pg-demo.env`（示例 `deploy/236/env/pg-demo.env.example`）中提供 DSN 前缀；测试库名后缀 `*_test`（见 `tests/pg_test_env.py`）。**单测不会启动数据库。**
 
 ## 手工 SQL（可选）
 

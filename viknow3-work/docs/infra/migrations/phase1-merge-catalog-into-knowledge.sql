@@ -1,6 +1,6 @@
 -- Phase 1: catalog in viknow3_knowledge (no app_key tenancy).
 -- Imports from viknow_hyperrag when catalog tables are empty.
--- Stop viknow3-demo / indexing workers before running on shared dev.
+-- Stop viknow3-playground / indexing workers before running on shared dev.
 --
 --   psql "$VIKNOW_HYPERRAG_DSN" -v ON_ERROR_STOP=1 -f docs/infra/migrations/phase1-merge-catalog-into-knowledge.sql
 

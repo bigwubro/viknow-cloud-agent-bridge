@@ -5,6 +5,5 @@
 | 目录 | 产物 |
 |------|------|
 | [`236/`](236/README.md) | Playground 容器 `viknow3-playground`（5198 + 5218） |
-| [`demo/`](demo/redeploy.sh) | 可选 `viknow3-demo`（5197） |
 
 边界：[`docs/project-boundary.md`](../docs/project-boundary.md)。

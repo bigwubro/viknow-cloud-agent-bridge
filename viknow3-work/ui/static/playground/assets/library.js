@@ -43,6 +43,34 @@ const PlaygroundLibrary = (() => {
     return payload;
   }
 
+  const VIDEO_SUFFIXES = new Set([".mp4", ".mov", ".mkv", ".webm"]);
+
+  function buildAssetPath(assetId, fileName) {
+    const name = String(fileName || "").trim();
+    const dot = name.lastIndexOf(".");
+    if (dot < 0) {
+      throw new Error("文件需要有扩展名");
+    }
+    const suffix = name.slice(dot).toLowerCase();
+    const uploadName = VIDEO_SUFFIXES.has(suffix)
+      ? `${assetId}.normalized${suffix}`
+      : `${assetId}${suffix}`;
+    return `knowledge/assets/${assetId}/upload/${uploadName}`;
+  }
+
+  async function storageMultipart(path, formData) {
+    const response = await fetch(viknowStorageUrl(path), {
+      method: "POST",
+      headers: viknowStorageHeaders(),
+      body: formData,
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(detailMessage(payload) || response.statusText);
+    }
+    return payload;
+  }
+
   function requireUser() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) {
@@ -109,16 +137,28 @@ const PlaygroundLibrary = (() => {
   }
 
   async function uploadLibraryFile(libraryId, file) {
+    const assetId = crypto.randomUUID();
+    const assetPath = buildAssetPath(assetId, file.name);
     const form = new FormData();
     form.append("file", file, file.name);
-    return apiMultipart(`${KNOWLEDGE}/libraries/${encodeURIComponent(libraryId)}/uploads/direct`, form);
+    form.append("asset_id", assetId);
+    form.append("title", file.name);
+    await storageMultipart(`/libraries/${encodeURIComponent(libraryId)}/assets`, form);
+    return {
+      asset_id: assetId,
+      asset_path: assetPath,
+      library_id: libraryId,
+      content_type: file.type || "application/octet-stream",
+    };
   }
 
   async function fetchAssetBlob(libraryId, assetId, kind) {
     const segment = kind === "preview" ? "preview" : "content";
     const resp = await fetch(
-      viknowApiUrl(`${KNOWLEDGE}/libraries/${encodeURIComponent(libraryId)}/assets/${encodeURIComponent(assetId)}/${segment}`),
-      { headers: viknowApiHeaders() },
+      viknowStorageUrl(
+        `/libraries/${encodeURIComponent(libraryId)}/assets/${encodeURIComponent(assetId)}/${segment}`,
+      ),
+      { headers: viknowStorageHeaders() },
     );
     if (!resp.ok) {
       const text = await resp.text();

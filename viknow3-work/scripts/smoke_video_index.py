@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""API-only smoke: tiny video → direct upload → asset → index-jobs → poll (default 5 min)."""
+"""API-only smoke: tiny video → storage upload → asset → index-jobs → poll (default 5 min)."""
 
 from __future__ import annotations
 
@@ -91,28 +91,29 @@ def prepare_tiny_video(dest: Path, repo_root: Path) -> Path:
     return dest
 
 
-def _multipart_direct_upload(
-    base: str,
+def _storage_upload(
+    storage_base: str,
+    storage_token: str,
     library_id: str,
-    app_key: str,
+    asset_id: str,
     filename: str,
     content: bytes,
     content_type: str,
 ) -> tuple[int, Any]:
     boundary = f"----viknow{uuid.uuid4().hex}"
-    disposition = f'form-data; name="file"; filename="{filename}"'
-    body = (
-        f"--{boundary}\r\n"
-        f"Content-Disposition: {disposition}\r\n"
-        f"Content-Type: {content_type}\r\n\r\n"
-    ).encode() + content + f"\r\n--{boundary}--\r\n".encode()
+    parts = [
+        f"--{boundary}\r\nContent-Disposition: form-data; name=\"asset_id\"\r\n\r\n{asset_id}\r\n",
+        f"--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"{filename}\"\r\n"
+        f"Content-Type: {content_type}\r\n\r\n",
+    ]
+    body = "".join(parts).encode() + content + f"\r\n--{boundary}--\r\n".encode()
     return _http(
         "POST",
-        f"{base}/api/v1/knowledge/libraries/{library_id}/uploads/direct",
-        headers=_auth_headers(
-            app_key,
-            {"Content-Type": f"multipart/form-data; boundary={boundary}"},
-        ),
+        f"{storage_base.rstrip('/')}/libraries/{library_id}/assets",
+        headers={
+            "Authorization": f"Bearer {storage_token}",
+            "Content-Type": f"multipart/form-data; boundary={boundary}",
+        },
         body=body,
     )
 
@@ -158,9 +159,14 @@ def poll_job(
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--base-url",
-        default=os.environ.get("VIKNOW_SMOKE_BASE_URL", "http://127.0.0.1:5198"),
+        "--api-base",
+        default=os.environ.get("VIKNOW_API_BASE", "http://127.0.0.1:5218"),
     )
+    parser.add_argument(
+        "--storage-url",
+        default=os.environ.get("VIKNOW_STORAGE_URL", "http://127.0.0.1:5219"),
+    )
+    parser.add_argument("--storage-token", default=os.environ.get("VIKNOW_STORAGE_TOKEN", ""))
     parser.add_argument("--app-key", default=os.environ.get("VIKNOW3_APP_KEY", ""))
     parser.add_argument("--repo-root", type=Path, default=ROOT)
     parser.add_argument("--timeout", type=float, default=300.0)
@@ -184,7 +190,20 @@ def main() -> int:
         print("VIKNOW3_APP_KEY is required", file=sys.stderr)
         return 2
 
-    base = args.base_url.rstrip("/")
+    storage_token = args.storage_token.strip()
+    if not storage_token:
+        secrets = ROOT / "deploy" / "236" / "env" / "secrets.env"
+        if secrets.is_file():
+            for line in secrets.read_text().splitlines():
+                if line.startswith("VIKNOW_STORAGE_TOKEN="):
+                    storage_token = line.split("=", 1)[1].strip()
+                    break
+    if not storage_token:
+        print("VIKNOW_STORAGE_TOKEN is required", file=sys.stderr)
+        return 2
+
+    api_base = args.api_base.rstrip("/")
+    storage_base = args.storage_url.rstrip("/")
     library_id = f"smoke-vid-{uuid.uuid4().hex[:10]}"
     video_path = Path("/tmp") / f"viknow-smoke-{uuid.uuid4().hex[:8]}.mp4"
     video_path = prepare_tiny_video(video_path, args.repo_root.resolve())
@@ -194,7 +213,7 @@ def main() -> int:
     body = json.dumps({"library_id": library_id, "title": f"Smoke video {library_id}"}).encode()
     status, created = _http(
         "POST",
-        f"{base}/api/v1/knowledge/libraries",
+        f"{api_base}/api/v1/knowledge/libraries",
         headers=_auth_headers(app_key, {"Content-Type": "application/json"}),
         body=body,
     )
@@ -203,22 +222,21 @@ def main() -> int:
         return 1
     print("library ok", flush=True)
 
-    status, uploaded = _multipart_direct_upload(
-        base,
+    asset_id = str(uuid.uuid4())
+    asset_path = f"knowledge/assets/{asset_id}/upload/{asset_id}.normalized.mp4"
+    status, uploaded = _storage_upload(
+        storage_base,
+        storage_token,
         library_id,
-        app_key,
+        asset_id,
         "smoke-tiny.mp4",
         content,
         "video/mp4",
     )
-    if status != 200 or not isinstance(uploaded, dict):
-        print(f"direct upload failed {status}: {uploaded}", file=sys.stderr)
+    if status not in (200, 201):
+        print(f"storage upload failed {status}: {uploaded}", file=sys.stderr)
         return 1
-    asset_id = str(uploaded.get("asset_id") or "")
-    asset_path = str(uploaded.get("asset_path") or "")
     print(f"upload asset_id={asset_id} path={asset_path}", flush=True)
-    if not asset_id or not asset_path:
-        return 1
 
     asset_body = json.dumps(
         {
@@ -230,7 +248,7 @@ def main() -> int:
     ).encode()
     status, asset = _http(
         "POST",
-        f"{base}/api/v1/knowledge/libraries/{library_id}/assets",
+        f"{api_base}/api/v1/knowledge/libraries/{library_id}/assets",
         headers=_auth_headers(app_key, {"Content-Type": "application/json"}),
         body=asset_body,
     )
@@ -250,7 +268,7 @@ def main() -> int:
     ).encode()
     status, job = _http(
         "POST",
-        f"{base}/api/v1/knowledge/index-jobs",
+        f"{api_base}/api/v1/knowledge/index-jobs",
         headers=_auth_headers(app_key, {"Content-Type": "application/json"}),
         body=job_body,
     )
@@ -263,7 +281,7 @@ def main() -> int:
         return 1
 
     try:
-        finished = poll_job(base, app_key, job_id, args.timeout, args.poll_interval)
+        finished = poll_job(api_base, app_key, job_id, args.timeout, args.poll_interval)
     except TimeoutError as exc:
         print(str(exc), file=sys.stderr)
         return 1

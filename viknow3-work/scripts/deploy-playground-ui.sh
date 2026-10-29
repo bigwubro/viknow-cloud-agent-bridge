@@ -81,11 +81,16 @@ load_ui_env() {
     echo "warn: missing $UI_ENV_FILE (see deploy/236/env/ENV.md)" >&2
   fi
   if [[ -f "$SECRETS_ENV_FILE" ]]; then
-    local key_line
+    local key_line token_line
     key_line="$(grep -m1 '^VIKNOW3_APP_KEY=' "$SECRETS_ENV_FILE" 2>/dev/null || true)"
     if [[ -n "$key_line" ]]; then
       VIKNOW3_APP_KEY="${key_line#*=}"
       export VIKNOW3_APP_KEY
+    fi
+    token_line="$(grep -m1 '^VIKNOW_STORAGE_TOKEN=' "$SECRETS_ENV_FILE" 2>/dev/null || true)"
+    if [[ -n "$token_line" ]]; then
+      VIKNOW_STORAGE_TOKEN="${token_line#*=}"
+      export VIKNOW_STORAGE_TOKEN
     fi
   fi
   set +a
@@ -243,6 +248,8 @@ start_ui() {
   nohup env PYTHONPATH="${PYTHONPATH}" \
     VIKNOW_UI_HOST="${VIKNOW_UI_HOST}" VIKNOW_UI_PORT="${VIKNOW_UI_PORT}" \
     VIKNOW_PLAYGROUND_API_URL="${VIKNOW_PLAYGROUND_API_URL}" \
+    VIKNOW_STORAGE_URL="${VIKNOW_STORAGE_URL:-}" \
+    VIKNOW_STORAGE_TOKEN="${VIKNOW_STORAGE_TOKEN:-}" \
     VIKNOW3_APP_KEY="${VIKNOW3_APP_KEY:-}" \
     "$PYTHON" -m ui.server >>"$UI_LOG" 2>&1 &
   echo $! >"$UI_PIDFILE"

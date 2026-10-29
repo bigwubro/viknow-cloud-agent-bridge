@@ -31,8 +31,9 @@ Playground **产品** = 浏览器静态页 + 调用 ViKnow API；**不负责** H
 | `VIKNOW_UI_HOST` | UI 监听地址 |
 | `VIKNOW_UI_PORT` | UI 端口（236 默认 `5198`） |
 | `VIKNOW_PLAYGROUND_API_URL` | 浏览器访问的 ViKnow API 根 URL |
+| `VIKNOW_STORAGE_URL` | 浏览器直连 **viknow-storage** 的根 URL（需 CORS 允许 Playground Origin） |
 
-`VIKNOW3_APP_KEY` 只在 **`secrets.env`**，由 entrypoint 传给 UI 生成 `runtime-config.js`；API 接受 **`Authorization: Bearer <key>`** 或 **`X-App-Key`**（与 Playground `api-base.js` 一致）。
+`VIKNOW3_APP_KEY` 与 **`VIKNOW_STORAGE_TOKEN`** 在 **`secrets.env`**，由 UI 进程注入 `runtime-config.js`（Playground JS 调 API 用 `X-App-Key`，调 storage 用 `Authorization: Bearer`）。**当前 demo 允许 token 进浏览器；后续可改为短 token。**
 
 ## `api.env`（236 Playground 容器）
 
@@ -40,7 +41,7 @@ Playground **产品** = 浏览器静态页 + 调用 ViKnow API；**不负责** H
 |------|------|
 | `VIKNOW_HOST` / `VIKNOW_PORT` | API 监听（5218） |
 | `VIKNOW_CORS_ORIGINS` | API 允许 Playground UI Origin |
-| `VIKNOW_STORAGE_URL` | viknow-storage HTTP（**仅** API 服务端；与 `VIKNOW_STORAGE_TOKEN` 成对） |
+| `VIKNOW_STORAGE_URL` | viknow-storage（**API 服务端**，常 `127.0.0.1:5219`；浏览器用 `ui.env` 里的对外 URL） |
 | `VIKNOW3_DATA_DIR` | MinerU wrapper 等数据根 |
 | `VIKNOW3_LIBRARIES_ROOT` | 知识库目录 |
 | `VIKNOW_SCRATCH_DIR` | HyperRAG scratch / object gateway |
@@ -50,7 +51,9 @@ Playground **产品** = 浏览器静态页 + 调用 ViKnow API；**不负责** H
 | `HYPERRAG_TEST_IMAGE` | `scripts/mineru-docker-wrapper` 镜像 |
 | `ACTIO_SERVER_URL` | Actio 服务（236 固定 `127.0.0.1:8600`） |
 
-**禁止**：viknow3 进程 **不得** 直连 MinIO/S3；**不要** 配置 `VIKNOW_S3_PUBLIC_ENDPOINT` 或 `VIKNOW_STORAGE_PUBLIC_*`。浏览器预览/下载走 **5218 API** → viknow-storage。
+**对象存储**：Playground **浏览器**上传/预览/下载 **直连 viknow-storage**（`ui.env` + `runtime-config.js`）。viknow3 **不提供** `uploads/direct` 或 `…/preview|content` 代理路由；catalog 用 `POST …/assets` + 服务端 `asset_exists` 校验。API 索引时仍用 server token 从 storage 拉 scratch。
+
+**禁止**：viknow3 进程 **不得** 直连 MinIO/S3；**不要** 配置 `VIKNOW_S3_PUBLIC_ENDPOINT` 或 `VIKNOW_STORAGE_PUBLIC_*`。
 
 **已移除、代码不读的键（勿再加回）**：`VIKNOW_S3_PUBLIC_ENDPOINT`、`VIKNOW_STORAGE_PUBLIC_*`、`VIKNOW_STORAGE_BROWSER_URL`、`VIKNOW_E2E_MINERU_WRAPPER`（由部署脚本运行时设置）、与 Dockerfile 重复的 `PYTHONPATH` / `VIKNOW3_ROOT` / `VIKNOW_HYPERRAG_REPO_ROOT` / `VIKNOW_MINERU_BIN_DIR`。
 

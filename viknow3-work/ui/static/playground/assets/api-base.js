@@ -25,4 +25,31 @@
     }
     return headers;
   };
+
+  const storageRaw = typeof window.VIKNOW_STORAGE_URL === "string" ? window.VIKNOW_STORAGE_URL : "";
+  const storageBase = storageRaw.replace(/\/$/, "");
+
+  window.viknowStorageUrl = function viknowStorageUrl(path) {
+    const suffix = path.startsWith("/") ? path : `/${path}`;
+    if (!storageBase) {
+      throw new Error("VIKNOW_STORAGE_URL is not configured in runtime-config.js");
+    }
+    return `${storageBase}${suffix}`;
+  };
+
+  window.viknowStorageToken = function viknowStorageToken() {
+    if (typeof window.VIKNOW_STORAGE_TOKEN === "string" && window.VIKNOW_STORAGE_TOKEN.trim()) {
+      return window.VIKNOW_STORAGE_TOKEN.trim();
+    }
+    return "";
+  };
+
+  window.viknowStorageHeaders = function viknowStorageHeaders(extra) {
+    const headers = { ...(extra || {}) };
+    const token = window.viknowStorageToken();
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+    return headers;
+  };
 })();

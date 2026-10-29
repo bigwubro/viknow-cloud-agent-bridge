@@ -48,27 +48,6 @@ def upload_bytes(library_id: str, file_name: str, payload: bytes, *, asset_id: s
         raise RuntimeError(str(exc.detail)) from exc
 
 
-def download_bytes(library_id: str, asset_id: str) -> bytes:
-    require_storage()
-    client = get_storage_client()
-    try:
-        return client.download(library_id, asset_id)
-    except StorageClientError as exc:
-        raise RuntimeError(str(exc.detail)) from exc
-
-
-def fetch_preview(library_id: str, asset_id: str) -> tuple[bytes, str]:
-    require_storage()
-    client = get_storage_client()
-    try:
-        response = client._http.get(f"/libraries/{library_id}/assets/{asset_id}/preview")
-        client._raise(response)
-        ctype = response.headers.get("content-type") or "application/octet-stream"
-        return response.content, ctype
-    except StorageClientError as exc:
-        raise RuntimeError(str(exc.detail)) from exc
-
-
 def storage_error_to_http(exc: Exception) -> tuple[int, str]:
     if isinstance(exc, StorageClientError):
         detail = exc.detail

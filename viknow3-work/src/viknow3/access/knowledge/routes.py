@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from fastapi import APIRouter, Depends, File, Request, Response, UploadFile
+from fastapi import APIRouter, Depends, Request
 
 from viknow3.access.auth import AppKey, require_app
 from viknow3.access.knowledge import service
@@ -81,23 +81,6 @@ def library_assets_index_status_batch(
     return service.list_library_assets_index_status(library_id, limit)
 
 
-@router.post("/libraries/{library_id}/uploads/direct")
-async def direct_library_upload(
-    library_id: str,
-    file: UploadFile = File(...),
-    app_key: AppKey = Depends(require_app),
-) -> dict[str, Any]:
-    """Upload via viknow-storage (API multipart; no browser presign to MinIO)."""
-
-    del app_key
-    return service.upload_library_file(
-        library_id,
-        file.filename or "",
-        file.file,
-        file.content_type or "application/octet-stream",
-    )
-
-
 @router.get("/libraries/{library_id}/assets/{asset_id}/index-status")
 def asset_index_status(
     library_id: str,
@@ -116,17 +99,3 @@ def latest_asset_index_job(
 ) -> dict[str, Any]:
     del app_key
     return service.get_latest_asset_index_job(library_id, asset_id)
-
-
-@router.get("/libraries/{library_id}/assets/{asset_id}/preview")
-def asset_preview(library_id: str, asset_id: str, app_key: AppKey = Depends(require_app)) -> Response:
-    del app_key
-    payload, media_type = service.stream_asset_preview(library_id, asset_id)
-    return Response(content=payload, media_type=media_type)
-
-
-@router.get("/libraries/{library_id}/assets/{asset_id}/content")
-def asset_content(library_id: str, asset_id: str, app_key: AppKey = Depends(require_app)) -> Response:
-    del app_key
-    payload, media_type = service.stream_asset_content(library_id, asset_id)
-    return Response(content=payload, media_type=media_type)

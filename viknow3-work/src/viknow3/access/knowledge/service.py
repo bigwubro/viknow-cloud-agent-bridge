@@ -5,7 +5,6 @@ from __future__ import annotations
 import re
 from pathlib import Path
 from typing import Any
-from uuid import uuid4
 
 from viknow3.access.knowledge import storage_bridge, store
 from viknow3.service.storage.gateway import get_storage_client, storage_configured
@@ -131,63 +130,6 @@ def build_asset_path(asset_id: str, file_name: str) -> str:
     else:
         upload_name = f"{asset_id}{suffix}"
     return f"knowledge/assets/{asset_id}/upload/{upload_name}"
-
-
-def upload_library_file(library_id: str, file_name: str, stream: Any, content_type: str) -> dict[str, Any]:
-    """Multipart upload: API writes to viknow-storage (browser never talks to MinIO)."""
-
-    get_library(library_id)
-    name = str(file_name or "").strip()
-    if not name:
-        raise KnowledgeError(422, {"detail": [{"loc": ["file"], "msg": "file name is required", "type": "missing"}]})
-    aid = str(uuid4())
-    path = build_asset_path(aid, name)
-    payload = stream.read()
-    if not payload:
-        raise KnowledgeError(422, {"detail": [{"loc": ["file"], "msg": "file is empty", "type": "value_error"}]})
-    try:
-        storage_bridge.upload_bytes(library_id, name, payload, asset_id=aid, content_type=content_type or "application/octet-stream")
-    except Exception as exc:
-        status, detail = storage_bridge.storage_error_to_http(exc)
-        raise KnowledgeError(status, {"detail": detail}) from exc
-    return {
-        "asset_id": aid,
-        "asset_path": path,
-        "library_id": library_id,
-        "content_type": content_type or "application/octet-stream",
-    }
-
-
-def stream_asset_preview(library_id: str, asset_id: str) -> tuple[bytes, str]:
-    get_library(library_id)
-    if store.get_asset(library_id, asset_id) is None:
-        raise KnowledgeError(404, {"detail": "asset not found"})
-    try:
-        return storage_bridge.fetch_preview(library_id, asset_id)
-    except Exception as exc:
-        status, detail = storage_bridge.storage_error_to_http(exc)
-        raise KnowledgeError(status, {"detail": detail}) from exc
-
-
-def stream_asset_content(library_id: str, asset_id: str) -> tuple[bytes, str]:
-    get_library(library_id)
-    asset = store.get_asset(library_id, asset_id)
-    if asset is None:
-        raise KnowledgeError(404, {"detail": "asset not found"})
-    try:
-        payload = storage_bridge.download_bytes(library_id, asset_id)
-    except Exception as exc:
-        status, detail = storage_bridge.storage_error_to_http(exc)
-        raise KnowledgeError(status, {"detail": detail}) from exc
-    suffix = Path(asset.asset_path).suffix.lower()
-    ctype = "application/octet-stream"
-    if suffix == ".pdf":
-        ctype = "application/pdf"
-    elif suffix in {".png", ".jpg", ".jpeg", ".gif", ".webp"}:
-        ctype = f"image/{suffix.lstrip('.')}"
-    elif suffix in _VIDEO_SUFFIXES:
-        ctype = f"video/{suffix.lstrip('.')}"
-    return payload, ctype
 
 
 def get_asset_index_status(library_id: str, asset_id: str) -> dict[str, Any]:

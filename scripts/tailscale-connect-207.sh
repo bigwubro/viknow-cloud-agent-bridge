@@ -2,7 +2,12 @@
 # Join Tailscale tailnet from Cloud Agent VM (no systemd) and verify path to 207 / qx-ai-07.
 set -euo pipefail
 
-AUTH_KEY="${VIKNOW_TAILSCALE_AUTH_KEY:?set VIKNOW_TAILSCALE_AUTH_KEY in environment secrets (reusable install key)}"
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+AUTH_MD="$ROOT/docs/207-tailscale-auth.md"
+if [[ -z "${VIKNOW_TAILSCALE_AUTH_KEY:-}" && -f "$AUTH_MD" ]]; then
+  VIKNOW_TAILSCALE_AUTH_KEY="$(grep -oE 'tskey-auth-[A-Za-z0-9-]+' "$AUTH_MD" | head -1)"
+fi
+AUTH_KEY="${VIKNOW_TAILSCALE_AUTH_KEY:?set VIKNOW_TAILSCALE_AUTH_KEY or docs/207-tailscale-auth.md}"
 HOSTNAME="${VIKNOW_TAILSCALE_HOSTNAME:-cursor-cloud-viknow-agent}"
 SOCK="/var/run/tailscale/tailscaled.sock"
 STATE="/var/lib/tailscale/tailscaled.state"

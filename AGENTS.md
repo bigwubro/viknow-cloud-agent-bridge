@@ -152,7 +152,7 @@ sudo tailscale status   # 例：100.101.46.52  qx-ai-07
 
 **Cloud Agent 侧**
 
-1. 环境 Secret：`VIKNOW_TAILSCALE_AUTH_KEY`（**可重复使用的 install key**，勿提交仓库；与 207 节点 key 分开签发更安全）
+1. Tailscale install key：见 [`docs/207-tailscale-auth.md`](docs/207-tailscale-auth.md)（`scripts/tailscale-connect-207.sh` 在未设置 `VIKNOW_TAILSCALE_AUTH_KEY` 时会从该文件读取）
 2. 可选：`VIKNOW207_SSH_PASSWORD` 或沿用 `VIKNOW_BASTION_SSH_PASSWORD`（SSH `wuzihan@100.101.46.52`）
 3. 本 VM **无 systemd** 时需手动起 `tailscaled`，再用 `tailscale up`：
 
@@ -171,4 +171,4 @@ bash scripts/ssh-207.sh 'hostname && ip -4 addr show tailscale0 eno1 | head -6'
 | `10.168.1.207` | 上表 + Admin 已批准 `10.168.1.0/24` subnet route |
 | 不经 Tailscale 直连 `10.168.1.207` | 不可行（私网） |
 
-**禁止**：把 Tailscale auth key、SSH 密码写入 `AGENTS.md`、提交或 `docs/cloud-ops-log.md`。
+**禁止**：把 **SSH 密码** 写入提交或 `docs/cloud-ops-log.md`。Tailscale install key 暂存于 `docs/207-tailscale-auth.md`（按负责人要求）；轮换后同步更新该文件。

@@ -89,7 +89,7 @@ class QaHarnessMiddleware(AgentMiddleware[AgentState[ResponseT], ContextT, Respo
         self._skill_path = skill_path
         self._skill_reminder_enabled = skill_reminder_enabled
 
-    def wrap_model_call(self, request: Any, handler: Any) -> Any:
+    def _prepare_model_request(self, request: Any) -> Any:
         harness = current_harness()
         if harness is not None and self._skill_reminder_enabled:
             reminder = render_skill_reminder(self._primary_skill, self._skill_path)
@@ -108,10 +108,15 @@ class QaHarnessMiddleware(AgentMiddleware[AgentState[ResponseT], ContextT, Respo
                     content = getattr(system, "content", "") or ""
                     if isinstance(content, str):
                         request = request.override(system_message=type(system)(content=content + extra))
+        return request
+
+    def wrap_model_call(self, request: Any, handler: Any) -> Any:
+        request = self._prepare_model_request(request)
         return handler(request)
 
     async def awrap_model_call(self, request: Any, handler: Any) -> Any:
-        return self.wrap_model_call(request, handler)
+        request = self._prepare_model_request(request)
+        return await handler(request)
 
     def wrap_tool_call(self, request: Any, handler: Any) -> ToolMessage | Any:
         harness = current_harness()

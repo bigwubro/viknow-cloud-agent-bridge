@@ -56,7 +56,7 @@ if not hr:
 
 pg = urlparse(hr)
 redis_pw = os.environ.get("REDIS_PASSWORD", "")
-neo_pw = os.environ.get("NEO4J_PASSWORD", "")
+neo_pw = os.environ.get("VIKNOW_NEO4J_PASSWORD", "").strip() or os.environ.get("NEO4J_PASSWORD", "")
 
 with psycopg.connect(dsn) as conn:
     with conn.cursor() as cur:
@@ -79,8 +79,9 @@ with psycopg.connect(dsn) as conn:
             )
         if neo_pw:
             cur.execute(
-                "UPDATE neo4j_connection SET password=%s, updated_at=now() WHERE deleted_at IS NULL",
-                (_encrypt(neo_pw),),
+                """UPDATE neo4j_connection SET password=%s, uri=%s, username=%s, updated_at=now()
+                   WHERE deleted_at IS NULL""",
+                (_encrypt(neo_pw), "neo4j://127.0.0.1:17487", "neo4j"),
             )
     conn.commit()
 

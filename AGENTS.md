@@ -12,14 +12,24 @@
 ### 必做
 
 1. 用 Secret `VIKNOW_236_SSH_KEY` 写入 `~/.ssh/id_ed25519`（chmod 600）
-2. SSH：`cursor-agent@36.103.198.236`
-3. 进入容器：`docker exec -it viknow2-test-dev bash`（非交互可用 `docker exec viknow2-test-dev bash -lc '...'`）
-4. 在 `/workspace` 开发：
+2. **236 长连接（推荐）**：先起 SSH 复用主连接，后续命令不再每次 TCP/握手（Cloud Agent 同一次运行内有效）：
+
+```bash
+bash scripts/viknow236-ssh-master.sh   # 后台 ssh -fN，ControlMaster 保活 8h
+ssh 236 'echo ok'                      # 走 ~/.ssh/cm-* 复用
+ssh 236 'docker exec viknow2-test-dev bash -lc "..."'
+```
+
+`~/.ssh/config` 里应对 `36.103.198.236` 配置 `ControlMaster auto`、`ControlPersist 8h`、`ServerAliveInterval 30`。若主连接仍超时，在 236 上查 `sshd`/防火墙；HTTP `:5198` 通而 SSH 不通时多为 **22 端口策略**，不是 Playground 问题。
+
+3. SSH（短命令也可直接）：`cursor-agent@36.103.198.236` 或别名 **`ssh 236`**
+4. 进入容器：`docker exec -it viknow2-test-dev bash`（非交互可用 `docker exec viknow2-test-dev bash -lc '...'`）
+5. 在 `/workspace` 开发：
    - `git fetch origin`
    - `git checkout -B agent/<topic> origin/main`（或 rebase 到最新 `origin/main`）
    - 改代码、跑测试、`:5176` / 容器内 `:8000` 冒烟
    - `git commit` 后 `git push -u origin agent/<topic>`
-5. 结束时汇报：分支名、`git log --oneline origin/main..HEAD`、`git diff --stat origin/main...HEAD`
+6. 结束时汇报：分支名、`git log --oneline origin/main..HEAD`、`git diff --stat origin/main...HEAD`
 
 ### ViKnow Platform Playground（`:5198`）— 改完必 push + 部署
 

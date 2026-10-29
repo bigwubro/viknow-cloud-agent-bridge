@@ -1,7 +1,6 @@
 /* global PlaygroundLibrary */
 const PlaygroundLibrary = (() => {
   const STORAGE_KEY = "viknow_playground_user";
-  const APP_KEY_STORAGE = "viknow_app_key";
   const KNOWLEDGE = "/api/v1/knowledge";
   const INDEX_JOB_TERMINAL = new Set(["done", "failed", "cancelled", "completed"]);
   const INDEX_JOB_SUCCESS = new Set(["done", "completed"]);
@@ -17,19 +16,11 @@ const PlaygroundLibrary = (() => {
     return payload.message || "请求失败";
   }
 
-  function apiHeaders(extra = {}) {
-    const headers = { "Content-Type": "application/json", ...extra };
-    const key = (localStorage.getItem(APP_KEY_STORAGE) || window.VIKNOW_APP_KEY || "").trim();
-    if (key) {
-      headers["X-App-Key"] = key;
-    }
-    return headers;
-  }
-
   async function api(path, options = {}) {
-    const response = await fetch(path, {
+    const url = path.startsWith("http") ? path : viknowApiUrl(path);
+    const response = await fetch(url, {
       ...options,
-      headers: apiHeaders(options.headers || {}),
+      headers: viknowApiHeaders({ "Content-Type": "application/json", ...(options.headers || {}) }),
     });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
@@ -39,12 +30,12 @@ const PlaygroundLibrary = (() => {
   }
 
   async function apiMultipart(path, formData) {
-    const headers = {};
-    const key = (localStorage.getItem(APP_KEY_STORAGE) || window.VIKNOW_APP_KEY || "").trim();
-    if (key) {
-      headers["X-App-Key"] = key;
-    }
-    const response = await fetch(path, { method: "POST", headers, body: formData });
+    const url = path.startsWith("http") ? path : viknowApiUrl(path);
+    const response = await fetch(url, {
+      method: "POST",
+      headers: viknowApiHeaders(),
+      body: formData,
+    });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
       throw new Error(detailMessage(payload));

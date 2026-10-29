@@ -1,7 +1,5 @@
 const PlaygroundAgent = (() => {
   const STORAGE_KEY = "viknow_playground_user";
-  const AGENT_API = "/api/v1/agent";
-  const KNOWLEDGE_API = "/api/v1/knowledge";
 
   const AGENTS_NEED_LIBRARY = new Set([
     "deepagents",
@@ -24,8 +22,9 @@ const PlaygroundAgent = (() => {
   }
 
   async function api(path, options = {}) {
-    const response = await fetch(path, {
-      headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+    const url = path.startsWith("http") ? path : viknowApiUrl(path);
+    const response = await fetch(url, {
+      headers: { "Content-Type": "application/json", ...viknowApiHeaders(), ...(options.headers || {}) },
       ...options,
     });
     const payload = await response.json().catch(() => ({}));
@@ -383,12 +382,15 @@ const PlaygroundAgent = (() => {
   }
 
   function sessionPath(agentId, sessionId) {
-    return `${AGENT_API}/agents/${encodeURIComponent(agentId)}/sessions/${encodeURIComponent(sessionId)}`;
+    return viknowApiUrl(
+      `/api/v1/agent/agents/${encodeURIComponent(agentId)}/sessions/${encodeURIComponent(sessionId)}`,
+    );
   }
 
   async function consumeRunEvents(agentId, sessionId, runId, handlers, signal) {
     const response = await fetch(`${sessionPath(agentId, sessionId)}/runs/${encodeURIComponent(runId)}/events`, {
       signal,
+      headers: viknowApiHeaders(),
     });
     if (!response.ok) {
       throw new Error("无法订阅 run events");
@@ -437,9 +439,10 @@ const PlaygroundAgent = (() => {
     }
     const target = sessionId
       ? `${sessionPath(agentId, sessionId)}/runs`
-      : `${AGENT_API}/agents/${encodeURIComponent(agentId)}/sessions`;
+      : viknowApiUrl(`/api/v1/agent/agents/${encodeURIComponent(agentId)}/sessions`);
     const response = await fetch(target, {
       method: "POST",
+      headers: viknowApiHeaders(),
       body: form,
     });
     const payload = await response.json().catch(() => ({}));
@@ -460,7 +463,7 @@ const PlaygroundAgent = (() => {
     const list = document.querySelector("#agent-list");
     const empty = document.querySelector("#agent-list-empty");
     try {
-      const agents = await api(`${AGENT_API}/agents`);
+      const agents = await api(viknowApiUrl("/api/v1/agent/agents"));
       loading.hidden = true;
       if (!agents.length) {
         empty.hidden = false;
@@ -659,7 +662,9 @@ const PlaygroundAgent = (() => {
       sessionErrorEl.hidden = true;
       try {
         const rows = await api(
-          `${AGENT_API}/agents/${encodeURIComponent(agentId)}/sessions?user_id=${encodeURIComponent(userId)}&limit=50`,
+          viknowApiUrl(
+            `/api/v1/agent/agents/${encodeURIComponent(agentId)}/sessions?user_id=${encodeURIComponent(userId)}&limit=50`,
+          ),
         );
         sessionLoadingEl.hidden = true;
         if (!rows.length) {
@@ -736,7 +741,9 @@ const PlaygroundAgent = (() => {
 
     async function loadSessionHistory(targetSessionId) {
       const runs = await api(
-        `${AGENT_API}/agents/${encodeURIComponent(agentId)}/sessions/${encodeURIComponent(targetSessionId)}/runs?limit=100`,
+        viknowApiUrl(
+          `/api/v1/agent/agents/${encodeURIComponent(agentId)}/sessions/${encodeURIComponent(targetSessionId)}/runs?limit=100`,
+        ),
       );
       const ordered = [...runs].sort((a, b) => String(a.created_at || "").localeCompare(String(b.created_at || "")));
       const histories = await Promise.all(
@@ -787,7 +794,9 @@ const PlaygroundAgent = (() => {
       setLibrarySelection(null);
       try {
         const session = await api(
-          `${AGENT_API}/agents/${encodeURIComponent(agentId)}/sessions/${encodeURIComponent(targetSessionId)}`,
+          viknowApiUrl(
+            `/api/v1/agent/agents/${encodeURIComponent(agentId)}/sessions/${encodeURIComponent(targetSessionId)}`,
+          ),
         );
         applyLibraryFromSession(session.library_ids);
         await loadSessionHistory(targetSessionId);
@@ -864,7 +873,7 @@ const PlaygroundAgent = (() => {
       }
       pickerSection.hidden = false;
       try {
-        const rows = await api(`${KNOWLEDGE_API}/libraries?limit=100`);
+        const rows = await api(viknowApiUrl("/api/v1/knowledge/libraries?limit=100"));
         pickerLoading.hidden = true;
         if (!rows.length) {
           pickerEmpty.hidden = false;
@@ -929,7 +938,7 @@ const PlaygroundAgent = (() => {
 
     let agent;
     try {
-      agent = await api(`${AGENT_API}/agents/${encodeURIComponent(agentId)}`);
+      agent = await api(viknowApiUrl(`/api/v1/agent/agents/${encodeURIComponent(agentId)}`));
     } catch (error) {
       appendMessage(messages, "assistant", error.message || "无法加载智能体");
       return;
@@ -950,7 +959,7 @@ const PlaygroundAgent = (() => {
 
     let modelsPayload;
     try {
-      modelsPayload = await api(`${AGENT_API}/models`);
+      modelsPayload = await api(viknowApiUrl("/api/v1/agent/models"));
     } catch {
       modelsPayload = { default_model: agent.default_model, models: [] };
     }

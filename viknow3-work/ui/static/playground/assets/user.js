@@ -35,9 +35,9 @@ async function createUser() {
   clearError();
   try {
     const display_name = nameInput?.value?.trim() || null;
-    const response = await fetch("/api/v1/users", {
+    const response = await fetch(viknowApiUrl("/api/v1/users"), {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: viknowApiHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({ display_name }),
     });
     const payload = await response.json().catch(() => ({}));
@@ -69,9 +69,9 @@ async function login(event) {
   }
   if (submit) submit.disabled = true;
   try {
-    const response = await fetch(`/api/v1/users/${encodeURIComponent(userId)}`, {
+    const response = await fetch(viknowApiUrl(`/api/v1/users/${encodeURIComponent(userId)}`), {
       method: "GET",
-      headers: { "Content-Type": "application/json" },
+      headers: viknowApiHeaders({ "Content-Type": "application/json" }),
     });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
@@ -117,7 +117,9 @@ async function forgetDeletedUser() {
     userId = "";
   }
   if (!userId) return;
-  const response = await fetch(`/api/v1/users/${encodeURIComponent(userId)}`).catch(() => null);
+  const response = await fetch(viknowApiUrl(`/api/v1/users/${encodeURIComponent(userId)}`), {
+    headers: viknowApiHeaders(),
+  }).catch(() => null);
   if (response && response.status === 404) {
     localStorage.removeItem(STORAGE_KEY);
     window.location.replace("/playground");

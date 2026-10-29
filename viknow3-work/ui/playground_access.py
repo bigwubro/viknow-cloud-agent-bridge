@@ -1,4 +1,4 @@
-"""Mount access-layer API routes on Playground UI (same paths as access server)."""
+"""Deprecated: Playground UI no longer mounts access routes. Use `python -m viknow3` (VIKNOW_PORT) instead."""
 
 from __future__ import annotations
 

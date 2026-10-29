@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Fast deploy: Playground UI + knowledge BFF on 236 host (no container rebuild).
+# Playground on 236: thin UI (:5198) + ViKnow access API (:5218). HyperRAG/agent env only on API.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -108,23 +108,43 @@ ensure_playground_data_root() {
   }
 }
 export VIKNOW_UI_PORT="${VIKNOW_UI_PORT:-5198}"
-# deepagents needs Python >= 3.11; the 236 host python3 is 3.10, so the UI runs from this venv.
+export VIKNOW_API_PORT="${VIKNOW_API_PORT:-5218}"
+export VIKNOW_PORT="${VIKNOW_PORT:-$VIKNOW_API_PORT}"
+export VIKNOW_HOST="${VIKNOW_HOST:-0.0.0.0}"
+export VIKNOW_PLAYGROUND_API_URL="${VIKNOW_PLAYGROUND_API_URL:-http://127.0.0.1:${VIKNOW_API_PORT}}"
+# deepagents needs Python >= 3.11; the 236 host python3 is 3.10, so processes run from this venv.
 PYTHON="${VIKNOW_PYTHON:-/home/cursor-agent/viknow3/venv312/bin/python}"
 
-PIDFILE="${TMPDIR:-/tmp}/viknow-playground-ui.pid"
-LOG="${TMPDIR:-/tmp}/viknow-ui.log"
+UI_PIDFILE="${TMPDIR:-/tmp}/viknow-playground-ui.pid"
+API_PIDFILE="${TMPDIR:-/tmp}/viknow-playground-api.pid"
+UI_LOG="${TMPDIR:-/tmp}/viknow-ui.log"
+API_LOG="${TMPDIR:-/tmp}/viknow-api.log"
+
+stop_api() {
+  if command -v fuser >/dev/null 2>&1; then
+    fuser -k "${VIKNOW_API_PORT}/tcp" >/dev/null 2>&1 || true
+    sleep 0.5
+  fi
+  if [[ -f "$API_PIDFILE" ]]; then
+    old="$(cat "$API_PIDFILE" 2>/dev/null || true)"
+    if [[ -n "$old" ]] && kill -0 "$old" 2>/dev/null; then
+      kill "$old" 2>/dev/null || true
+    fi
+    rm -f "$API_PIDFILE"
+  fi
+}
 
 stop_ui() {
   if command -v fuser >/dev/null 2>&1; then
     fuser -k "${VIKNOW_UI_PORT}/tcp" >/dev/null 2>&1 || true
     sleep 0.5
   fi
-  if [[ -f "$PIDFILE" ]]; then
-    old="$(cat "$PIDFILE" 2>/dev/null || true)"
+  if [[ -f "$UI_PIDFILE" ]]; then
+    old="$(cat "$UI_PIDFILE" 2>/dev/null || true)"
     if [[ -n "$old" ]] && kill -0 "$old" 2>/dev/null; then
       kill "$old" 2>/dev/null || true
     fi
-    rm -f "$PIDFILE"
+    rm -f "$UI_PIDFILE"
   fi
 }
 
@@ -136,7 +156,7 @@ ensure_s3_public_endpoint() {
   fi
 }
 
-start_ui() {
+start_api() {
   ensure_playground_data_root
   mkdir -p "$VIKNOW_SCRATCH_DIR" "$VIKNOW_AGENT_WORKSPACE_ROOT" "$VIKNOW3_LIBRARIES_ROOT"
   load_env_files
@@ -147,44 +167,91 @@ start_ui() {
   export JIEBA_CACHE_DIR="${JIEBA_CACHE_DIR:-${VIKNOW_SCRATCH_DIR}/jieba-cache}"
   export TMPDIR="${TMPDIR:-${VIKNOW_SCRATCH_DIR}/tmp}"
   mkdir -p "$TMPDIR"
-  stop_ui
+  stop_api
   "$PYTHON" -c "import deepagents, deepagents_sandbox, langchain_openai, langgraph.checkpoint.postgres, psycopg_pool" || {
     echo "$PYTHON lacks the agent dependencies; install with: $PYTHON -m pip install -e $ROOT && $PYTHON -m pip install -e /home/cursor-agent/work/viknow2/external/deepagents-sandbox[langchain]"
     exit 1
   }
   nohup env PYTHONPATH="${PYTHONPATH}" VIKNOW3_ROOT="${VIKNOW3_ROOT}" VIKNOW3_ENV_FILE="${VIKNOW3_ENV_FILE:-}" \
+    VIKNOW_HOST="${VIKNOW_HOST}" VIKNOW_PORT="${VIKNOW_API_PORT}" \
     JIEBA_CACHE_DIR="${JIEBA_CACHE_DIR}" TMPDIR="${TMPDIR}" \
-    "$PYTHON" -m ui.server >>"$LOG" 2>&1 &
-  echo $! >"$PIDFILE"
+    "$PYTHON" -m viknow3 >>"$API_LOG" 2>&1 &
+  echo $! >"$API_PIDFILE"
   ready=0
-  for _ in $(seq 1 45); do
-    if curl -sf -o /dev/null "http://127.0.0.1:${VIKNOW_UI_PORT}/playground"; then
+  for _ in $(seq 1 60); do
+    if curl -sf -o /dev/null "http://127.0.0.1:${VIKNOW_API_PORT}/docs" || \
+       curl -sf -o /dev/null "http://127.0.0.1:${VIKNOW_API_PORT}/openapi.json"; then
+      ready=1
+      break
+    fi
+    if curl -sf -H "X-App-Key: ${VIKNOW3_APP_KEY:-dev-app-key}" -o /dev/null \
+      "http://127.0.0.1:${VIKNOW_API_PORT}/api/v1/agent/agents"; then
       ready=1
       break
     fi
     sleep 2
   done
   if [[ "$ready" != 1 ]]; then
-    echo "Playground failed to start; tail $LOG"
-    tail -20 "$LOG" || true
+    echo "ViKnow API failed to start; tail $API_LOG"
+    tail -30 "$API_LOG" || true
     exit 1
   fi
   if [[ -f "$ROOT/scripts/set-playground-s3-cors.py" ]] && [[ -n "${VIKNOW_OPS_DSN:-}" ]]; then
     "$PYTHON" "$ROOT/scripts/set-playground-s3-cors.py" || echo "warn: bucket CORS setup failed (browser presign PUT may fail)" >&2
   fi
-  echo "Playground UI http://127.0.0.1:${VIKNOW_UI_PORT}/playground (pid $(cat "$PIDFILE"))"
+  echo "ViKnow API http://127.0.0.1:${VIKNOW_API_PORT}/api/v1 (pid $(cat "$API_PIDFILE"))"
+}
+
+start_ui() {
+  load_env_files
+  stop_ui
+  nohup env PYTHONPATH="${PYTHONPATH}" \
+    VIKNOW_UI_HOST="${VIKNOW_UI_HOST}" VIKNOW_UI_PORT="${VIKNOW_UI_PORT}" \
+    VIKNOW_PLAYGROUND_API_URL="${VIKNOW_PLAYGROUND_API_URL}" \
+    VIKNOW3_APP_KEY="${VIKNOW3_APP_KEY:-}" \
+    "$PYTHON" -m ui.server >>"$UI_LOG" 2>&1 &
+  echo $! >"$UI_PIDFILE"
+  ready=0
+  for _ in $(seq 1 30); do
+    if curl -sf -o /dev/null "http://127.0.0.1:${VIKNOW_UI_PORT}/playground"; then
+      ready=1
+      break
+    fi
+    sleep 1
+  done
+  if [[ "$ready" != 1 ]]; then
+    echo "Playground UI failed to start; tail $UI_LOG"
+    tail -20 "$UI_LOG" || true
+    exit 1
+  fi
+  echo "Playground UI http://127.0.0.1:${VIKNOW_UI_PORT}/playground → API ${VIKNOW_PLAYGROUND_API_URL} (pid $(cat "$UI_PIDFILE"))"
+}
+
+start_all() {
+  start_api
+  start_ui
 }
 
 case "${1:-restart}" in
-  stop) stop_ui ;;
-  start) start_ui ;;
-  restart) start_ui ;;
+  stop)
+    stop_ui
+    stop_api
+    ;;
+  start-api) start_api ;;
+  start-ui) start_ui ;;
+  start) start_all ;;
+  restart) start_all ;;
   status)
-    if [[ -f "$PIDFILE" ]] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then
-      echo "running pid $(cat "$PIDFILE")"
+    if [[ -f "$API_PIDFILE" ]] && kill -0 "$(cat "$API_PIDFILE")" 2>/dev/null; then
+      echo "api running pid $(cat "$API_PIDFILE")"
     else
-      echo "stopped"
+      echo "api stopped"
+    fi
+    if [[ -f "$UI_PIDFILE" ]] && kill -0 "$(cat "$UI_PIDFILE")" 2>/dev/null; then
+      echo "ui running pid $(cat "$UI_PIDFILE")"
+    else
+      echo "ui stopped"
     fi
     ;;
-  *) echo "usage: $0 [restart|start|stop|status]" >&2; exit 2 ;;
+  *) echo "usage: $0 [restart|start|stop|start-api|start-ui|status]" >&2; exit 2 ;;
 esac

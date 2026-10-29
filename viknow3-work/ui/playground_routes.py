@@ -1,4 +1,4 @@
-"""Playground: no business BFF. Browser calls /api/v1/* (see playground_access mount)."""
+"""Playground: no business BFF. Legacy /ui/playground/* routes stay removed (404)."""
 
 from __future__ import annotations
 

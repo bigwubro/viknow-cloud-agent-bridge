@@ -35,5 +35,3 @@ On 236 host: `bash scripts/deploy-playground-ui.sh restart` starts API then UI.
 | `VIKNOW_UI_PORT` | `5198` | UI HTTP port |
 
 Browser session state is `localStorage` key `viknow_playground_user` (not a server session cookie).
-
-Legacy `ui/playground_access.py` (mounting `/api/v1` on the UI process) is deprecated; do not use it for new deployments.

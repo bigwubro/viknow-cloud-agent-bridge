@@ -67,7 +67,7 @@ class PlaygroundUserUiTests(unittest.TestCase):
         self.assertEqual(self.client.get("/api/v1/agent/agents").status_code, 404)
         self.assertEqual(self.client.post("/api/v1/users", json={"display_name": "x"}).status_code, 404)
 
-    def test_legacy_bff_removed(self) -> None:
+    def test_removed_ui_bff_routes(self) -> None:
         self.assertEqual(self.client.post("/ui/playground/users", json={"display_name": "x"}).status_code, 404)
         self.assertEqual(self.client.post("/ui/playground/login", json={"user_id": "x"}).status_code, 404)
         self.assertEqual(

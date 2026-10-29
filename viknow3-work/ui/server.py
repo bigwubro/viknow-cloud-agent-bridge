@@ -10,13 +10,10 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse, PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
-from ui.playground_routes import router as playground_router
-
 STATIC = Path(__file__).resolve().parent / "static"
 PLAYGROUND = STATIC / "playground"
 
 app = FastAPI(title="ViKnow Playground", docs_url=None, redoc_url=None)
-app.include_router(playground_router)
 
 
 @app.get("/playground/assets/runtime-config.js")

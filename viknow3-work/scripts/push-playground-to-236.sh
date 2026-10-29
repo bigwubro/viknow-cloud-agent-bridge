@@ -11,7 +11,6 @@ SSH=(ssh -i "$KEY" -o BatchMode=yes -o StrictHostKeyChecking=accept-new "$HOST")
 RSYNC=(rsync -az --delete -e "ssh -i $KEY -o BatchMode=yes -o StrictHostKeyChecking=accept-new")
 
 PATHS=(
-  ui/playground_routes.py
   ui/server.py
   ui/static/playground/
   src/viknow3/access/knowledge/

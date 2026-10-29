@@ -1,7 +1,7 @@
 # Playground 236 — 环境变量规范（方案 2）
 
 Playground **产品** = 浏览器静态页 + 调用 ViKnow API；**不负责** HyperRAG / 索引 / Agent / 存储实现。  
-环境文件按 **进程** 拆分，禁止再用单一 `playground.env` 混装 API 栈。
+环境文件按 **进程** 拆成 `ui.env`、`api.env`、`secrets.env`（见下表）。
 
 ## 文件与进程
 
@@ -70,7 +70,3 @@ Entrypoint 为 UI 额外设置的 **镜像引导**（不属于业务 env 文件�
 
 - `start-api`：`deploy/236/env/api.env` + `secrets.env` +（可选）`VIKNOW3_ENV_FILE` 链
 - `start-ui`：**仅** `deploy/236/env/ui.env` + 从 `secrets.env` 读取的 `VIKNOW3_APP_KEY`
-
-## 迁移
-
-原 `playground.env` 已废弃：内容拆为 `ui.env` + `api.env`。引用处见 `deploy/236/deploy.sh`。

@@ -16,7 +16,6 @@ Manual Gitea workflow **Playground 236** (`workflow_dispatch` on `main`):
 | `env/api.env` | **ViKnow API**: ports, CORS, storage, data paths, HyperRAG/Actio/MinerU |
 | `env/secrets.env` | DSNs, tokens, `VIKNOW3_APP_KEY` — **private Gitea only** |
 | `env/*.example` | Templates without secrets |
-| `env/playground.env` | **Deprecated** (empty pointer) |
 
 `docker run` loads **`api.env` → `secrets.env` → `ui.env`**.
 

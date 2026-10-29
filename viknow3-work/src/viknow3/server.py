@@ -56,8 +56,6 @@ def create_app() -> FastAPI:
         if origins:
             return origins
         return [
-            "http://127.0.0.1:5198",
-            "http://localhost:5198",
             "http://36.103.198.236:5198",
         ]
 

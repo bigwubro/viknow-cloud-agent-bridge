@@ -26,11 +26,10 @@ fi
 export VIKNOW3_ENV_FILE="${VIKNOW3_ENV_FILE:-/home/cursor-agent/viknow3/pg-demo.env:/home/cursor-agent/deploy.env:/home/cursor-agent/.viknow3/ops.env}"
 export VIKNOW3_APP_KEY="${VIKNOW3_APP_KEY:-$(grep -m1 '^VIKNOW3_APP_KEY=' /home/cursor-agent/viknow3/demo.env 2>/dev/null | cut -d= -f2-)}"
 export VIKNOW_UI_HOST="${VIKNOW_UI_HOST:-0.0.0.0}"
-PLAYGROUND_DATA_ROOT="${VIKNOW_PLAYGROUND_DATA_ROOT:-/data/viknow/knowledge/libraries/playground-cursor-agent}"
-export VIKNOW3_DATA_DIR="${VIKNOW3_DATA_DIR:-/data/viknow}"
-export VIKNOW3_LIBRARIES_ROOT="${VIKNOW3_LIBRARIES_ROOT:-$PLAYGROUND_DATA_ROOT}"
+PLAYGROUND_DATA_ROOT="${VIKNOW_PLAYGROUND_DATA_ROOT:-/data/viknow/playground}"
+export VIKNOW3_LIBRARIES_ROOT="${VIKNOW3_LIBRARIES_ROOT:-$PLAYGROUND_DATA_ROOT/hyperrag-wd}"
 export VIKNOW_SCRATCH_DIR="${VIKNOW_SCRATCH_DIR:-$PLAYGROUND_DATA_ROOT/scratch}"
-export VIKNOW_AGENT_WORKSPACE_ROOT="${VIKNOW_AGENT_WORKSPACE_ROOT:-${VIKNOW_SCRATCH_DIR}/agent-workspaces}"
+export VIKNOW_AGENT_WORKSPACE_ROOT="${VIKNOW_AGENT_WORKSPACE_ROOT:-$PLAYGROUND_DATA_ROOT/agent-workspaces}"
 
 DEPLOY236_ENV="${ROOT}/deploy/236/env"
 API_ENV_FILE="${VIKNOW_API_ENV_FILE:-$DEPLOY236_ENV/api.env}"
@@ -154,8 +153,9 @@ ensure_playground_data_root() {
     echo "scratch dir not writable: $scratch (install docker or chown $lib_root to cursor-agent)" >&2
     return 1
   fi
-  docker run --rm -v /data/viknow/knowledge/libraries:/mnt alpine     sh -c "mkdir -p /mnt/playground-cursor-agent/scratch && chown -R 1012:1013 /mnt/playground-cursor-agent" || {
-    echo "failed to provision $lib_root via docker" >&2
+  docker run --rm -v /data/viknow:/mnt alpine \
+    sh -c "mkdir -p /mnt/playground/scratch /mnt/playground/agent-workspaces /mnt/playground/hyperrag-wd && chown -R 1012:1013 /mnt/playground" || {
+    echo "failed to provision $PLAYGROUND_DATA_ROOT via docker" >&2
     return 1
   }
 }

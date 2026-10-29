@@ -40,7 +40,7 @@ def _load_env_files() -> None:
             if line.strip() and not line.startswith("#") and "=" in line:
                 key, value = line.split("=", 1)
                 os.environ.setdefault(key.strip(), value.strip())
-    playground = Path("/data/viknow/knowledge/libraries/playground-cursor-agent")
+    playground = Path("/data/viknow/playground")
     scratch = playground / "scratch"
     tmp = Path.home() / "viknow3" / "tmp"
     data_root = Path("/data/viknow")

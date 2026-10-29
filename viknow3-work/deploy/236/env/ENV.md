@@ -42,10 +42,10 @@ Playground **产品** = 浏览器静态页 + 调用 ViKnow API；**不负责** H
 | `VIKNOW_HOST` / `VIKNOW_PORT` | API 监听（5218） |
 | `VIKNOW_CORS_ORIGINS` | API 允许 Playground UI Origin |
 | `VIKNOW_STORAGE_URL` | viknow-storage（**API 服务端**，常 `127.0.0.1:5219`；浏览器用 `ui.env` 里的对外 URL） |
-| `VIKNOW3_DATA_DIR` | MinerU wrapper 等数据根 |
-| `VIKNOW3_LIBRARIES_ROOT` | 知识库目录 |
-| `VIKNOW_SCRATCH_DIR` | HyperRAG scratch / object gateway |
-| `VIKNOW_AGENT_WORKSPACE_ROOT` | Agent session workspace |
+| `VIKNOW3_DATA_DIR` | 宿主机数据根（MinerU wrapper 等 bind-mount 上层） |
+| `VIKNOW3_LIBRARIES_ROOT` | HyperRAG **磁盘 working_dir**（不是 catalog；对象在 viknow-storage） |
+| `VIKNOW_SCRATCH_DIR` | 索引 scratch、jieba/TMP |
+| `VIKNOW_AGENT_WORKSPACE_ROOT` | Agent 每 session 工作区根（`sessions/{id}/workspace/`） |
 | `VIKNOW_STATE_DIR` | HyperRAG 状态目录（**容器**内为挂载 `/state`；**宿主机** `deploy-playground-ui.sh` 在 `/state` 不可写时自动改为 `/home/cursor-agent/viknow3/state`） |
 | `VIKNOW_VENDOR_FILES_ROOT` | DeepAgents vendor（容器 `/state/vendor-files`；宿主机随 `VIKNOW_STATE_DIR` 映射） |
 | `HYPERRAG_TEST_IMAGE` | `scripts/mineru-docker-wrapper` 镜像 |

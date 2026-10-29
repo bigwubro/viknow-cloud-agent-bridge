@@ -162,6 +162,7 @@ bash scripts/ssh-207.sh 'hostname && ip -4 addr show tailscale0 eno1 | head -6'
 ```
 
 4. 部署 ViKnow Platform + storage + PG/Redis/Neo4j：在 207 上 checkout 平台仓，配置 `~/viknow207.host.env` 后执行 `bash deploy/207/deploy-207.sh`（见 `viknow-platform-work/deploy/207/README.md`）。Actio / 模型仍指向 **236**。
+5. **207 视频索引 grant 隧道**（236 nginx `:5220`）：在 Cloud Agent 上 `bash scripts/tailscale-connect-207.sh` 后 `bash scripts/207-storage-tunnel-via-agent.sh`（SSH `-R` 236:15219 → Tailscale 207:5219）；236 上 `deploy/236/storage-proxy-207/install-on-236.sh`；236 Actio 热修 `viknow-platform-work/scripts/apply-actio-207-grant-proxy-on-236.sh`。
 
 **连通性说明**
 

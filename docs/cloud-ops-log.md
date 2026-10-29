@@ -29,6 +29,14 @@
 
 ## 变更记录（倒序）
 
+### 2026-10-29 Cloud Agent Tailscale 207 视频 grant 隧道 + Actio 热修
+
+- 环境：Cloud Agent Tailscale；236 nginx `viknow236-storage-proxy-207`；207 `viknow207-storage` compose 同步
+- 动作：`scripts/207-storage-tunnel-via-agent.sh`；236 `apply-actio-207-grant-proxy-on-236.sh`；207 storage `STORAGE_DOWNLOAD_BASE_URL` 经 `~/viknow207-docker-compose.stack.yml` recreate
+- 结果：236 `127.0.0.1:5220/health` **OK**（隧道经 Agent）；Actio split **ok**；视频 job 仍需 worker/Actio 双端 URL 策略（见 deploy/236/storage-proxy-207/README.md）
+- 证据：`/opt/cursor/artifacts/207-video-reindex-final-poll.log`（曾 `Connection refused` / 旧 compose 仍写 `10.168.1.207:5219`）
+- 残留：207 SSH **间歇超时**；Agent tmux 隧道需常驻；建议 207 同步平台仓 compose 并确认 207→236 `:5220` 路由
+
 ### 2026-10-29 236 nginx 反代 207 storage（Actio grant URL :5220）
 
 - 环境：236 `cursor-agent@36.103.198.236`

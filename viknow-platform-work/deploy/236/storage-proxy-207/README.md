@@ -2,6 +2,14 @@
 
 Actio 在 **236** 上处理视频索引时会 **HTTP GET** platform 下发的 `source_download_url`。207 上 `STORAGE_DOWNLOAD_BASE_URL` 不能填内网 `10.168.1.207:5219`（236 不可达），应填 **236 上的反代入口**。
 
+**注意**：HyperRAG worker 跑在 **207** 上时，`actio.video_parser.parse_video_only` 会先在 **worker 内** `urlopen` 该 URL，再仍把 **同一 URL** 交给 236 上的 split。理想情况需要么 worker 能访问 `http://36.103.198.236:5220`，要么 platform 区分 worker 本地下载 URL 与 Actio grant URL（后续可改）。当前推荐：
+
+| 变量 | 推荐值 |
+|------|--------|
+| `STORAGE_DOWNLOAD_BASE_URL`（207 storage） | `http://36.103.198.236:5220`（207→236 网络通时）或 worker 用 `http://127.0.0.1:5219` + Actio 热修 |
+| 236 nginx | `:5220` → 隧道 `15219` → 207 `:5219` |
+| Actio 热修 | `scripts/apply-actio-207-grant-proxy-on-236.sh`（把旧 host 改写到 `http://127.0.0.1:5220`） |
+
 ## 拓扑
 
 ```text

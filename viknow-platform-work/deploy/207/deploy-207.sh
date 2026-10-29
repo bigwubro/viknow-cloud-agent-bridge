@@ -128,6 +128,7 @@ VIKNOW_PYTHON="$REPAIR_PY" VIKNOW_OPS_ENV="$OPS_ENV" VIKNOW_PG_ENV="$PG_DEMO" \
   echo "VIKNOW_AGENT_WORKSPACE_ROOT=${VIKNOW_DATA_DIR}/agent-workspaces"
   echo "VIKNOW_STATE_DIR=/state"
   echo "VIKNOW_VENDOR_FILES_ROOT=/state/vendor-files"
+  echo "VIKNOW_STORAGE_GRANT_FETCH_BASE=${VIKNOW_STORAGE_GRANT_FETCH_BASE:-http://127.0.0.1:5220}"
 } | awk -F= '{order[++n]=$1; val[$1]=$0} END {for (i=1;i<=n;i++) if (val[order[i]] != "") print val[order[i]]}' >"$VIKNOW207_PLATFORM_ENV"
 
 echo "== Storage + Platform containers (ACR pull only) =="

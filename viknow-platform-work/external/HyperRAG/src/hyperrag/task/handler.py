@@ -69,6 +69,24 @@ def _mint_storage_download_url(library_id: str, asset_id: str) -> str | None:
         return None
 
 
+def _rewrite_actio_grant_fetch_url(url: str) -> str:
+    import os
+    from urllib.parse import urlparse, urlunparse
+
+    text = str(url or "").strip()
+    fetch_base = os.environ.get("VIKNOW_STORAGE_GRANT_FETCH_BASE", "http://127.0.0.1:5220").strip().rstrip("/")
+    if not fetch_base:
+        return text
+    parsed = urlparse(text)
+    if parsed.scheme not in {"http", "https"} or "/libraries/" not in parsed.path:
+        return text
+    host = (parsed.hostname or "").lower()
+    if host not in {"10.168.1.207", "36.103.198.236"} and "grant=" not in (parsed.query or ""):
+        return text
+    target = urlparse(fetch_base)
+    return urlunparse((target.scheme, target.netloc, parsed.path, parsed.params, parsed.query, parsed.fragment))
+
+
 def _resolve_video_parse_source(
     asset_path: object,
     metadata: dict[str, Any],
@@ -81,14 +99,14 @@ def _resolve_video_parse_source(
         for bag in (metadata, nested_params):
             value = bag.get(key) if isinstance(bag, dict) else None
             if value is not None and str(value).strip():
-                return str(value).strip()
+                return _rewrite_actio_grant_fetch_url(str(value).strip())
     text = str(asset_path or "").strip()
     if text.startswith(("http://", "https://")):
-        return text
+        return _rewrite_actio_grant_fetch_url(text)
     if text.startswith("storage://"):
         url = _mint_storage_download_url(workspace, asset_id)
         if url:
-            return url
+            return _rewrite_actio_grant_fetch_url(url)
     return text
 
 try:

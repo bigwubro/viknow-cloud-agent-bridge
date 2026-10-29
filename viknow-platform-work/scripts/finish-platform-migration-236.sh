@@ -52,8 +52,9 @@ REPO="$SRC_NEW"
 
 cd "$REPO"
 git fetch origin 2>/dev/null || true
-if git remote get-url origin | grep -q 'castmeta-research/viknow3\.git'; then
-  git remote set-url origin "$GITEA_REPO" || echo "warn: could not set remote (rename repo on Gitea first)"
+current_url="$(git remote get-url origin 2>/dev/null || true)"
+if [[ "$current_url" != "$GITEA_REPO" ]]; then
+  git remote set-url origin "$GITEA_REPO" || echo "warn: could not set origin to $GITEA_REPO"
 fi
 
 echo "== Refresh deploy/236/env/secrets.env =="

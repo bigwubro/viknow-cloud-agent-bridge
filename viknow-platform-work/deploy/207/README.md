@@ -2,6 +2,8 @@
 
 207 单机栈：**Postgres / Redis / Neo4j**（ACR 镜像）+ **viknow-storage**（内置 MinIO，不对 platform 暴露 JuiceFS/独立 MinIO）+ **Playground**（API `:5218`、UI `:5198`）。**Actio 与 LLM/Embedding** 指向 **236**（`36.103.198.236`），不在 207 部署。
 
+**Cloud Agent 访问 207**：见仓库根 `AGENTS.md` — Tailscale 入网后 SSH `wuzihan@100.101.46.52`（`qx-ai-07`，与 `10.168.1.207` 同机）；subnet `10.168.1.0/24` 需在 Tailscale Admin 批准后才可 ping `10.168.1.207`。
+
 ## 前置
 
 - 主机可访问 ACR、`36.103.198.236:8600`（Actio）及 236 上的模型 HTTP 端点（见 `host.env` 里从 236 复制的 `deploy.env` 片段）。

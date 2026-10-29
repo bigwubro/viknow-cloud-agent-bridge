@@ -133,3 +133,42 @@ python3 -c "import hashlib,base64,sys; b=base64.b64decode(sys.stdin.read().split
 ssh -i ~/.ssh/id_ed25519 cursor-agent@36.103.198.236 \
   'cd /home/cursor-agent/src/viknow-platform && GIT_SSH_COMMAND="ssh -i ~/.ssh/gitea_ljs_ed25519 -o BatchMode=yes" git push -u origin agent/<topic>'
 ```
+
+### 207（QX-AI-07）— Tailscale，不经 236 跳板
+
+内网 `10.168.1.207` 从公网 Cloud Agent **不可路由**。207 宿主机 **QX-AI-07** 加入 Tailscale 并 **subnet router** 宣告 `10.168.1.0/24` 后，Agent 在本 VM 上入同一 tailnet 即可操作 207。
+
+**207 侧（一次性，root）** — 若曾改过 non-default 项，需带上 `--advertise-routes`：
+
+```bash
+sudo tailscale up --accept-routes \
+  --auth-key="$TS_INSTALL_KEY" \
+  --hostname=qx-ai-07 \
+  --advertise-routes=10.168.1.0/24
+sudo tailscale status   # 例：100.101.46.52  qx-ai-07
+```
+
+在 [Tailscale Admin Console](https://login.tailscale.com/admin/machines) **批准** `qx-ai-07` 的 subnet routes（`10.168.1.0/24`）。批准前 Cloud Agent 仍可通过 **Tailscale IP** `100.101.46.52` SSH（与 `10.168.1.207` 同机）。
+
+**Cloud Agent 侧**
+
+1. 环境 Secret：`VIKNOW_TAILSCALE_AUTH_KEY`（**可重复使用的 install key**，勿提交仓库；与 207 节点 key 分开签发更安全）
+2. 可选：`VIKNOW207_SSH_PASSWORD` 或沿用 `VIKNOW_BASTION_SSH_PASSWORD`（SSH `wuzihan@100.101.46.52`）
+3. 本 VM **无 systemd** 时需手动起 `tailscaled`，再用 `tailscale up`：
+
+```bash
+bash scripts/tailscale-connect-207.sh
+bash scripts/ssh-207.sh 'hostname && ip -4 addr show tailscale0 eno1 | head -6'
+```
+
+4. 部署 ViKnow Platform + storage + PG/Redis/Neo4j：在 207 上 checkout 平台仓，配置 `~/viknow207.host.env` 后执行 `bash deploy/207/deploy-207.sh`（见 `viknow-platform-work/deploy/207/README.md`）。Actio / 模型仍指向 **236**。
+
+**连通性说明**
+
+| 目标 | 条件 |
+|------|------|
+| `100.101.46.52`（`qx-ai-07`） | Cloud Agent 已 `tailscale up --accept-routes` |
+| `10.168.1.207` | 上表 + Admin 已批准 `10.168.1.0/24` subnet route |
+| 不经 Tailscale 直连 `10.168.1.207` | 不可行（私网） |
+
+**禁止**：把 Tailscale auth key、SSH 密码写入 `AGENTS.md`、提交或 `docs/cloud-ops-log.md`。

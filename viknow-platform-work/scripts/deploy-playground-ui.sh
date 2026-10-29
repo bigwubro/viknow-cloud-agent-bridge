@@ -53,10 +53,18 @@ load_env_files() {
 
 apply_legacy_env_aliases() {
   # Host files not yet rewritten after platform rename (removed once finish-platform-migration-236.sh has run).
-  [[ -z "${VIKNOW_APP_KEY:-}" && -n "${VIKNOW3_APP_KEY:-}" ]] && export VIKNOW_APP_KEY="$VIKNOW3_APP_KEY"
-  [[ -z "${VIKNOW_DATA_DIR:-}" && -n "${VIKNOW3_DATA_DIR:-}" ]] && export VIKNOW_DATA_DIR="$VIKNOW3_DATA_DIR"
-  [[ -z "${VIKNOW_LIBRARIES_ROOT:-}" && -n "${VIKNOW3_LIBRARIES_ROOT:-}" ]] && export VIKNOW_LIBRARIES_ROOT="$VIKNOW3_LIBRARIES_ROOT"
-  [[ -z "${VIKNOW_PLATFORM_ROOT:-}" && -n "${VIKNOW3_ROOT:-}" ]] && export VIKNOW_PLATFORM_ROOT="$VIKNOW3_ROOT"
+  if [[ -z "${VIKNOW_APP_KEY:-}" && -n "${VIKNOW3_APP_KEY:-}" ]]; then
+    export VIKNOW_APP_KEY="$VIKNOW3_APP_KEY"
+  fi
+  if [[ -z "${VIKNOW_DATA_DIR:-}" && -n "${VIKNOW3_DATA_DIR:-}" ]]; then
+    export VIKNOW_DATA_DIR="$VIKNOW3_DATA_DIR"
+  fi
+  if [[ -z "${VIKNOW_LIBRARIES_ROOT:-}" && -n "${VIKNOW3_LIBRARIES_ROOT:-}" ]]; then
+    export VIKNOW_LIBRARIES_ROOT="$VIKNOW3_LIBRARIES_ROOT"
+  fi
+  if [[ -z "${VIKNOW_PLATFORM_ROOT:-}" && -n "${VIKNOW3_ROOT:-}" ]]; then
+    export VIKNOW_PLATFORM_ROOT="$VIKNOW3_ROOT"
+  fi
 }
 
 load_api_env() {
@@ -177,6 +185,9 @@ export VIKNOW_HOST="${VIKNOW_HOST:-0.0.0.0}"
 export VIKNOW_PLAYGROUND_API_URL="${VIKNOW_PLAYGROUND_API_URL:-http://127.0.0.1:${VIKNOW_API_PORT}}"
 # deepagents needs Python >= 3.11; the 236 host python3 is 3.10, so processes run from this venv.
 PYTHON="${VIKNOW_PYTHON:-/home/cursor-agent/viknow-platform/venv312/bin/python}"
+if [[ ! -x "$PYTHON" ]]; then
+  PYTHON="/home/cursor-agent/viknow3/venv312/bin/python"
+fi
 
 UI_PIDFILE="${TMPDIR:-/tmp}/viknow-playground-ui.pid"
 API_PIDFILE="${TMPDIR:-/tmp}/viknow-playground-api.pid"

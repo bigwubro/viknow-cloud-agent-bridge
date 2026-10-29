@@ -60,9 +60,14 @@ echo "== Refresh deploy/236/env/secrets.env =="
 bash deploy/236/env/refresh-secrets-from-host.sh
 rewrite_env_file deploy/236/env/secrets.env
 
+echo "== Repair viknow_ops infra secrets (Fernet) from host env =="
+bash scripts/repair-ops-infra-secrets-from-host.sh
+rm -f "${DATA_NEW}/state/hyperrag/hyperrag.yml" "${DATA_OLD}/state/hyperrag/hyperrag.yml" 2>/dev/null || true
+
 echo "== Restart Playground (host processes) =="
 docker rm -f viknow3-playground viknow-platform-playground 2>/dev/null || true
 ln -sfn "${DATA_OLD}/venv312" "${DATA_NEW}/venv312" 2>/dev/null || ln -sfn "${HOST_ROOT}/viknow3/venv312" "${DATA_NEW}/venv312" 2>/dev/null || true
+export VIKNOW_PYTHON="${VIKNOW_PYTHON:-${DATA_OLD}/venv312/bin/python}"
 bash scripts/deploy-playground-ui.sh restart
 
 echo "== Smoke =="

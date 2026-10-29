@@ -345,16 +345,38 @@ def get_asset(library_id: str, asset_id: str) -> AssetRow | None:
     return None if row is None else _asset_from_row(row)
 
 
-def ensure_index_asset_row(library_id: str, asset_id: str) -> None:
+def ensure_index_library_row(library_id: str, title: str | None = None) -> None:
+    """Shadow library row for FK constraints; catalog lives in viknow-storage."""
+    library_id = str(library_id or "").strip()
+    if not library_id:
+        raise ValueError("invalid_library")
+    if get_library(library_id) is not None:
+        return
+    ts = now()
+    title_text = (str(title).strip() if title else "") or library_id
+    with _CONN.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO knowledge_libraries (library_id, title, created_at, updated_at, deleted)
+            VALUES (%s, %s, %s, %s, false)
+            ON CONFLICT (library_id) DO NOTHING
+            """,
+            (library_id, title_text, ts, ts),
+        )
+
+
+def ensure_index_asset_row(library_id: str, asset_id: str, *, title: str | None = None) -> None:
     """Platform shadow row for index metadata only (catalog lives in viknow-storage)."""
     library_id = str(library_id or "").strip()
     asset_id = str(asset_id or "").strip()
     if not library_id or not asset_id:
         raise ValueError("invalid_asset")
+    ensure_index_library_row(library_id, title=title)
     if get_asset(library_id, asset_id) is not None:
         return
     ts = now()
     path = f"storage://{library_id}/{asset_id}"
+    asset_title = (str(title).strip() if title else "") or asset_id
     with _CONN.cursor() as cur:
         cur.execute(
             """
@@ -364,7 +386,7 @@ def ensure_index_asset_row(library_id: str, asset_id: str) -> None:
             ) VALUES (%s, %s, %s, %s, %s, NULL, %s)
             ON CONFLICT (library_id, asset_id) DO NOTHING
             """,
-            (library_id, asset_id, asset_id, "document", path, ts),
+            (library_id, asset_id, asset_title, "document", path, ts),
         )
 
 

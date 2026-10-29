@@ -75,7 +75,11 @@ def _catalog_asset(library_id: str, asset_id: str, *, store: Any | None = None) 
     meta = storage_catalog.require_asset(library_id, asset_id)
     from viknow_platform.access.knowledge import store as knowledge_store
 
-    knowledge_store.ensure_index_asset_row(library_id, asset_id)
+    knowledge_store.ensure_index_asset_row(
+        library_id,
+        asset_id,
+        title=str(meta.get("title") or asset_id),
+    )
     return meta
 
 

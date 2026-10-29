@@ -2,7 +2,18 @@ from hyperrag.utils.segment_tools import (
     build_caption_data_main_struct,
     build_video_chunk_display_metadata,
     build_video_segments,
+    resolve_local_master_video_path,
 )
+
+
+def test_resolve_local_master_video_path_prefers_actio_scratch_file(tmp_path):
+    local = tmp_path / "content"
+    local.write_bytes(b"video")
+    resolved = resolve_local_master_video_path(
+        "storage://lib/asset.mp4",
+        {"source_url": str(local)},
+    )
+    assert resolved == str(local.resolve())
 
 
 def test_build_video_segments_includes_caption_data_in_text():

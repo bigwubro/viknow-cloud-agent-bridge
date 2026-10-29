@@ -18,6 +18,8 @@
 
 On 236 Docker, grant URLs often need the bridge gateway (e.g. `http://172.21.0.1:5219`) so `hyperrag-test` and host services can fetch content without hairpin timeouts.
 
+**207 Playground + Actio on 236:** set `STORAGE_DOWNLOAD_BASE_URL=http://36.103.198.236:5220` and run the 236 nginx proxy plus 207→236 SSH reverse tunnel (`deploy/236/storage-proxy-207`, `deploy/207/storage-tunnel-to-236.sh`).
+
 ## HyperRAG worker env (fallback mint)
 
 When job params omit `source_download_url`, HyperRAG can mint grants if set:

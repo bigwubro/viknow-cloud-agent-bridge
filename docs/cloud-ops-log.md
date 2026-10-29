@@ -29,6 +29,15 @@
 
 ## 变更记录（倒序）
 
+### 2026-10-29 236 nginx 反代 207 storage（Actio grant URL :5220）
+
+- 环境：236 `cursor-agent@36.103.198.236`
+- 对象：Docker `viknow236-storage-proxy-207`（nginx `:5220` → `127.0.0.1:15219`）；207 侧 SSH `-R` 隧道脚本（未在本机启动，需 207 执行）
+- 动作：`deploy/236/storage-proxy-207/install-on-236.sh`；207 `STORAGE_DOWNLOAD_BASE_URL` 文档/compose 默认改为 `http://36.103.198.236:5220`
+- 结果：236 反代容器 **已部署**；`/health` 经反代 **待 207 隧道** 后可用
+- 证据：`curl 127.0.0.1:5220/health` 在隧道未建时失败属预期
+- 残留：207 需长期运行 `storage-tunnel-to-236.sh` 或 systemd 示例单元
+
 ### 2026-10-29 ACR 推送 platform + storage（236）→ 207 pull 部署
 
 - 环境：236 `cursor-agent@36.103.198.236` build/push；207 `wuzihan@100.101.46.52` pull

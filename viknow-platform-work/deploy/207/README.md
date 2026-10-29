@@ -5,6 +5,7 @@
 ## 前置
 
 - 主机可访问 ACR、`36.103.198.236:8600`（Actio）及 236 上的模型 HTTP 端点（见 `host.env` 里从 236 复制的 `deploy.env` 片段）。
+- **视频索引**：236 上 Actio 必须能 GET storage grant URL — 在 236 部署 `deploy/236/storage-proxy-207`，207 上跑 `deploy/207/storage-tunnel-to-236.sh`，`host.env` 设 `STORAGE_DOWNLOAD_BASE_URL=http://36.103.198.236:5220`（见 `deploy/236/storage-proxy-207/README.md`）。
 - Docker + Docker Compose v2。
 - 平台源码：本仓库根目录，或 Gitea `castmeta-research/viknow-platform`。
 - viknow-storage 源码：与 236 同布局，默认 `../viknow-storage`（相对本仓库）或通过 `VIKNOW_STORAGE_ROOT` 指定。

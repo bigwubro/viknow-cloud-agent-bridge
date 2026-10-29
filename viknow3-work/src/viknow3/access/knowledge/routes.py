@@ -113,7 +113,7 @@ async def direct_library_upload(
     file: UploadFile = File(...),
     app_key: AppKey = Depends(require_app),
 ) -> dict[str, Any]:
-    """Multipart upload via Playground API (server writes to S3; no browser presigned PUT)."""
+    """Upload via viknow-storage (API multipart; no browser presign to MinIO)."""
 
     del app_key
     return service.upload_library_file(
@@ -146,7 +146,7 @@ def latest_asset_index_job(
 
 @router.post("/downloads")
 async def presign_asset_download(request: Request, app_key: AppKey = Depends(require_app)) -> dict[str, Any]:
-    """Presigned GET URL for preview or download of an existing asset object."""
+    """Deprecated: returns API proxy paths. Prefer GET …/assets/{asset_id}/preview|content with app auth."""
 
     del app_key
     body = await _json(request)
@@ -163,3 +163,17 @@ async def presign_asset_download(request: Request, app_key: AppKey = Depends(req
     download_name = body.get("download_name")
     download = str(download_name).strip() if download_name is not None else None
     return service.presign_download(asset_path, download or None)
+
+
+@router.get("/libraries/{library_id}/assets/{asset_id}/preview")
+def asset_preview(library_id: str, asset_id: str, app_key: AppKey = Depends(require_app)) -> Response:
+    del app_key
+    payload, media_type = service.stream_asset_preview(library_id, asset_id)
+    return Response(content=payload, media_type=media_type)
+
+
+@router.get("/libraries/{library_id}/assets/{asset_id}/content")
+def asset_content(library_id: str, asset_id: str, app_key: AppKey = Depends(require_app)) -> Response:
+    del app_key
+    payload, media_type = service.stream_asset_content(library_id, asset_id)
+    return Response(content=payload, media_type=media_type)

@@ -65,7 +65,7 @@ class IndexStatusApiIntegrationTests(unittest.TestCase):
         status, _ = self.request("POST", "/api/v1/knowledge/libraries", {"library_id": lib, "title": "t"})
         self.assertIn(status, (201, 409))
         asset_path = f"knowledge/assets/{asset}/upload/{asset}.mp4"
-        with patch("viknow3.access.knowledge.service.s3.head_object", return_value={}):
+        with patch("viknow3.access.knowledge.storage_bridge.asset_exists_in_storage", return_value=None):
             status, created = self.request(
                 "POST",
                 f"/api/v1/knowledge/libraries/{lib}/assets",
@@ -144,7 +144,7 @@ class IndexStatusApiIntegrationTests(unittest.TestCase):
         status, _ = self.request("POST", "/api/v1/knowledge/libraries", {"library_id": lib, "title": "t"})
         self.assertIn(status, (201, 409))
         asset_path = f"knowledge/assets/{asset}/upload/{asset}.mp4"
-        with patch("viknow3.access.knowledge.service.s3.head_object", return_value={}):
+        with patch("viknow3.access.knowledge.storage_bridge.asset_exists_in_storage", return_value=None):
             status, created = self.request(
                 "POST",
                 f"/api/v1/knowledge/libraries/{lib}/assets",
@@ -189,7 +189,7 @@ class IndexStatusApiIntegrationTests(unittest.TestCase):
             self.assertEqual(index_status["status"], "indexed")
             self.assertEqual(index_status["current_index_version_id"], job["job_id"])
 
-            with patch("viknow3.access.knowledge.service.s3.head_object", return_value={}):
+            with patch("viknow3.access.knowledge.storage_bridge.asset_exists_in_storage", return_value=None):
                 status, assets = self.request("GET", f"/api/v1/knowledge/libraries/{lib}/assets")
             self.assertEqual(assets[0]["current_index_version_id"], job["job_id"])
         finally:

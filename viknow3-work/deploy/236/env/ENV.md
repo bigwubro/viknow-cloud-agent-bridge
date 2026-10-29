@@ -40,8 +40,7 @@ Playground **产品** = 浏览器静态页 + 调用 ViKnow API；**不负责** H
 |------|------|
 | `VIKNOW_HOST` / `VIKNOW_PORT` | API 监听（5218） |
 | `VIKNOW_CORS_ORIGINS` | API 允许 Playground UI Origin |
-| `VIKNOW_STORAGE_URL` | viknow-storage 网关（内网，与 `VIKNOW_STORAGE_TOKEN` 成对） |
-| `VIKNOW_S3_PUBLIC_ENDPOINT` | 预签名 URL 的浏览器可达 host（`:19191`） |
+| `VIKNOW_STORAGE_URL` | viknow-storage HTTP（**仅** API 服务端；与 `VIKNOW_STORAGE_TOKEN` 成对） |
 | `VIKNOW3_DATA_DIR` | MinerU wrapper 等数据根 |
 | `VIKNOW3_LIBRARIES_ROOT` | 知识库目录 |
 | `VIKNOW_SCRATCH_DIR` | HyperRAG scratch / object gateway |
@@ -51,7 +50,9 @@ Playground **产品** = 浏览器静态页 + 调用 ViKnow API；**不负责** H
 | `HYPERRAG_TEST_IMAGE` | `scripts/mineru-docker-wrapper` 镜像 |
 | `ACTIO_SERVER_URL` | Actio 服务（236 固定 `127.0.0.1:8600`） |
 
-**已移除、代码不读的键（勿再加回）**：`VIKNOW_STORAGE_PUBLIC_*`、`VIKNOW_STORAGE_BROWSER_URL`、`VIKNOW_E2E_MINERU_WRAPPER`（由部署脚本运行时设置）、与 Dockerfile 重复的 `PYTHONPATH` / `VIKNOW3_ROOT` / `VIKNOW_HYPERRAG_REPO_ROOT` / `VIKNOW_MINERU_BIN_DIR`。
+**禁止**：viknow3 进程 **不得** 直连 MinIO/S3；**不要** 配置 `VIKNOW_S3_PUBLIC_ENDPOINT` 或 `VIKNOW_STORAGE_PUBLIC_*`。浏览器预览/下载走 **5218 API** → viknow-storage。
+
+**已移除、代码不读的键（勿再加回）**：`VIKNOW_S3_PUBLIC_ENDPOINT`、`VIKNOW_STORAGE_PUBLIC_*`、`VIKNOW_STORAGE_BROWSER_URL`、`VIKNOW_E2E_MINERU_WRAPPER`（由部署脚本运行时设置）、与 Dockerfile 重复的 `PYTHONPATH` / `VIKNOW3_ROOT` / `VIKNOW_HYPERRAG_REPO_ROOT` / `VIKNOW_MINERU_BIN_DIR`。
 
 对象存储凭证与 DSN、模型 Key 等 **只** 在 `secrets.env`（`refresh-secrets-from-host.sh` 会从 secrets 里删掉上述非密钥键）。
 
@@ -88,8 +89,7 @@ Playground **产品** = 浏览器静态页 + 调用 ViKnow API；**不负责** H
 |------|------|
 | `VIKNOW_HOST` / `VIKNOW_PORT` | `python -m viknow3` |
 | `VIKNOW_CORS_ORIGINS` | API CORS；`set-playground-s3-cors.py` 桶 CORS（与 UI Origin 一致） |
-| `VIKNOW_STORAGE_URL` | viknow-storage HTTP 网关（服务端，与 token 成对） |
-| `VIKNOW_S3_PUBLIC_ENDPOINT` | 预签名 URL 浏览器 host |
+| `VIKNOW_STORAGE_URL` | viknow-storage（服务端）；浏览器不经 MinIO |
 | `VIKNOW3_DATA_DIR` / `VIKNOW3_LIBRARIES_ROOT` / `VIKNOW_SCRATCH_DIR` / `VIKNOW_AGENT_WORKSPACE_ROOT` | HyperRAG / Agent 路径 |
 | `VIKNOW_STATE_DIR` / `VIKNOW_VENDOR_FILES_ROOT` | HyperRAG 状态、DeepAgents vendor |
 | `HYPERRAG_TEST_IMAGE` | `scripts/mineru-docker-wrapper` |

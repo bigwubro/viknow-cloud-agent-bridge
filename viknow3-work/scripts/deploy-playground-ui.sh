@@ -188,19 +188,10 @@ stop_ui() {
   fi
 }
 
-ensure_s3_public_endpoint() {
-  # Set only after load_env_files so we do not pin 127.0.0.1 before deploy.env (viknow2-test uses 36.103…:19191).
-  # viknow3 storage/s3.py prefers this env over ops public_endpoint; wrong value breaks remote-browser PUT.
-  if [[ -z "${VIKNOW_S3_PUBLIC_ENDPOINT:-}" ]]; then
-    export VIKNOW_S3_PUBLIC_ENDPOINT="http://36.103.198.236:19191"
-  fi
-}
-
 start_api() {
   ensure_playground_data_root
   mkdir -p "$VIKNOW_SCRATCH_DIR" "$VIKNOW_AGENT_WORKSPACE_ROOT" "$VIKNOW3_LIBRARIES_ROOT"
   load_api_env
-  ensure_s3_public_endpoint
   ensure_mineru_for_hyperrag
   export_mineru_vlm_env
   mkdir -p "${VIKNOW_SCRATCH_DIR}/jieba-cache"
@@ -235,9 +226,6 @@ start_api() {
     echo "ViKnow API failed to start; tail $API_LOG"
     tail -30 "$API_LOG" || true
     exit 1
-  fi
-  if [[ -f "$ROOT/scripts/set-playground-s3-cors.py" ]] && [[ -n "${VIKNOW_OPS_DSN:-}" ]]; then
-    "$PYTHON" "$ROOT/scripts/set-playground-s3-cors.py" || echo "warn: bucket CORS setup failed (browser presign PUT may fail)" >&2
   fi
   echo "ViKnow API http://127.0.0.1:${VIKNOW_API_PORT}/api/v1 (pid $(cat "$API_PIDFILE"))"
 }

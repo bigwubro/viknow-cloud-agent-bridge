@@ -150,7 +150,7 @@ class AccessTests(unittest.TestCase):
         )
         self.assertIn(status, (201, 409), library)
         asset_path = "knowledge/assets/asset-1/upload/asset-1.mp4"
-        with patch("viknow3.access.knowledge.service.s3.head_object", return_value={}):
+        with patch("viknow3.access.knowledge.storage_bridge.asset_exists_in_storage", return_value=None):
             status, asset = self.request(
                 "POST",
                 "/api/v1/knowledge/libraries/library-1/assets",
@@ -204,7 +204,7 @@ class AccessTests(unittest.TestCase):
             self.assertEqual(status, 200)
             self.assertEqual(index_status["status"], "indexed")
             self.assertEqual(index_status["current_index_version_id"], job["job_id"])
-            with patch("viknow3.access.knowledge.service.s3.head_object", return_value={}):
+            with patch("viknow3.access.knowledge.storage_bridge.asset_exists_in_storage", return_value=None):
                 status, assets = self.request("GET", "/api/v1/knowledge/libraries/library-1/assets")
             self.assertEqual(status, 200)
             self.assertEqual(assets[0]["current_index_version_id"], job["job_id"])

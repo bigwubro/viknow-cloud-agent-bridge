@@ -9,7 +9,8 @@
 | 业务 Postgres | `VIKNOW_ACCESS_DSN`、`VIKNOW_AGENT_DSN`、`VIKNOW_HYPERRAG_DSN` | 见 `deploy/236/env/secrets.env`（refresh 从宿主机合并） |
 | 运维 Postgres | `VIKNOW_OPS_DSN` | `viknow_ops` 内 `s3_client`、`postgres_connection`、`redis_connection`、`neo4j_connection` 等 |
 | viknow-storage | `VIKNOW_STORAGE_URL` + `VIKNOW_STORAGE_TOKEN` | `api.env` + secrets |
-| S3 预签名公网 | `VIKNOW_S3_PUBLIC_ENDPOINT` | `api.env` |
+
+MinIO/S3 **不对 viknow3 或浏览器暴露**；禁止 `VIKNOW_S3_PUBLIC_ENDPOINT`。
 
 HyperRAG 运行时从 **ops 表** 解析 Redis/Neo4j/embedding，**不要**在 viknow3 仓里再起 Redis compose。
 

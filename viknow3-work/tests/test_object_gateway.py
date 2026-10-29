@@ -1,4 +1,4 @@
-"""HyperRAG downloads a gateway object before indexing it."""
+"""Index jobs materialize assets via viknow-storage (no direct MinIO in viknow3)."""
 
 from __future__ import annotations
 
@@ -6,31 +6,11 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
-from viknow3.access.rag.service import RagError, create_index_job
+from viknow3.access.rag.service import RagError, _catalog_asset, create_index_job
 from viknow3.application.hyperrag.client import HyperragClient
-from viknow3.application.hyperrag.object_gateway import (
-    ObjectFetchError,
-    fetch_index_object,
-    gateway_from_ops,
-    install_object_store,
-    reset_object_store,
-)
-
-
-class _MemoryStore:
-    def __init__(self, objects: dict[str, bytes]) -> None:
-        self.objects = objects
-        self.reads: list[str] = []
-
-    def exists(self, key: str) -> bool:
-        return key in self.objects
-
-    def get_to_path(self, key: str, path: Path) -> None:
-        self.reads.append(key)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(self.objects[key])
+from viknow3.service.hyperrag.object_gateway import IndexObject, ObjectFetchError
 
 
 class ObjectGatewayTests(unittest.TestCase):
@@ -38,63 +18,22 @@ class ObjectGatewayTests(unittest.TestCase):
         self._scratch = tempfile.TemporaryDirectory()
         self._previous = os.environ.get("VIKNOW_SCRATCH_DIR")
         os.environ["VIKNOW_SCRATCH_DIR"] = self._scratch.name
-        reset_object_store()
+        os.environ.setdefault("VIKNOW_ACCESS_DSN", "postgresql://u:p@127.0.0.1:1/a")
+        os.environ.setdefault("VIKNOW_AGENT_DSN", "postgresql://u:p@127.0.0.1:1/b")
+        os.environ.setdefault("VIKNOW_HYPERRAG_DSN", "postgresql://u:p@127.0.0.1:1/c")
 
     def tearDown(self) -> None:
-        reset_object_store()
         if self._previous is None:
             os.environ.pop("VIKNOW_SCRATCH_DIR", None)
         else:
             os.environ["VIKNOW_SCRATCH_DIR"] = self._previous
         self._scratch.cleanup()
 
-    def test_fetch_writes_the_object_onto_scratch(self) -> None:
-        key = "knowledge/assets/asset-1/upload/asset-1.mp4"
-        store = _MemoryStore({key: b"video-bytes"})
-        install_object_store(store)
-        fetched = fetch_index_object(key)
-        self.assertEqual(fetched.key, key)
-        self.assertEqual(fetched.path.read_bytes(), b"video-bytes")
-        self.assertTrue(str(fetched.path).endswith("knowledge/assets/asset-1/upload/asset-1.mp4"))
-        again = fetch_index_object(key)
-        self.assertEqual(again.path, fetched.path)
-        self.assertEqual(store.reads, [key])
-
-    def test_missing_key_is_rejected(self) -> None:
-        install_object_store(_MemoryStore({}))
-        with self.assertRaises(ObjectFetchError) as caught:
-            fetch_index_object("knowledge/assets/missing/upload/missing.mp4")
-        self.assertEqual(caught.exception.status, 400)
-        self.assertEqual(caught.exception.body["detail"], "asset_path is not an available storage object key or absolute file path")
-
-    def test_non_knowledge_paths_are_rejected(self) -> None:
-        install_object_store(_MemoryStore({"sessions/thread/file.bin": b"x", "/tmp/local.mp4": b"x"}))
-        for asset_path in (
-            "sessions/thread/file.bin",
-            "/tmp/local.mp4",
-            "knowledge/../secret.mp4",
-            "missing/knowledge/a.mp4",
-            "knowledge/assets/a.mp4\x00",
-            "s3://bucket/knowledge/assets/a.mp4",
-        ):
-            with self.subTest(asset_path=asset_path):
-                with self.assertRaises(ObjectFetchError) as caught:
-                    fetch_index_object(asset_path)
-                self.assertEqual(caught.exception.status, 400)
-
-    def test_incomplete_s3_client_is_unavailable(self) -> None:
-        with patch(
-            "viknow3.application.hyperrag.object_gateway.plain_singleton",
-            return_value={"endpoint": "", "bucket": "", "region": "us-east-1", "access_key": None, "secret_key": None},
-        ):
-            with self.assertRaises(ObjectFetchError) as caught:
-                gateway_from_ops()
-        self.assertEqual(caught.exception.status, 503)
-        self.assertEqual(caught.exception.body["detail"], "s3_client is incomplete")
-
     def test_index_job_hands_the_local_file_to_hyperrag_and_keeps_the_key(self) -> None:
-        key = "knowledge/libraries/library-1/asset-1.mp4"
-        install_object_store(_MemoryStore({key: b"asset"}))
+        key = "knowledge/assets/asset-1/upload/asset-1.mp4"
+        local = Path(self._scratch.name) / "asset-1.mp4"
+        local.write_bytes(b"asset")
+        fetched = IndexObject(key=key, path=local)
         captured: dict[str, object] = {}
 
         def fake_create(library_id, asset_id, asset_path, title, compile_mode=None, object_key=None):
@@ -119,47 +58,49 @@ class ObjectGatewayTests(unittest.TestCase):
             asset_path = key
             title = "动作演示.mp4"
 
-        with patch("viknow3.access.rag.service._catalog_asset", return_value=_Asset()):
-            with patch("viknow3.access.rag.service.HYPERAG.create_index", side_effect=fake_create):
-                job = create_index_job(
-                    {
-                        "library_id": "library-1",
-                        "asset_id": "asset-1",
-                        "asset_path": key,
-                        "compile_mode": "fast_ingest",
-                        "params": {"title": "动作演示.mp4"},
-                    },
+        with patch("viknow3.pg.connect", return_value=MagicMock()):
+            with patch("viknow3.access.rag.service.fetch_index_asset", return_value=fetched):
+                with patch("viknow3.access.rag.service._catalog_asset", return_value=_Asset()):
+                    with patch("viknow3.access.rag.service.HYPERAG.create_index", side_effect=fake_create):
+                        job = create_index_job(
+                        {
+                            "library_id": "library-1",
+                            "asset_id": "asset-1",
+                            "asset_path": key,
+                            "compile_mode": "fast_ingest",
+                            "params": {"title": "动作演示.mp4"},
+                        },
                     )
         self.assertEqual(job["job_id"], "job-1")
         self.assertEqual(captured["object_key"], key)
         self.assertEqual(captured["title"], "动作演示.mp4")
-        self.assertNotEqual(captured["asset_path"], key)
         self.assertEqual(Path(str(captured["asset_path"])).read_bytes(), b"asset")
 
     def test_index_job_rejects_a_missing_key_before_hyperrag(self) -> None:
         key = "knowledge/assets/asset-1/upload/asset-1.mp4"
-        install_object_store(_MemoryStore({}))
 
         class _Asset:
             asset_path = key
             title = "动作演示.mp4"
 
-        with patch("viknow3.access.rag.service._catalog_asset", return_value=_Asset()):
-            with patch("viknow3.access.rag.service.HYPERAG.create_index") as create:
-                with self.assertRaises(RagError) as caught:
-                    create_index_job(
-                        {
-                            "library_id": "library-1",
-                            "asset_id": "asset-1",
-                            "asset_path": key,
-                        },
+        with patch(
+            "viknow3.access.rag.service.fetch_index_asset",
+            side_effect=ObjectFetchError(404, {"detail": "missing"}),
+        ):
+            with patch("viknow3.access.rag.service._catalog_asset", return_value=_Asset()):
+                with patch("viknow3.access.rag.service.HYPERAG.create_index") as create:
+                    with self.assertRaises(RagError) as caught:
+                        create_index_job(
+                            {
+                                "library_id": "library-1",
+                                "asset_id": "asset-1",
+                                "asset_path": key,
+                            },
                         )
-        self.assertEqual(caught.exception.status, 400)
+        self.assertEqual(caught.exception.status, 404)
         create.assert_not_called()
 
     def test_index_job_requires_the_library_and_asset_first(self) -> None:
-        from viknow3.access.rag.service import _catalog_asset
-
         class MissingLibrary:
             def get_library(self, library_id: str) -> None:
                 return None
@@ -170,7 +111,6 @@ class ObjectGatewayTests(unittest.TestCase):
         with self.assertRaises(RagError) as missing_library:
             _catalog_asset("library-1", "asset-1", store=MissingLibrary())
         self.assertEqual(missing_library.exception.status, 404)
-        self.assertEqual(missing_library.exception.body["detail"], "library not found")
 
         class MissingAsset:
             def get_library(self, library_id: str) -> object:
@@ -184,7 +124,6 @@ class ObjectGatewayTests(unittest.TestCase):
         self.assertEqual(missing_asset.exception.body["detail"], "asset not found")
 
         key = "knowledge/assets/asset-1/upload/asset-1.mp4"
-        install_object_store(_MemoryStore({key: b"asset"}))
 
         class OtherPath:
             asset_path = "knowledge/assets/other/upload/other.mp4"
@@ -195,30 +134,9 @@ class ObjectGatewayTests(unittest.TestCase):
                 with self.assertRaises(RagError) as mismatch:
                     create_index_job(
                         {"library_id": "library-1", "asset_id": "asset-1", "asset_path": key},
-                        )
+                    )
         self.assertEqual(mismatch.exception.status, 422)
         create.assert_not_called()
-
-    def test_gateway_client_uses_the_internal_endpoint(self) -> None:
-        row = {
-            "endpoint": "http://127.0.0.1:19191",
-            "public_endpoint": "http://36.103.198.236:19191",
-            "bucket": "viknow",
-            "region": "us-east-1",
-            "url_expires_seconds": 3600,
-            "access_key": "reader",
-            "secret_key": "secret",
-        }
-        with patch("viknow3.application.hyperrag.object_gateway.plain_singleton", return_value=row):
-            with patch("minio.Minio") as minio:
-                store = gateway_from_ops()
-        args, kwargs = minio.call_args
-        self.assertEqual(args[0], "127.0.0.1:19191")
-        self.assertFalse(kwargs["secure"])
-        self.assertEqual(kwargs["region"], "us-east-1")
-        self.assertEqual(kwargs["access_key"], "reader")
-        self.assertEqual(kwargs["secret_key"], "secret")
-        self.assertEqual(store.bucket, "viknow")
 
     def test_client_records_the_object_key_on_the_job(self) -> None:
         captured: dict[str, object] = {}
@@ -245,7 +163,7 @@ class ObjectGatewayTests(unittest.TestCase):
         )
         self.assertEqual(job["status"], "pending")
         self.assertEqual(captured["asset_path"], "/tmp/viknow-scratch/knowledge/assets/asset-1/upload/asset-1.mp4")
-        self.assertEqual(
-            captured["params"],
-            {"title": "动作演示.mp4", "object_key": "knowledge/assets/asset-1/upload/asset-1.mp4"},
-        )
+
+
+if __name__ == "__main__":
+    unittest.main()

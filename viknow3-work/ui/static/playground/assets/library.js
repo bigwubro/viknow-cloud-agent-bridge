@@ -114,11 +114,17 @@ const PlaygroundLibrary = (() => {
     return apiMultipart(`${KNOWLEDGE}/libraries/${encodeURIComponent(libraryId)}/uploads/direct`, form);
   }
 
-  async function presignGet(assetPath, downloadName) {
-    return api(`${KNOWLEDGE}/downloads`, {
-      method: "POST",
-      body: JSON.stringify({ asset_path: assetPath, download_name: downloadName || null }),
-    });
+  async function fetchAssetBlob(libraryId, assetId, kind) {
+    const segment = kind === "preview" ? "preview" : "content";
+    const resp = await fetch(
+      viknowApiUrl(`${KNOWLEDGE}/libraries/${encodeURIComponent(libraryId)}/assets/${encodeURIComponent(assetId)}/${segment}`),
+      { headers: viknowApiHeaders() },
+    );
+    if (!resp.ok) {
+      const text = await resp.text();
+      throw new Error(text || resp.statusText);
+    }
+    return resp.blob();
   }
 
   async function createAsset(libraryId, body) {
@@ -506,12 +512,17 @@ const PlaygroundLibrary = (() => {
           ensureBackgroundPoll(row.asset_id, row);
 
           btnPreview.addEventListener("click", async () => {
-            const signed = await presignGet(row.asset_path, null);
-            window.open(signed.url, "_blank", "noopener");
+            const blob = await fetchAssetBlob(libraryId, row.asset_id, "preview");
+            window.open(URL.createObjectURL(blob), "_blank", "noopener");
           });
           btnDownload.addEventListener("click", async () => {
-            const signed = await presignGet(row.asset_path, row.title || row.asset_id);
-            window.location.href = signed.url;
+            const blob = await fetchAssetBlob(libraryId, row.asset_id, "content");
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = row.title || row.asset_id;
+            a.click();
+            URL.revokeObjectURL(url);
           });
           btnIndex.addEventListener("click", async () => {
             btnIndex.disabled = true;
@@ -548,7 +559,7 @@ const PlaygroundLibrary = (() => {
       uploadBtn.disabled = true;
       try {
         uploadStatus.hidden = false;
-        uploadStatus.textContent = "上传到对象网关…";
+        uploadStatus.textContent = "上传到存储服务…";
         const stored = await uploadLibraryFile(libraryId, file);
         uploadStatus.textContent = "创建 Asset 记录…";
         await createAsset(libraryId, {

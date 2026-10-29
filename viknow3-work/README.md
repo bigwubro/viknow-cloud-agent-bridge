@@ -1,5 +1,7 @@
 # viknow3
 
+项目边界（什么属于 / 不属于本仓）：[`docs/project-boundary.md`](docs/project-boundary.md)。
+
 接入层使用应用层和运维层给出的 client，不在 `access/` 里实现这些 client。
 
 | 接入层 | 调用 |

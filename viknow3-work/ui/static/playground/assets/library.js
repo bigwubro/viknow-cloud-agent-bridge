@@ -1,7 +1,6 @@
 /* global PlaygroundLibrary */
 const PlaygroundLibrary = (() => {
   const STORAGE_KEY = "viknow_playground_user";
-  const APP_KEY_STORAGE = "viknow_app_key";
   const KNOWLEDGE = "/api/v1/knowledge";
   const INDEX_JOB_TERMINAL = new Set(["done", "failed", "cancelled", "completed"]);
   const INDEX_JOB_SUCCESS = new Set(["done", "completed"]);
@@ -17,19 +16,11 @@ const PlaygroundLibrary = (() => {
     return payload.message || "请求失败";
   }
 
-  function apiHeaders(extra = {}) {
-    const headers = { "Content-Type": "application/json", ...extra };
-    const key = (localStorage.getItem(APP_KEY_STORAGE) || window.VIKNOW_APP_KEY || "").trim();
-    if (key) {
-      headers["X-App-Key"] = key;
-    }
-    return headers;
-  }
-
   async function api(path, options = {}) {
-    const response = await fetch(path, {
+    const url = path.startsWith("http") ? path : viknowApiUrl(path);
+    const response = await fetch(url, {
       ...options,
-      headers: apiHeaders(options.headers || {}),
+      headers: viknowApiHeaders({ "Content-Type": "application/json", ...(options.headers || {}) }),
     });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
@@ -39,15 +30,43 @@ const PlaygroundLibrary = (() => {
   }
 
   async function apiMultipart(path, formData) {
-    const headers = {};
-    const key = (localStorage.getItem(APP_KEY_STORAGE) || window.VIKNOW_APP_KEY || "").trim();
-    if (key) {
-      headers["X-App-Key"] = key;
-    }
-    const response = await fetch(path, { method: "POST", headers, body: formData });
+    const url = path.startsWith("http") ? path : viknowApiUrl(path);
+    const response = await fetch(url, {
+      method: "POST",
+      headers: viknowApiHeaders(),
+      body: formData,
+    });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
       throw new Error(detailMessage(payload));
+    }
+    return payload;
+  }
+
+  const VIDEO_SUFFIXES = new Set([".mp4", ".mov", ".mkv", ".webm"]);
+
+  function buildAssetPath(assetId, fileName) {
+    const name = String(fileName || "").trim();
+    const dot = name.lastIndexOf(".");
+    if (dot < 0) {
+      throw new Error("文件需要有扩展名");
+    }
+    const suffix = name.slice(dot).toLowerCase();
+    const uploadName = VIDEO_SUFFIXES.has(suffix)
+      ? `${assetId}.normalized${suffix}`
+      : `${assetId}${suffix}`;
+    return `knowledge/assets/${assetId}/upload/${uploadName}`;
+  }
+
+  async function storageMultipart(path, formData) {
+    const response = await fetch(viknowStorageUrl(path), {
+      method: "POST",
+      headers: viknowStorageHeaders(),
+      body: formData,
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(detailMessage(payload) || response.statusText);
     }
     return payload;
   }
@@ -118,16 +137,34 @@ const PlaygroundLibrary = (() => {
   }
 
   async function uploadLibraryFile(libraryId, file) {
+    const assetId = crypto.randomUUID();
+    const assetPath = buildAssetPath(assetId, file.name);
     const form = new FormData();
     form.append("file", file, file.name);
-    return apiMultipart(`${KNOWLEDGE}/libraries/${encodeURIComponent(libraryId)}/uploads/direct`, form);
+    form.append("asset_id", assetId);
+    form.append("title", file.name);
+    await storageMultipart(`/libraries/${encodeURIComponent(libraryId)}/assets`, form);
+    return {
+      asset_id: assetId,
+      asset_path: assetPath,
+      library_id: libraryId,
+      content_type: file.type || "application/octet-stream",
+    };
   }
 
-  async function presignGet(assetPath, downloadName) {
-    return api(`${KNOWLEDGE}/downloads`, {
-      method: "POST",
-      body: JSON.stringify({ asset_path: assetPath, download_name: downloadName || null }),
-    });
+  async function fetchAssetBlob(libraryId, assetId, kind) {
+    const segment = kind === "preview" ? "preview" : "content";
+    const resp = await fetch(
+      viknowStorageUrl(
+        `/libraries/${encodeURIComponent(libraryId)}/assets/${encodeURIComponent(assetId)}/${segment}`,
+      ),
+      { headers: viknowStorageHeaders() },
+    );
+    if (!resp.ok) {
+      const text = await resp.text();
+      throw new Error(text || resp.statusText);
+    }
+    return resp.blob();
   }
 
   async function createAsset(libraryId, body) {
@@ -515,12 +552,17 @@ const PlaygroundLibrary = (() => {
           ensureBackgroundPoll(row.asset_id, row);
 
           btnPreview.addEventListener("click", async () => {
-            const signed = await presignGet(row.asset_path, null);
-            window.open(signed.url, "_blank", "noopener");
+            const blob = await fetchAssetBlob(libraryId, row.asset_id, "preview");
+            window.open(URL.createObjectURL(blob), "_blank", "noopener");
           });
           btnDownload.addEventListener("click", async () => {
-            const signed = await presignGet(row.asset_path, row.title || row.asset_id);
-            window.location.href = signed.url;
+            const blob = await fetchAssetBlob(libraryId, row.asset_id, "content");
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = row.title || row.asset_id;
+            a.click();
+            URL.revokeObjectURL(url);
           });
           btnIndex.addEventListener("click", async () => {
             btnIndex.disabled = true;
@@ -557,7 +599,7 @@ const PlaygroundLibrary = (() => {
       uploadBtn.disabled = true;
       try {
         uploadStatus.hidden = false;
-        uploadStatus.textContent = "上传到对象网关…";
+        uploadStatus.textContent = "上传到存储服务…";
         const stored = await uploadLibraryFile(libraryId, file);
         uploadStatus.textContent = "创建 Asset 记录…";
         await createAsset(libraryId, {

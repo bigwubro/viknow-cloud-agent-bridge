@@ -40,12 +40,11 @@ def _load_env_files() -> None:
             if line.strip() and not line.startswith("#") and "=" in line:
                 key, value = line.split("=", 1)
                 os.environ.setdefault(key.strip(), value.strip())
-    playground = Path("/data/viknow/knowledge/libraries/playground-cursor-agent")
-    scratch = playground / "scratch"
-    tmp = Path.home() / "viknow3" / "tmp"
+    scratch = Path("/data/viknow/scratch")
     data_root = Path("/data/viknow")
+    tmp = Path.home() / "viknow3" / "tmp"
     os.environ.setdefault("VIKNOW3_DATA_DIR", str(data_root))
-    os.environ.setdefault("VIKNOW3_LIBRARIES_ROOT", str(playground))
+    os.environ.setdefault("VIKNOW3_LIBRARIES_ROOT", str(data_root / "hyperrag-wd"))
     os.environ.setdefault("VIKNOW_SCRATCH_DIR", str(scratch))
     os.environ.setdefault("TMPDIR", str(tmp))
     os.environ.setdefault("VIKNOW_STATE_DIR", str(Path.home() / "viknow3" / "state"))
@@ -53,7 +52,8 @@ def _load_env_files() -> None:
     os.environ.setdefault("HYPERRAG_JOB_LOG_DIR", str(job_logs))
     job_logs.mkdir(parents=True, exist_ok=True)
     tmp.mkdir(parents=True, exist_ok=True)
-    playground.mkdir(parents=True, exist_ok=True)
+    (data_root / "hyperrag-wd").mkdir(parents=True, exist_ok=True)
+    (data_root / "agent-workspaces").mkdir(parents=True, exist_ok=True)
     scratch.mkdir(parents=True, exist_ok=True)
     Path(os.environ["VIKNOW_STATE_DIR"]).mkdir(parents=True, exist_ok=True)
 
@@ -184,10 +184,6 @@ def main() -> int:
 
     from viknow3.access.rag.service import create_index_job, upload_object
     from viknow3.application.hyperrag.client import HYPERAG
-    from viknow3.application.hyperrag.object_gateway import install_object_store
-    from viknow3.application.hyperrag.object_gateway import gateway_from_ops
-
-    install_object_store(gateway_from_ops())
 
     from viknow3.application.hyperrag.runtime import init_hyperrag, start_background_runtime
 

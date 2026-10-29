@@ -1,9 +1,12 @@
 const PlaygroundAgent = (() => {
   const STORAGE_KEY = "viknow_playground_user";
-  const AGENT_API = "/api/v1/agent";
-  const KNOWLEDGE_API = "/api/v1/knowledge";
 
-  const AGENTS_NEED_LIBRARY = new Set(["deepagents", "adk"]);
+  const AGENTS_NEED_LIBRARY = new Set([
+    "deepagents",
+    "adk",
+    "expertbuddy-deepagents",
+    "expertbuddy-adk",
+  ]);
 
   function detailMessage(payload) {
     if (!payload || typeof payload !== "object") return "请求失败";
@@ -19,8 +22,9 @@ const PlaygroundAgent = (() => {
   }
 
   async function api(path, options = {}) {
-    const response = await fetch(path, {
-      headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+    const url = path.startsWith("http") ? path : viknowApiUrl(path);
+    const response = await fetch(url, {
+      headers: { "Content-Type": "application/json", ...viknowApiHeaders(), ...(options.headers || {}) },
       ...options,
     });
     const payload = await response.json().catch(() => ({}));
@@ -378,11 +382,16 @@ const PlaygroundAgent = (() => {
   }
 
   function sessionPath(agentId, sessionId) {
-    return `${AGENT_API}/agents/${encodeURIComponent(agentId)}/sessions/${encodeURIComponent(sessionId)}`;
+    return viknowApiUrl(
+      `/api/v1/agent/agents/${encodeURIComponent(agentId)}/sessions/${encodeURIComponent(sessionId)}`,
+    );
   }
 
-  async function consumeRunEvents(agentId, sessionId, runId, handlers) {
-    const response = await fetch(`${sessionPath(agentId, sessionId)}/runs/${encodeURIComponent(runId)}/events`);
+  async function consumeRunEvents(agentId, sessionId, runId, handlers, signal) {
+    const response = await fetch(`${sessionPath(agentId, sessionId)}/runs/${encodeURIComponent(runId)}/events`, {
+      signal,
+      headers: viknowApiHeaders(),
+    });
     if (!response.ok) {
       throw new Error("无法订阅 run events");
     }
@@ -430,9 +439,10 @@ const PlaygroundAgent = (() => {
     }
     const target = sessionId
       ? `${sessionPath(agentId, sessionId)}/runs`
-      : `${AGENT_API}/agents/${encodeURIComponent(agentId)}/sessions`;
+      : viknowApiUrl(`/api/v1/agent/agents/${encodeURIComponent(agentId)}/sessions`);
     const response = await fetch(target, {
       method: "POST",
+      headers: viknowApiHeaders(),
       body: form,
     });
     const payload = await response.json().catch(() => ({}));
@@ -442,12 +452,18 @@ const PlaygroundAgent = (() => {
     return payload;
   }
 
+  async function interruptRun(agentId, sessionId, runId) {
+    return api(`${sessionPath(agentId, sessionId)}/runs/${encodeURIComponent(runId)}/interrupt`, {
+      method: "POST",
+    });
+  }
+
   async function initAgentListPage() {
     const loading = document.querySelector("#agents-loading");
     const list = document.querySelector("#agent-list");
     const empty = document.querySelector("#agent-list-empty");
     try {
-      const agents = await api(`${AGENT_API}/agents`);
+      const agents = await api(viknowApiUrl("/api/v1/agent/agents"));
       loading.hidden = true;
       if (!agents.length) {
         empty.hidden = false;
@@ -483,6 +499,7 @@ const PlaygroundAgent = (() => {
     const input = document.querySelector("#chat-input");
     const modelSelect = document.querySelector("#model-select");
     const sendBtn = document.querySelector("#chat-send");
+    const stopBtn = document.querySelector("#chat-stop");
     const attachBtn = document.querySelector("#btn-attach");
     const fileInput = document.querySelector("#attachment-input");
     const attachmentSlot = document.querySelector("#attachment-slot");
@@ -510,6 +527,54 @@ const PlaygroundAgent = (() => {
     let libraryLocked = false;
     let introShown = false;
     const libraryNames = new Map();
+    /** @type {Map<string, { runId: string, turn: ReturnType<typeof createAssistantTurn>, controller: AbortController }>} */
+    const runningBySession = new Map();
+
+    function updateStopButton() {
+      if (!stopBtn) {
+        return;
+      }
+      const active = sessionId && runningBySession.get(sessionId);
+      stopBtn.hidden = !active;
+      stopBtn.disabled = !active;
+    }
+
+    function trackRun(sessionKey, runId, turn, controller) {
+      runningBySession.set(sessionKey, { runId, turn, controller });
+      updateStopButton();
+    }
+
+    function untrackRun(sessionKey) {
+      runningBySession.delete(sessionKey);
+      updateStopButton();
+    }
+
+    function followRunEvents(targetSessionId, runId, turn, controller) {
+      void (async () => {
+        try {
+          await consumeRunEvents(agentId, targetSessionId, runId, {
+            onEvent(type, data) {
+              if (targetSessionId === sessionId) {
+                turn.apply(type, data.payload || {}, data.created_at);
+              }
+            },
+          }, controller.signal);
+          if (targetSessionId === sessionId) {
+            turn.seal();
+          }
+        } catch (error) {
+          if (error?.name !== "AbortError" && targetSessionId === sessionId) {
+            turn.seal();
+            appendMessage(messages, "assistant", error.message || "运行失败");
+          } else if (targetSessionId === sessionId) {
+            turn.seal();
+          }
+        } finally {
+          untrackRun(targetSessionId);
+          refreshSessionList();
+        }
+      })();
+    }
 
     const layout = document.querySelector(".pg-chat-layout");
     const railToggle = document.querySelector("#btn-toggle-sessions");
@@ -597,7 +662,9 @@ const PlaygroundAgent = (() => {
       sessionErrorEl.hidden = true;
       try {
         const rows = await api(
-          `${AGENT_API}/agents/${encodeURIComponent(agentId)}/sessions?user_id=${encodeURIComponent(userId)}&limit=50`,
+          viknowApiUrl(
+            `/api/v1/agent/agents/${encodeURIComponent(agentId)}/sessions?user_id=${encodeURIComponent(userId)}&limit=50`,
+          ),
         );
         sessionLoadingEl.hidden = true;
         if (!rows.length) {
@@ -624,7 +691,9 @@ const PlaygroundAgent = (() => {
           titleEl.textContent = title;
           const metaEl = document.createElement("span");
           metaEl.className = "pg-session-link-meta";
-          metaEl.textContent = formatSessionTime(row.updated_at);
+          metaEl.textContent = runningBySession.has(row.id)
+            ? "运行中…"
+            : formatSessionTime(row.updated_at);
           btn.append(titleEl, metaEl);
           btn.addEventListener("click", () => {
             openSession(row.id);
@@ -672,7 +741,9 @@ const PlaygroundAgent = (() => {
 
     async function loadSessionHistory(targetSessionId) {
       const runs = await api(
-        `${AGENT_API}/agents/${encodeURIComponent(agentId)}/sessions/${encodeURIComponent(targetSessionId)}/runs?limit=100`,
+        viknowApiUrl(
+          `/api/v1/agent/agents/${encodeURIComponent(agentId)}/sessions/${encodeURIComponent(targetSessionId)}/runs?limit=100`,
+        ),
       );
       const ordered = [...runs].sort((a, b) => String(a.created_at || "").localeCompare(String(b.created_at || "")));
       const histories = await Promise.all(
@@ -723,7 +794,9 @@ const PlaygroundAgent = (() => {
       setLibrarySelection(null);
       try {
         const session = await api(
-          `${AGENT_API}/agents/${encodeURIComponent(agentId)}/sessions/${encodeURIComponent(targetSessionId)}`,
+          viknowApiUrl(
+            `/api/v1/agent/agents/${encodeURIComponent(agentId)}/sessions/${encodeURIComponent(targetSessionId)}`,
+          ),
         );
         applyLibraryFromSession(session.library_ids);
         await loadSessionHistory(targetSessionId);
@@ -733,6 +806,7 @@ const PlaygroundAgent = (() => {
       }
       await refreshSessionList();
       syncSendState();
+      updateStopButton();
     }
 
     function startNewSession() {
@@ -749,6 +823,7 @@ const PlaygroundAgent = (() => {
       showIntro(agent?.label || agentId);
       refreshSessionList();
       syncSendState();
+      updateStopButton();
       input.focus();
     }
 
@@ -798,7 +873,7 @@ const PlaygroundAgent = (() => {
       }
       pickerSection.hidden = false;
       try {
-        const rows = await api(`${KNOWLEDGE_API}/libraries?limit=100`);
+        const rows = await api(viknowApiUrl("/api/v1/knowledge/libraries?limit=100"));
         pickerLoading.hidden = true;
         if (!rows.length) {
           pickerEmpty.hidden = false;
@@ -863,7 +938,7 @@ const PlaygroundAgent = (() => {
 
     let agent;
     try {
-      agent = await api(`${AGENT_API}/agents/${encodeURIComponent(agentId)}`);
+      agent = await api(viknowApiUrl(`/api/v1/agent/agents/${encodeURIComponent(agentId)}`));
     } catch (error) {
       appendMessage(messages, "assistant", error.message || "无法加载智能体");
       return;
@@ -884,7 +959,7 @@ const PlaygroundAgent = (() => {
 
     let modelsPayload;
     try {
-      modelsPayload = await api(`${AGENT_API}/models`);
+      modelsPayload = await api(viknowApiUrl("/api/v1/agent/models"));
     } catch {
       modelsPayload = { default_model: agent.default_model, models: [] };
     }
@@ -978,10 +1053,6 @@ const PlaygroundAgent = (() => {
       clearAttachment();
       syncSendState();
 
-      input.disabled = true;
-      sendBtn.disabled = true;
-      attachBtn.disabled = true;
-
       const turn = createAssistantTurn(messages);
 
       try {
@@ -994,27 +1065,45 @@ const PlaygroundAgent = (() => {
           libraryForRun,
           needsLibrary,
         );
-        sessionId = run.session_id || sessionId;
+        const targetSessionId = run.session_id || sessionId;
+        sessionId = targetSessionId;
         if (needsLibrary && !libraryLocked) {
           applyLibraryFromSession(libraryForRun ? [libraryForRun] : []);
         }
+        const controller = new AbortController();
+        trackRun(targetSessionId, run.run_id, turn, controller);
         refreshSessionList();
-        await consumeRunEvents(agentId, run.session_id, run.run_id, {
-          onEvent(type, data) {
-            turn.apply(type, data.payload || {}, data.created_at);
-          },
-        });
-        turn.seal();
+        followRunEvents(targetSessionId, run.run_id, turn, controller);
       } catch (error) {
         turn.seal();
         appendMessage(messages, "assistant", error.message || "发送失败");
       } finally {
-        input.disabled = false;
-        attachBtn.disabled = false;
         syncSendState();
         input.focus();
       }
     });
+
+    if (stopBtn) {
+      stopBtn.hidden = true;
+      stopBtn.addEventListener("click", async () => {
+        if (!sessionId) {
+          return;
+        }
+        const active = runningBySession.get(sessionId);
+        if (!active) {
+          return;
+        }
+        stopBtn.disabled = true;
+        try {
+          active.controller.abort();
+          await interruptRun(agentId, sessionId, active.runId);
+        } catch (error) {
+          appendMessage(messages, "assistant", error.message || "停止失败");
+        } finally {
+          updateStopButton();
+        }
+      });
+    }
   }
 
   return { requireUser, initAgentListPage, initChatPage };

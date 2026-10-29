@@ -5,10 +5,9 @@ from __future__ import annotations
 import re
 from pathlib import Path
 from typing import Any
-from uuid import uuid4
 
-from viknow3.access.knowledge import store
-from viknow3.storage import s3
+from viknow3.access.knowledge import storage_bridge, store
+from viknow3.service.storage.gateway import get_storage_client, storage_configured
 
 _LIBRARY_ID = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$")
 _ASSET_ID = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$")
@@ -59,6 +58,11 @@ def create_library(body: dict[str, Any]) -> dict[str, Any]:
         if str(exc) == "library_exists":
             raise KnowledgeError(409, {"detail": "library_exists"}) from exc
         raise
+    if storage_configured():
+        try:
+            get_storage_client().create_library(library_id, title_text)
+        except Exception:
+            pass
     return row.public()
 
 
@@ -82,9 +86,10 @@ def create_asset(library_id: str, body: dict[str, Any]) -> dict[str, Any]:
     if not asset_path:
         raise KnowledgeError(422, {"detail": [{"loc": ["body", "asset_path"], "msg": "field required", "type": "missing"}]})
     try:
-        s3.head_object(asset_path)
-    except s3.StorageError as exc:
-        raise KnowledgeError(exc.status, {"detail": exc.detail}) from exc
+        storage_bridge.asset_exists_in_storage(library_id, asset_id)
+    except Exception as exc:
+        status, detail = storage_bridge.storage_error_to_http(exc)
+        raise KnowledgeError(status, {"detail": detail}) from exc
     title = body.get("title")
     file_hint = title or asset_id or asset_path
     modality = _modality(str(file_hint), body.get("modality"))
@@ -115,7 +120,7 @@ _VIDEO_SUFFIXES = frozenset({".mp4", ".mov", ".mkv", ".webm"})
 
 
 def build_asset_path(asset_id: str, file_name: str) -> str:
-    """Canonical object key: knowledge/assets/{asset_id}/upload/{asset_id}[.normalized].{ext}"""
+    """Canonical catalog path (storage is keyed by library_id + asset_id)."""
 
     suffix = Path(file_name).suffix.lower()
     if not suffix:
@@ -125,48 +130,6 @@ def build_asset_path(asset_id: str, file_name: str) -> str:
     else:
         upload_name = f"{asset_id}{suffix}"
     return f"knowledge/assets/{asset_id}/upload/{upload_name}"
-
-
-def upload_library_file(library_id: str, file_name: str, stream: Any, content_type: str) -> dict[str, Any]:
-    """Store bytes on the object gateway from the Playground BFF (avoids browser CORS to MinIO)."""
-
-    get_library(library_id)
-    name = str(file_name or "").strip()
-    if not name:
-        raise KnowledgeError(422, {"detail": [{"loc": ["file"], "msg": "file name is required", "type": "missing"}]})
-    aid = str(uuid4())
-    path = build_asset_path(aid, name)
-    try:
-        key = s3.put_object_stream(path, stream, content_type or "application/octet-stream")
-    except s3.StorageError as exc:
-        raise KnowledgeError(exc.status, {"detail": exc.detail}) from exc
-    return {
-        "asset_id": aid,
-        "asset_path": key,
-        "library_id": library_id,
-        "content_type": content_type or "application/octet-stream",
-    }
-
-
-def presign_upload(library_id: str, file_name: str, asset_id: str | None, content_type: str) -> dict[str, Any]:
-    aid = (asset_id or "").strip() or str(uuid4())
-    if not _ASSET_ID.match(aid):
-        raise KnowledgeError(422, {"detail": "invalid asset_id"})
-    path = build_asset_path(aid, file_name)
-    try:
-        signed = s3.presign_put(path, content_type or "application/octet-stream")
-    except s3.StorageError as exc:
-        raise KnowledgeError(exc.status, {"detail": exc.detail}) from exc
-    signed["asset_id"] = aid
-    signed["library_id"] = library_id
-    return signed
-
-
-def presign_download(asset_path: str, download_name: str | None) -> dict[str, Any]:
-    try:
-        return s3.presign_get(asset_path, download_name=download_name)
-    except s3.StorageError as exc:
-        raise KnowledgeError(exc.status, {"detail": exc.detail}) from exc
 
 
 def get_asset_index_status(library_id: str, asset_id: str) -> dict[str, Any]:

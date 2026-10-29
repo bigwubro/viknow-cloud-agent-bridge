@@ -150,7 +150,7 @@ class AccessTests(unittest.TestCase):
         )
         self.assertIn(status, (201, 409), library)
         asset_path = "knowledge/assets/asset-1/upload/asset-1.mp4"
-        with patch("viknow3.access.knowledge.service.s3.head_object", return_value={}):
+        with patch("viknow3.access.knowledge.storage_bridge.asset_exists_in_storage", return_value=None):
             status, asset = self.request(
                 "POST",
                 "/api/v1/knowledge/libraries/library-1/assets",
@@ -162,23 +162,12 @@ class AccessTests(unittest.TestCase):
                 },
             )
         self.assertIn(status, (201, 409), asset)
-        from pathlib import Path
+        from viknow3.service.hyperrag.object_gateway import IndexObject
 
-        from viknow3.application.hyperrag.object_gateway import install_object_store, reset_object_store
-
-        class _Objects:
-            def exists(self, key: str) -> bool:
-                return key == asset_path
-
-            def get_to_path(self, key: str, path: Path) -> None:
-                path.parent.mkdir(parents=True, exist_ok=True)
-                path.write_bytes(b"video")
-
-            def put_bytes(self, key: str, payload: bytes, *, content_type: str = "application/octet-stream") -> None:
-                del key, payload, content_type
-
-        install_object_store(_Objects())
-        try:
+        local = Path(os.environ["VIKNOW_SCRATCH_DIR"]) / "access-test-asset.mp4"
+        local.write_bytes(b"video")
+        fetched = IndexObject(asset_path, local)
+        with patch("viknow3.access.rag.service.fetch_index_asset", return_value=fetched):
             status, job = self.request(
                 "POST",
                 "/api/v1/knowledge/index-jobs",
@@ -204,12 +193,10 @@ class AccessTests(unittest.TestCase):
             self.assertEqual(status, 200)
             self.assertEqual(index_status["status"], "indexed")
             self.assertEqual(index_status["current_index_version_id"], job["job_id"])
-            with patch("viknow3.access.knowledge.service.s3.head_object", return_value={}):
+            with patch("viknow3.access.knowledge.storage_bridge.asset_exists_in_storage", return_value=None):
                 status, assets = self.request("GET", "/api/v1/knowledge/libraries/library-1/assets")
             self.assertEqual(status, 200)
             self.assertEqual(assets[0]["current_index_version_id"], job["job_id"])
-        finally:
-            reset_object_store()
 
         status, learning_body = self.request("GET", "/api/v1/learning")
         self.assertEqual(learning_body["module"], "self-learning")

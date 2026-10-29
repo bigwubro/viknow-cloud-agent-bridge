@@ -27,7 +27,7 @@ completed_at    timestamptz     -- set on terminal status
 
 Latest job per asset: `ORDER BY created_at DESC LIMIT 1` on `(library_id, asset_id)`.
 
-Migration: `deploy/viknow3-dev-data/migrations/knowledge-index-jobs.sql` (also applied at process startup via `store._ensure()`).
+Migration: `docs/infra/migrations/knowledge-index-jobs.sql` (also applied at process startup via `store._ensure()`).
 
 ## HTTP endpoints
 

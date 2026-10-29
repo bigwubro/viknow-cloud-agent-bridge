@@ -28,7 +28,7 @@ class KnowledgeLibrariesRootTests(unittest.TestCase):
         ):
             self.assertEqual(
                 _knowledge_libraries_root(),
-                Path("/data/viknow/knowledge/libraries").resolve(),
+                Path("/data/viknow/hyperrag-wd").resolve(),
             )
 
 

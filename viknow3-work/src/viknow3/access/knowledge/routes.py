@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from fastapi import APIRouter, Depends, File, Request, Response, UploadFile
+from fastapi import APIRouter, Depends, Request
 
 from viknow3.access.auth import AppKey, require_app
 from viknow3.access.knowledge import service
@@ -81,49 +81,6 @@ def library_assets_index_status_batch(
     return service.list_library_assets_index_status(library_id, limit)
 
 
-@router.post("/libraries/{library_id}/uploads")
-async def presign_library_upload(
-    library_id: str,
-    request: Request,
-    app_key: AppKey = Depends(require_app),
-) -> dict[str, Any]:
-    """Presigned PUT URL for async upload to the object gateway (before POST …/assets)."""
-
-    body = await _json(request)
-    allowed = {"file_name", "content_type", "asset_id"}
-    unknown = [key for key in body if key not in allowed]
-    if unknown:
-        raise service.KnowledgeError(
-            422,
-            {"detail": [{"loc": ["body", key], "msg": "extra fields not permitted", "type": "extra_forbidden"} for key in unknown]},
-        )
-    file_name = str(body.get("file_name") or "").strip()
-    if not file_name:
-        raise service.KnowledgeError(422, {"detail": [{"loc": ["body", "file_name"], "msg": "field required", "type": "missing"}]})
-    service.get_library(library_id)
-    content_type = str(body.get("content_type") or "application/octet-stream")
-    asset_id = body.get("asset_id")
-    asset_id_text = str(asset_id).strip() if asset_id is not None else None
-    return service.presign_upload(library_id, file_name, asset_id_text, content_type)
-
-
-@router.post("/libraries/{library_id}/uploads/direct")
-async def direct_library_upload(
-    library_id: str,
-    file: UploadFile = File(...),
-    app_key: AppKey = Depends(require_app),
-) -> dict[str, Any]:
-    """Multipart upload via Playground API (server writes to S3; no browser presigned PUT)."""
-
-    del app_key
-    return service.upload_library_file(
-        library_id,
-        file.filename or "",
-        file.file,
-        file.content_type or "application/octet-stream",
-    )
-
-
 @router.get("/libraries/{library_id}/assets/{asset_id}/index-status")
 def asset_index_status(
     library_id: str,
@@ -142,24 +99,3 @@ def latest_asset_index_job(
 ) -> dict[str, Any]:
     del app_key
     return service.get_latest_asset_index_job(library_id, asset_id)
-
-
-@router.post("/downloads")
-async def presign_asset_download(request: Request, app_key: AppKey = Depends(require_app)) -> dict[str, Any]:
-    """Presigned GET URL for preview or download of an existing asset object."""
-
-    del app_key
-    body = await _json(request)
-    allowed = {"asset_path", "download_name"}
-    unknown = [key for key in body if key not in allowed]
-    if unknown:
-        raise service.KnowledgeError(
-            422,
-            {"detail": [{"loc": ["body", key], "msg": "extra fields not permitted", "type": "extra_forbidden"} for key in unknown]},
-        )
-    asset_path = str(body.get("asset_path") or "").strip()
-    if not asset_path:
-        raise service.KnowledgeError(422, {"detail": [{"loc": ["body", "asset_path"], "msg": "field required", "type": "missing"}]})
-    download_name = body.get("download_name")
-    download = str(download_name).strip() if download_name is not None else None
-    return service.presign_download(asset_path, download or None)

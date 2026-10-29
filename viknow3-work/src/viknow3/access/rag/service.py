@@ -8,7 +8,7 @@ from typing import Any
 from uuid import uuid4
 
 from viknow3.application.hyperrag.client import HYPERAG, HyperragClientError
-from viknow3.application.hyperrag.object_gateway import ObjectFetchError, fetch_index_object, get_object_store
+from viknow3.service.hyperrag.object_gateway import ObjectFetchError, fetch_index_asset
 
 _ASSET_ID = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
 _SUFFIX = re.compile(r"^\.[A-Za-z0-9]{1,16}$")
@@ -45,10 +45,19 @@ def upload_object(
     if _ASSET_ID.fullmatch(chosen) is None:
         raise RagError(422, {"detail": [{"loc": ["asset_id"], "msg": "invalid asset_id", "type": "value_error"}]})
     key = f"knowledge/assets/{chosen}/upload/{chosen}{suffix}"
+    from viknow3.access.knowledge import storage_bridge
+
     try:
-        get_object_store().put_bytes(key, content, content_type=content_type or "application/octet-stream")
-    except ObjectFetchError as exc:
-        raise RagError(exc.status, exc.body) from exc
+        storage_bridge.upload_bytes(
+            library,
+            name,
+            content,
+            asset_id=chosen,
+            content_type=content_type or "application/octet-stream",
+        )
+    except Exception as exc:
+        status, detail = storage_bridge.storage_error_to_http(exc)
+        raise RagError(status, {"detail": detail}) from exc
     return {
         "library_id": library,
         "asset_id": chosen,
@@ -97,7 +106,7 @@ def create_index_job(body: dict[str, Any]) -> dict[str, Any]:
         raise RagError(422, {"detail": [{"loc": ["body", "compile_mode"], "msg": "invalid compile_mode", "type": "literal_error"}]})
     mode = compile_mode if compile_mode in ("pre_compile", "fast_ingest") else None
     try:
-        fetched = fetch_index_object(asset_path)
+        fetched = fetch_index_asset(library_id, asset_id, filename=asset.title)
     except ObjectFetchError as exc:
         raise RagError(exc.status, exc.body) from exc
     job = HYPERAG.create_index(

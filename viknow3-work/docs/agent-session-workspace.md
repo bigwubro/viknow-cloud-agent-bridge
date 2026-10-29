@@ -60,7 +60,7 @@ finalize_session_run(session_id)
 
 - 磁盘：按 session 配额与定期清理 `sessions/*/workspace`（保留 access 元数据即可重建 uploads）。
 - 观测：run 日志带 `session_id`；`finalize` 返回写入 artifact 数量。
-- 236 Playground：`VIKNOW_AGENT_WORKSPACE_ROOT` 已在 `deploy-playground-ui.sh` 设置。
+- 236 部署示例：`VIKNOW_AGENT_WORKSPACE_ROOT=/data/viknow/agent-workspaces`（见 `deploy/236/env/api.env`）。
 
 ## 会话消息（`session_messages`）
 
@@ -72,3 +72,9 @@ finalize_session_run(session_id)
 - `POST …/sessions/{id}/files` → `STORE.files`（用户上传）。
 - `prepare` 物化到 `uploads/`。
 - `finalize` 持久化 `workspace_run_artifact`（非用户上传 kind，供下轮 restore）。
+
+## Run 并发与中断（Access + Playground）
+
+- **粒度是会话，不是用户×Agent 全局**：同一会话上若已有 `status=running` 的 run，再 `POST …/sessions/{id}/runs` 会 409 `session_busy`。
+- **多个会话并行**：同一 `user_id`、同一 `agent_id` 可多次 `POST …/agents/{agent_id}/sessions`，每个会话各有一轮 `running`，互不阻塞（删用户时若名下仍有任意 running run 则 409）。
+- **中断**：`POST …/agents/{agent_id}/sessions/{session_id}/runs/{run_id}/interrupt`（兼容旧路径 `POST /api/v1/agent/runs/{run_id}/interrupt`）。run 已结束则 409 `run_not_running`。Playground 对话页提供「停止」按钮，调用 nested interrupt 并断开 SSE。

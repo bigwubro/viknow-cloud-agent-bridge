@@ -65,7 +65,7 @@ class IndexStatusApiIntegrationTests(unittest.TestCase):
         status, _ = self.request("POST", "/api/v1/knowledge/libraries", {"library_id": lib, "title": "t"})
         self.assertIn(status, (201, 409))
         asset_path = f"knowledge/assets/{asset}/upload/{asset}.mp4"
-        with patch("viknow3.access.knowledge.service.s3.head_object", return_value={}):
+        with patch("viknow3.access.knowledge.storage_bridge.asset_exists_in_storage", return_value=None):
             status, created = self.request(
                 "POST",
                 f"/api/v1/knowledge/libraries/{lib}/assets",
@@ -78,21 +78,12 @@ class IndexStatusApiIntegrationTests(unittest.TestCase):
         self.assertIsNotNone(existing, assets)
         asset_path = existing["asset_path"]
 
-        from viknow3.application.hyperrag.object_gateway import install_object_store, reset_object_store
+        from viknow3.service.hyperrag.object_gateway import IndexObject
 
-        class _Objects:
-            def exists(self, key: str) -> bool:
-                return key == asset_path
-
-            def get_to_path(self, key: str, path: Path) -> None:
-                path.parent.mkdir(parents=True, exist_ok=True)
-                path.write_bytes(b"video")
-
-            def put_bytes(self, key: str, payload: bytes, *, content_type: str = "application/octet-stream") -> None:
-                del key, payload, content_type
-
-        install_object_store(_Objects())
-        try:
+        local = Path(os.environ["VIKNOW_SCRATCH_DIR"]) / f"idx-{asset}.mp4"
+        local.write_bytes(b"video")
+        fetched = IndexObject(asset_path, local)
+        with patch("viknow3.access.rag.service.fetch_index_asset", return_value=fetched):
             status, job = self.request(
                 "POST",
                 "/api/v1/knowledge/index-jobs",
@@ -135,8 +126,6 @@ class IndexStatusApiIntegrationTests(unittest.TestCase):
             self.assertEqual(len(batch), 1)
             self.assertEqual(batch[0]["asset_id"], asset)
             self.assertEqual(batch[0]["status"], "indexed")
-        finally:
-            reset_object_store()
 
     def test_index_status_survives_after_job_poll(self) -> None:
         lib = f"lib-idx-{uuid4().hex[:10]}"
@@ -144,7 +133,7 @@ class IndexStatusApiIntegrationTests(unittest.TestCase):
         status, _ = self.request("POST", "/api/v1/knowledge/libraries", {"library_id": lib, "title": "t"})
         self.assertIn(status, (201, 409))
         asset_path = f"knowledge/assets/{asset}/upload/{asset}.mp4"
-        with patch("viknow3.access.knowledge.service.s3.head_object", return_value={}):
+        with patch("viknow3.access.knowledge.storage_bridge.asset_exists_in_storage", return_value=None):
             status, created = self.request(
                 "POST",
                 f"/api/v1/knowledge/libraries/{lib}/assets",
@@ -157,21 +146,12 @@ class IndexStatusApiIntegrationTests(unittest.TestCase):
         self.assertIsNotNone(existing, assets)
         asset_path = existing["asset_path"]
 
-        from viknow3.application.hyperrag.object_gateway import install_object_store, reset_object_store
+        from viknow3.service.hyperrag.object_gateway import IndexObject
 
-        class _Objects:
-            def exists(self, key: str) -> bool:
-                return key == asset_path
-
-            def get_to_path(self, key: str, path: Path) -> None:
-                path.parent.mkdir(parents=True, exist_ok=True)
-                path.write_bytes(b"video")
-
-            def put_bytes(self, key: str, payload: bytes, *, content_type: str = "application/octet-stream") -> None:
-                del key, payload, content_type
-
-        install_object_store(_Objects())
-        try:
+        local = Path(os.environ["VIKNOW_SCRATCH_DIR"]) / f"idx-poll-{asset}.mp4"
+        local.write_bytes(b"video")
+        fetched = IndexObject(asset_path, local)
+        with patch("viknow3.access.rag.service.fetch_index_asset", return_value=fetched):
             status, job = self.request(
                 "POST",
                 "/api/v1/knowledge/index-jobs",
@@ -189,11 +169,9 @@ class IndexStatusApiIntegrationTests(unittest.TestCase):
             self.assertEqual(index_status["status"], "indexed")
             self.assertEqual(index_status["current_index_version_id"], job["job_id"])
 
-            with patch("viknow3.access.knowledge.service.s3.head_object", return_value={}):
+            with patch("viknow3.access.knowledge.storage_bridge.asset_exists_in_storage", return_value=None):
                 status, assets = self.request("GET", f"/api/v1/knowledge/libraries/{lib}/assets")
             self.assertEqual(assets[0]["current_index_version_id"], job["job_id"])
-        finally:
-            reset_object_store()
 
 
 if __name__ == "__main__":

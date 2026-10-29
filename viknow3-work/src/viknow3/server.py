@@ -46,6 +46,29 @@ async def _lifespan(application: FastAPI):
 def create_app() -> FastAPI:
     application = FastAPI(title="ViKnow access layer", lifespan=_lifespan)
 
+    def _cors_origins() -> list[str]:
+        raw = (
+            os.environ.get("VIKNOW_CORS_ORIGINS")
+            or os.environ.get("VIKNOW_PLAYGROUND_CORS_ORIGINS")
+            or ""
+        )
+        origins = [item.strip() for item in raw.split(",") if item.strip()]
+        if origins:
+            return origins
+        return [
+            "http://36.103.198.236:5198",
+        ]
+
+    from starlette.middleware.cors import CORSMiddleware
+
+    application.add_middleware(
+        CORSMiddleware,
+        allow_origins=_cors_origins(),
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
     def handle_access_error(_request: Request, exc: Exception) -> JSONResponse:
         return JSONResponse(exc.body, status_code=exc.status)
 

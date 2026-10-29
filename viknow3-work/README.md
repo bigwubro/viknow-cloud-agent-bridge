@@ -1,5 +1,7 @@
 # viknow3
 
+项目边界（什么属于 / 不属于本仓）：[`docs/project-boundary.md`](docs/project-boundary.md)。
+
 接入层使用应用层和运维层给出的 client，不在 `access/` 里实现这些 client。
 
 | 接入层 | 调用 |
@@ -23,7 +25,7 @@ pip install -e .
 python -m viknow3
 ```
 
-未设置 `VIKNOW_PORT` 时默认 `127.0.0.1:5175`；236 demo 接入层为 **5197**（见 `deploy/demo/runtime.env`）。**5175 在 236 上是 viknow2-test，不是 viknow3。** 开发用的 app key 是 `dev-app-key`，默认智能体是 `deepagents`；`GET /api/v1/agent/agents` 列出全部已注册智能体（不按 app key 过滤）。管理凭证是 `dev-admin-key`。
+未设置 `VIKNOW_PORT` 时默认 `127.0.0.1:5175`；236 Playground API 为 **5218**（见 `deploy/236/env/api.env`）。**5175 在 236 上是 viknow2-test，不是 viknow3。** 开发用的 app key 是 `dev-app-key`，默认智能体是 `deepagents`；`GET /api/v1/agent/agents` 列出全部已注册智能体（不按 app key 过滤）。管理凭证是 `dev-admin-key`。
 
 存储只使用同一台 Postgres，按业务分库。`VIKNOW_ACCESS_DSN` 是会话库：`users`、`sessions`、`workspaces`、`files`、`run_refs`（一轮的 `input`、`output`、`model`、`status`、`citations`、`token_usage`）、`run_events`（主键 `(run_id, sequence)`）、`run_files`（一轮用过哪些文件）。进行中的 SSE 和结束后的 `GET .../history` 读的都是 `run_events`，进程重启后照样能回放。终态事件和 run 的结束字段在同一个事务里写入。删除只写 `deleted_at`：删 session 在同一个事务里给 session、workspace、file、run、event、run_file 写入同一个时间，删 user 再加上 user 本身；其下有 `running` 的 run 时返回 409 `session_busy`。进程启动时，库里仍是 `running`、但本进程没有对应 task 的 run 记为 `failed`，并补一条 `run_failed`（`code` 为 `run_lost`）。`VIKNOW_AGENT_DSN` 是 agent 库，只放 LangGraph checkpointer 的表（`checkpoints`、`checkpoint_blobs`、`checkpoint_writes`、`checkpoint_migrations`），`thread_id` 就是 `session_id`。`VIKNOW_HYPERRAG_DSN` 是知识库目录 `knowledge_libraries`、`knowledge_assets`。运维配置仍在 `viknow_ops`。
 

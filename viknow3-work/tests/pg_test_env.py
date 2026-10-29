@@ -1,22 +1,9 @@
-"""Point unittest at *_test Postgres databases (see deploy/viknow3-dev-data/init-databases.sh)."""
+"""Point unittest at *_test Postgres on externally provisioned PG (viknow3 does not start DB)."""
 
 from __future__ import annotations
 
 import os
-import subprocess
 from pathlib import Path
-
-
-def _docker_pg_password() -> str | None:
-    try:
-        out = subprocess.check_output(
-            ["docker", "exec", "viknow3-ops-postgres", "printenv", "POSTGRES_PASSWORD"],
-            text=True,
-            timeout=8,
-        ).strip()
-        return out or None
-    except (OSError, subprocess.SubprocessError):
-        return None
 
 
 def _parse_env_file(path: Path) -> dict[str, str]:
@@ -34,8 +21,7 @@ def _postgres_base_from_files() -> str | None:
     repo = Path(__file__).resolve().parents[1]
     candidates = [
         Path.home() / ".viknow3" / "ops.env",
-        repo / "deploy" / "demo" / "pg-demo.env",
-        repo / "deploy" / "demo" / "runtime.env",
+        repo / "deploy" / "236" / "env" / "pg-demo.env",
     ]
     for path in candidates:
         if not path.is_file():
@@ -48,18 +34,31 @@ def _postgres_base_from_files() -> str | None:
     return None
 
 
+def apply_if_configured() -> bool:
+    """Set *_test DSN env vars when credentials are available; otherwise no-op."""
+    if os.environ.get("VIKNOW_ACCESS_DSN") and os.environ.get("VIKNOW_HYPERRAG_DSN"):
+        return True
+    try:
+        apply()
+        return True
+    except RuntimeError:
+        return False
+
+
 def apply() -> None:
     """Call before importing viknow3 modules that open DB connections."""
     base = os.environ.get("VIKNOW_TEST_PG_BASE", "").strip().rstrip("/")
     if not base:
         base = _postgres_base_from_files() or ""
     if not base:
-        user = os.environ.get("VIKNOW_TEST_PG_USER", "viknow_ops")
-        password = os.environ.get("VIKNOW_TEST_PG_PASSWORD", "") or _docker_pg_password() or ""
+        password = os.environ.get("VIKNOW_TEST_PG_PASSWORD", "").strip()
         if not password:
             raise RuntimeError(
-                "Set VIKNOW_TEST_PG_PASSWORD or provide ~/.viknow3/ops.env / deploy/demo/pg-demo.env for unittest"
+                "Set VIKNOW_TEST_PG_PASSWORD or VIKNOW_TEST_PG_BASE, "
+                "or provide DSN prefix in ~/.viknow3/ops.env or deploy/236/env/pg-demo.env "
+                "(Postgres must be provisioned outside viknow3; see docs/external-infra.md)"
             )
+        user = os.environ.get("VIKNOW_TEST_PG_USER", "viknow_ops")
         host = os.environ.get("VIKNOW_TEST_PG_HOST", "127.0.0.1")
         port = os.environ.get("VIKNOW_TEST_PG_PORT", "16432")
         base = f"postgresql://{user}:{password}@{host}:{port}"

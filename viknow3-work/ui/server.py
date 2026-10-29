@@ -1,35 +1,38 @@
-"""ViKnow Playground UI — static pages + user BFF + mounted /api/v1/knowledge."""
+"""ViKnow Playground UI — static pages; browser calls ViKnow API + viknow-storage via runtime-config.js."""
 
 from __future__ import annotations
 
+import json
 import os
-from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse, PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
-
-from ui.playground_access import mount_knowledge_api
-from ui.playground_routes import router as playground_router
 
 STATIC = Path(__file__).resolve().parent / "static"
 PLAYGROUND = STATIC / "playground"
 
-@asynccontextmanager
-async def _playground_lifespan(application: FastAPI):
-    from viknow3.application.hyperrag.runtime import init_hyperrag, shutdown_background_runtime
-
-    await init_hyperrag()
-    try:
-        yield
-    finally:
-        await shutdown_background_runtime()
+app = FastAPI(title="ViKnow Playground", docs_url=None, redoc_url=None)
 
 
-app = FastAPI(title="ViKnow Playground", docs_url=None, redoc_url=None, lifespan=_playground_lifespan)
-mount_knowledge_api(app)
-app.include_router(playground_router)
+@app.get("/playground/assets/runtime-config.js")
+def playground_runtime_config() -> PlainTextResponse:
+    """Inject API base URL, viknow-storage URL/token, and optional app key for static JS."""
+    api_base = os.environ.get("VIKNOW_PLAYGROUND_API_URL", "http://127.0.0.1:5218").strip().rstrip("/")
+    storage_url = os.environ.get("VIKNOW_STORAGE_URL", "").strip().rstrip("/")
+    storage_token = os.environ.get("VIKNOW_STORAGE_TOKEN", "").strip()
+    app_key = os.environ.get("VIKNOW3_APP_KEY", os.environ.get("VIKNOW_APP_KEY", "")).strip()
+    lines = [f"window.VIKNOW_API_BASE={json.dumps(api_base)};"]
+    if storage_url:
+        lines.append(f"window.VIKNOW_STORAGE_URL={json.dumps(storage_url)};")
+    if storage_token:
+        lines.append(f"window.VIKNOW_STORAGE_TOKEN={json.dumps(storage_token)};")
+    if app_key:
+        lines.append(f"window.VIKNOW_APP_KEY={json.dumps(app_key)};")
+    return PlainTextResponse("\n".join(lines) + "\n", media_type="application/javascript")
+
+
 app.mount("/playground/assets", StaticFiles(directory=PLAYGROUND / "assets"), name="playground-assets")
 
 

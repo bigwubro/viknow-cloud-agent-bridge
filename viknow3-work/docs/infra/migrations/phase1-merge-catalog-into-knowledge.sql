@@ -1,9 +1,8 @@
 -- Phase 1: catalog in viknow3_knowledge (no app_key tenancy).
 -- Imports from viknow_hyperrag when catalog tables are empty.
--- Stop viknow3-demo / indexing workers before running on shared dev.
+-- Stop viknow3-playground / indexing workers before running on shared dev.
 --
---   docker exec -i viknow3-ops-postgres psql -U viknow_ops -d viknow3_knowledge -v ON_ERROR_STOP=1 \
---     < deploy/viknow3-dev-data/migrations/phase1-merge-catalog-into-knowledge.sql
+--   psql "$VIKNOW_HYPERRAG_DSN" -v ON_ERROR_STOP=1 -f docs/infra/migrations/phase1-merge-catalog-into-knowledge.sql
 
 \set ON_ERROR_STOP on
 

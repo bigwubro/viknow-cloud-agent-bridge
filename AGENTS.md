@@ -33,7 +33,7 @@
 2. **单测**：`/home/cursor-agent/viknow3/venv312/bin/python -m pytest`（至少本次改动涉及的用例）
 3. **部署**：`cd /home/cursor-agent/src/viknow3 && bash scripts/deploy-playground-ui.sh restart`
 4. **冒烟**：`curl -sf http://127.0.0.1:5198/playground`；必要时在 236 上 `PYTHONPATH=src` 调 `knowledge_discover` 等
-5. **推送 Gitea**：`agent/<topic>` 分支（见下节「推送 Gitea」）
+5. **推送 Gitea**：`agent/<topic>` 分支；Playground / deploy 236 相关改动 **验证通过后直接 merge 到 `main` 并 push**（无需再向负责人确认）。236 上 `git checkout main && git pull` 后部署。
 
 `VIKNOW_236_SSH_KEY` 若为单行 PEM，需恢复换行后再 `chmod 600`，否则 `Load key: error in libcrypto`：
 

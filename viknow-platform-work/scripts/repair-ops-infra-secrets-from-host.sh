@@ -4,8 +4,13 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 export PYTHONPATH="${ROOT}/src:${ROOT}"
-PYTHON="${VIKNOW_PYTHON:-${HOME}/viknow3/venv312/bin/python}"
-[[ -x "$PYTHON" ]] || PYTHON="${HOME}/viknow-platform/venv312/bin/python"
+PYTHON="${VIKNOW_PYTHON:-python3}"
+if [[ ! -x "$PYTHON" ]]; then
+  PYTHON="$(command -v python3 || true)"
+fi
+if [[ ! -x "$PYTHON" ]]; then
+  PYTHON="${HOME}/viknow-platform/venv312/bin/python"
+fi
 
 OPS_ENV="${VIKNOW_OPS_ENV:-${HOME}/.viknow3/ops.env}"
 DEPLOY_ENV="${VIKNOW_DEPLOY_ENV:-${HOME}/deploy.env}"

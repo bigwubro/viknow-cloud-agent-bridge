@@ -30,6 +30,7 @@ COPY external/schedule-core ./external/schedule-core
 RUN pip install --no-cache-dir \
     -i https://mirrors.aliyun.com/pypi/simple/ \
     --trusted-host mirrors.aliyun.com \
+    google-adk \
     ./external/deepagents-sandbox[langchain] \
     -e ./external/actio \
     ./external/schedule-core \

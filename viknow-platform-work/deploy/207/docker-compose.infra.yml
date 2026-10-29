@@ -10,7 +10,7 @@ services:
     ports:
       - "${VIKNOW_PG_PORT:-16432}:5432"
     volumes:
-      - viknow207-pgdata:/var/lib/postgresql/data
+      - viknow207-pgdata:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U viknow_ops -d viknow_ops"]
       interval: 5s

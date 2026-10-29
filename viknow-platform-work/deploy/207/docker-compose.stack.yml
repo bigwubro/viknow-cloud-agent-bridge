@@ -1,0 +1,102 @@
+# 207 full stack: PG / Redis / Neo4j + viknow-storage (internal MinIO) + Playground container (host network).
+name: viknow207
+
+services:
+  postgres:
+    image: registry.cn-hangzhou.aliyuncs.com/litesense/viknow2-pgvector-textsearch:pg18-trixie-v1.3.1
+    container_name: viknow207-ops-postgres
+    environment:
+      POSTGRES_USER: viknow_ops
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: viknow_ops
+    ports:
+      - "${VIKNOW_PG_PORT:-16432}:5432"
+    volumes:
+      - viknow207-pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U viknow_ops -d viknow_ops"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    restart: unless-stopped
+
+  redis:
+    image: registry.cn-hangzhou.aliyuncs.com/litesense/viknow2-redis:7
+    container_name: viknow207-redis
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:?set REDIS_PASSWORD}"]
+    ports:
+      - "127.0.0.1:${VIKNOW_REDIS_PORT:-16479}:6379"
+    restart: unless-stopped
+
+  neo4j:
+    image: registry.cn-hangzhou.aliyuncs.com/litesense/viknow2-neo4j:5.26.3.0
+    container_name: viknow207-neo4j
+    environment:
+      NEO4J_AUTH: neo4j/${NEO4J_PASSWORD:?set NEO4J_PASSWORD}
+      NEO4J_server_memory_heap_initial__size: 512m
+      NEO4J_server_memory_heap_max__size: 512m
+    ports:
+      - "127.0.0.1:${VIKNOW_NEO4J_HTTP_PORT:-17474}:7474"
+      - "127.0.0.1:${VIKNOW_NEO4J_BOLT_PORT:-17487}:7687"
+    volumes:
+      - viknow207-neo4j:/data
+    restart: unless-stopped
+
+  minio:
+    image: ${MINIO_IMAGE:-registry.cn-hangzhou.aliyuncs.com/litesense/viknow2-minio:latest}
+    container_name: viknow207-storage-minio
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: viknow-storage
+      MINIO_ROOT_PASSWORD: ${VIKNOW_STORAGE_MINIO_PASSWORD:-viknow-storage-dev}
+    volumes:
+      - ${VIKNOW_STORAGE_MINIO_DATA:-/data/viknow/storage-minio}:/data
+    expose:
+      - "9000"
+      - "9001"
+    restart: unless-stopped
+
+  storage:
+    image: ${VIKNOW_STORAGE_IMAGE:?set VIKNOW_STORAGE_IMAGE to an ACR tag built on 236}
+    container_name: viknow207-storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_started
+    environment:
+      STORAGE_TOKEN: ${STORAGE_TOKEN:?set STORAGE_TOKEN}
+      STORAGE_DATABASE_URL: postgresql+psycopg://viknow_ops:${POSTGRES_PASSWORD}@postgres:5432/viknow_storage
+      S3_ENDPOINT: http://minio:9000
+      S3_ACCESS_KEY: viknow-storage
+      S3_SECRET_KEY: ${VIKNOW_STORAGE_MINIO_PASSWORD:-viknow-storage-dev}
+      S3_BUCKET: viknow
+      S3_REGION: us-east-1
+      STORAGE_CORS_ORIGINS: http://${VIKNOW207_HOST_IP:?set VIKNOW207_HOST_IP}:5198
+      STORAGE_GRANT_SECRET: ${STORAGE_GRANT_SECRET:-}
+      STORAGE_DOWNLOAD_BASE_URL: http://${VIKNOW207_HOST_IP}:5219
+      STORAGE_GRANT_TTL_SECONDS: ${STORAGE_GRANT_TTL_SECONDS:-86400}
+    ports:
+      - "${VIKNOW_STORAGE_HTTP_PORT:-5219}:8080"
+    restart: unless-stopped
+
+  platform:
+    image: ${VIKNOW_PLATFORM_IMAGE:?set VIKNOW_PLATFORM_IMAGE to an ACR tag built on 236}
+    container_name: viknow207-platform
+    depends_on:
+      storage:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    network_mode: host
+    env_file:
+      - ${VIKNOW207_PLATFORM_ENV:?set VIKNOW207_PLATFORM_ENV}
+    volumes:
+      - ${VIKNOW_DATA_DIR:-/data/viknow}:/data/viknow
+      - ${VIKNOW_PLATFORM_STATE:-/home/wuzihan/viknow-platform/state}:/state
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped
+
+volumes:
+  viknow207-pgdata:
+  viknow207-neo4j:

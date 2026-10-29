@@ -29,6 +29,15 @@
 
 ## 变更记录（倒序）
 
+### 2026-10-29 ACR 推送 platform + storage（236）→ 207 pull 部署
+
+- 环境：236 `cursor-agent@36.103.198.236` build/push；207 `wuzihan@100.101.46.52` pull
+- 对象：ACR `litesense/viknow-platform-playground:207-latest`、`litesense/viknow-storage:207-latest`（及 `207-798383eaee94`）
+- 动作：`push-images-236.sh` / docker push；207 `deploy-207.sh` 仅 pull，无源码 build
+- 结果：push 与 207 `5219/health` **成功**；platform/storage 容器已启动
+- 证据：digest platform `sha256:58391934f677…`、storage `sha256:78375c85136c…`
+- 残留：236 本地镜像层；207 `~/viknow207.host.env` 含 `VIKNOW_*_IMAGE`（勿提交）
+
 ### 2026-10-29 207 部署准备 — ACR 拉取 infra 镜像（236）
 
 - 环境：SSH `cursor-agent@36.103.198.236`（207 `10.168.1.207:22` 从 Cloud Agent 与 236 均不可达，未在 207 执行部署）

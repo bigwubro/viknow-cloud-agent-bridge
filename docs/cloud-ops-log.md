@@ -2,7 +2,7 @@
 
 本文件记录 Cloud Agent / 跳板环境对 **阿里云**（ACK、ACR、RDS、Tair、OSS、RAM 等）的每一次操作与变更。不记 AWS。
 
-最后更新：2026-09-20
+最后更新：2026-10-29
 
 ## 怎么记
 
@@ -28,6 +28,15 @@
 ---
 
 ## 变更记录（倒序）
+
+### 2026-10-29 207 部署准备 — ACR 拉取 infra 镜像（236）
+
+- 环境：SSH `cursor-agent@36.103.198.236`（207 `10.168.1.207:22` 从 Cloud Agent 与 236 均不可达，未在 207 执行部署）
+- 对象：ACR 杭州 `registry.cn-hangzhou.aliyuncs.com/litesense/` — `viknow2-pgvector-textsearch:pg18-trixie-v1.3.1`、`viknow2-redis:7`、`viknow2-neo4j:5.26.3.0`、`viknow2-minio:latest`
+- 动作：`docker login`（用户提供的 ACR 账号，未写入本文件）→ `docker pull` 四镜像 → `docker logout`；`docker save | gzip` 至 `~/staging/viknow207-deploy/infra-images.tar.gz`；同步 `deploy/207` 到 `src/viknow3/deploy/207`
+- 结果：pull 与 save **成功**
+- 证据：四镜像 `pulled`；staging 目录含 `infra-images.tar.gz`
+- 残留：236 本地 Docker 镜像层；staging  tarball 待 207 可达后 `docker load` + `bash deploy/207/deploy-207.sh`
 
 ### 2026-09-20 探测 Push ViKnow to ACR（跳过 CI / Deploy test）
 

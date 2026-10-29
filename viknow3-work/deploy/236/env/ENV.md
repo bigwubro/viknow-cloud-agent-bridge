@@ -3,6 +3,11 @@
 Playground **产品** = 浏览器静态页 + 调用 ViKnow API；**不负责** HyperRAG / 索引 / Agent / 存储实现。  
 环境文件按 **进程** 拆成 `ui.env`、`api.env`、`secrets.env`（见下表）。
 
+## 没有 `playground.env`
+
+历史上曾用 **`deploy/236/env/playground.env`** 把 UI + API + 密钥写进一个文件，已 **删除**。  
+若文档或脚本仍提到 `playground.env`，一律改为 **`ui.env` + `api.env` + `secrets.env`**（口语里的「Playground 部署 env」指这三份，不是第四个文件名）。
+
 ## 文件与进程
 
 | 文件 | 提交到 Git | 注入方式 | 谁读 |

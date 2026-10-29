@@ -11,11 +11,6 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "src"))
 
-sys.path.insert(0, str(ROOT / "tests"))
-from pg_test_env import apply as _apply_test_pg
-
-_apply_test_pg()
-
 from fastapi.testclient import TestClient
 
 from ui import server as ui_server

@@ -17,15 +17,15 @@
 Run on dev (236):
 
 ```bash
-docker exec -i viknow3-ops-postgres psql -U viknow_ops -d viknow3_knowledge -v ON_ERROR_STOP=1 \
-  < deploy/viknow3-dev-data/migrations/phase1-merge-catalog-into-knowledge.sql
+docker exec -i <postgres-container> psql -U viknow_ops -d viknow3_knowledge -v ON_ERROR_STOP=1 \
+  < docs/infra/migrations/phase1-merge-catalog-into-knowledge.sql
 ```
 
 ## 236 env (`pg-demo.env`)
 
 Set **`VIKNOW_HYPERRAG_DSN`** to the same database as ops `postgres_connection.database` (e.g. `…/viknow3_knowledge`). Retire separate `viknow_hyperrag` DSN for the API after migration.
 
-Tests: point **`VIKNOW_HYPERRAG_DSN`** at **`viknow3_knowledge_test`** (`deploy/viknow3-dev-data/init-databases.sh` creates it).
+Tests: point **`VIKNOW_HYPERRAG_DSN`** at **`viknow3_knowledge_test`** on externally provisioned Postgres (see `docs/external-infra.md`).
 
 Application code runs `_ensure()` + legacy `app_key` column migration on startup (`access/knowledge/store.py`).
 

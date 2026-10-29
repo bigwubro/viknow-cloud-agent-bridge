@@ -12,15 +12,15 @@
 | **ViKnow 3 业务 Postgres**（`16432` 上的 `viknow_access` / `viknow_agent` / `viknow_hyperrag`） | 已有新实例即可 | 由 `VIKNOW_*_DSN` 直连，**不在** ops YAML 里配 |
 | **`viknow_ops` Postgres**（通常同实例上的 `viknow_ops` 库） | 一个库就够 | 存 OM 表；含 `postgres_connection` / `redis_connection` / `neo4j_connection` 等**连接描述** |
 | **`postgres_connection`（ops 表）** | 同 PG 实例上的**另一个 database** | ViKnow 3 开发默认 **`16432/viknow3_knowledge`**（与 viknow2-test 的 `viknow2` 隔离） |
-| **Redis** | 需要**独立 Redis 进程** | ViKnow 3 开发：`deploy/viknow3-dev-data` → **`127.0.0.1:16479`** |
-| **Neo4j** | 需要**独立 Neo4j 进程** | 同上 compose → **`neo4j://127.0.0.1:17487`** |
+| **Redis** | 需要**独立 Redis 进程** | 连接信息在 ops 表 `redis_connection`；**由外部任务 provision**，见 [`docs/external-infra.md`](../external-infra.md) |
+| **Neo4j** | 需要**独立 Neo4j 进程** | 连接信息在 ops 表 `neo4j_connection`；同上 |
 
-236 上先起专用 Redis/Neo4j：`docker compose -f deploy/viknow3-dev-data/docker-compose.yml up -d`，详见 `deploy/viknow3-dev-data/README.md`。
+236 上 Postgres/Redis/Neo4j **不由 viknow3 仓库启动**；Playground 容器启动前假定宿主机 DSN/ops 已指向可用实例。
 
 ## 前置
 
 - Python **3.12+**（与 `external/HyperRAG` 一致）
-- ViKnow 3 **专用** PG（`:16432`）+ Redis（`:16479`）+ Neo4j（`:17487`）；模型/vLLM 端点仍可按环境指向 test 网关
+- 外部已 provision 的 PG（`VIKNOW_*_DSN`）+ Redis/Neo4j（经 ops 表）；236 典型端口见 [`docs/external-infra.md`](../external-infra.md)
 - **`VIKNOW_OPS_DSN`** 指向 `viknow_ops`，**`VIKNOW_OPS_SECRET`** 为 Fernet 密钥（解密库内 api_key 等）
 
 ## 环境

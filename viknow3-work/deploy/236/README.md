@@ -1,5 +1,7 @@
 # Playground container deploy (236)
 
+Playground 236 假定 **宿主机已由其它任务 provision** Postgres/Redis/Neo4j；viknow3 只通过 `secrets.env` / ops 连接。见 [`docs/external-infra.md`](../../docs/external-infra.md)。
+
 Manual Gitea workflow **Playground 236** (`workflow_dispatch` on `main`):
 
 1. Builds `viknow3-playground:<12-char-sha>` on runner `python-312-uv` (same host as 236 services).

@@ -1,0 +1,79 @@
+"""Build the viknow-v3 graph (viknow-v2 profile parity)."""
+
+from __future__ import annotations
+
+from typing import Any
+
+from viknow_platform.application.agent.knowledge_assistant.backends import build_filesystem_workspace_backend
+from viknow_platform.application.agent.knowledge_assistant.middleware.qa_harness import QaHarnessMiddleware
+from viknow_platform.application.agent.knowledge_assistant.instructions import runtime_instruction
+from viknow_platform.application.agent.knowledge_assistant.skill_pin import pinned_skills_prompt
+from viknow_platform.application.agent.knowledge_assistant.llm import resolve_chat_model
+from viknow_platform.application.agent.knowledge_assistant.profile import load_viknow_v2_profile
+from viknow_platform.application.agent.knowledge_assistant.tools import build_tools
+from viknow_platform.application.agent.knowledge_assistant.workspace_config import load_deepagents_workspace_config
+from viknow_platform.application.agent.knowledge_assistant.workspace_lifecycle import (
+    prepare_session_run,
+    workspace_runtime_instruction,
+)
+from viknow_platform.application.agent.knowledge_assistant.workspace_staging import workspace_skills_source
+from viknow_platform.application.agent.qa_expert.grant import current_grant
+
+
+def build_graph(
+    model_selector: str | None,
+    checkpointer: Any,
+    session_id: str,
+    *,
+    backend: Any | None = None,
+    workspace_overlay: str | None = None,
+) -> Any:
+    """create_deep_agent; bubblewrap runs must pass the live sandbox backend."""
+    from deepagents import create_deep_agent
+
+    profile = load_viknow_v2_profile()
+    cfg = load_deepagents_workspace_config()
+    if backend is None:
+        backend = build_filesystem_workspace_backend(session_id)
+    if workspace_overlay is None:
+        ws_ctx = prepare_session_run(session_id, profile.enabled_skills)
+        grant = current_grant()
+        libraries = list(grant.libraries()) if grant is not None else []
+        workspace_overlay = workspace_runtime_instruction(ws_ctx, libraries, "deepagents")
+    system_prompt = (
+        runtime_instruction(profile, "deepagents")
+        + pinned_skills_prompt(profile.enabled_skills)
+        + workspace_overlay
+    )
+    skill_root = workspace_skills_source(cfg.backend)
+    primary_skill = profile.enabled_skills[0] if profile.enabled_skills else "knowledge-qa-v2"
+    skill_path = f"/workspace/.skills/{primary_skill}/SKILL.md"
+    middleware: list[Any] = [
+        QaHarnessMiddleware(
+            primary_skill=primary_skill,
+            skill_path=skill_path,
+            skill_reminder_enabled=cfg.runtime.skill_reminder_enabled,
+        ),
+    ]
+    model = resolve_chat_model(model_selector)
+    if cfg.runtime.summarization_trigger_fraction is not None:
+        from deepagents.middleware.summarization import SummarizationMiddleware
+
+        middleware.append(
+            SummarizationMiddleware(
+                model=model,
+                backend=backend,
+                trigger=("fraction", cfg.runtime.summarization_trigger_fraction),
+                keep=("fraction", cfg.runtime.summarization_keep_fraction),
+            )
+        )
+    return create_deep_agent(
+        model=model,
+        tools=build_tools(profile),
+        system_prompt=system_prompt,
+        skills=[skill_root],
+        backend=backend,
+        middleware=middleware,
+        checkpointer=checkpointer,
+        name="deepagents",
+    )

@@ -1,0 +1,75 @@
+"""Agent host. Builds each profile's graph and runs a turn as a task on the agent loop.
+
+Concrete agents live in application/agent. A graph is rebuilt per run so model
+config changes apply at once. Session memory lives in the Postgres checkpointer.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+from typing import Any
+
+from viknow_platform.application.agent.attached import adk_in_process_available
+from viknow_platform.application.agentcore.runtime.adk_runner import run_adk
+from viknow_platform.application.agent.knowledge_assistant.deepagents_runner import run_deepagents_turn
+from viknow_platform.application.agentcore.environment.context import RunState
+from viknow_platform.application.agentcore.events.sink import EventSink
+from viknow_platform.application.agentcore.outbound.gateway import OutboundGateway
+from viknow_platform.application.agentcore.registry.catalog import AGENT_ADK, Profile
+from viknow_platform.application.agentcore.runtime.events import RunEvents
+
+log = logging.getLogger(__name__)
+
+DEEPAGENTS_PROFILE_ID = "deepagents"
+
+
+class _RunGrant:
+    """Libraries granted on this run, as seen by the agents' search tools."""
+
+    def __init__(self, state: RunState, outbound: OutboundGateway) -> None:
+        self._state = state
+        self._outbound = outbound
+
+    def libraries(self) -> list[str]:
+        ctx = self._state.ctx
+        return [library_id for library_id in ctx.library_ids if self._outbound.permission(ctx.user_id, library_id, None)]
+
+    def allowed(self) -> bool:
+        return bool(self.libraries())
+
+
+async def run(state: RunState, profile: Profile, sink: EventSink, outbound: OutboundGateway) -> None:
+    """One turn. Runs on the agent loop; its context (and so the grant) is private to this task."""
+    from viknow_platform.application.agent.qa_expert import bind_grant
+
+    events = state.events or RunEvents(state, sink)
+    state.aio_task = asyncio.current_task()
+    bind_grant(_RunGrant(state, outbound))
+    try:
+        events.started()
+        if profile.runtime == "adk":
+            if adk_in_process_available():
+                await run_adk(state, events, outbound)
+            else:
+                events.failed(
+                    "ADK is not configured: install google-adk for in-process runs",
+                    code="adk_not_configured",
+                )
+        elif profile.id == DEEPAGENTS_PROFILE_ID:
+            await run_deepagents_turn(state, events)
+        else:
+            events.failed("no runtime for this profile", code="unknown_profile")
+    except asyncio.CancelledError:
+        events.interrupted(state.output or "")
+    except Exception as exc:
+        log.exception("agent run %s failed", state.ctx.run_id)
+        events.failed(f"{type(exc).__name__}: {exc}")
+    finally:
+        state.done.set()
+
+
+def session_messages(profile_id: str, session_id: str) -> list[Any]:
+    from viknow_platform.application.agentcore.runtime.session_messages import session_messages as _session_messages
+
+    return _session_messages(profile_id, session_id)

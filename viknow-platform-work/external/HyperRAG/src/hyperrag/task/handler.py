@@ -29,6 +29,7 @@ from ..utils.job_log import setup_logger, with_job_log
 from ..utils.segment_tools import (
     build_video_segments,
     get_primary_video_source,
+    resolve_local_master_video_path,
 )
 from .models import TaskResult
 
@@ -1353,6 +1354,8 @@ class VideoParseHandler(BaseTaskHandler):
             source_parser="video",
         )
         video_source = get_primary_video_source(sop_full_data)
+        catalog_asset_path = str(asset_path)
+        local_master_path = resolve_local_master_video_path(catalog_asset_path, video_source)
         video_duration = _extract_video_duration(
             sop_full_data,
             getattr(parse_result, "segment_output", None),
@@ -1361,11 +1364,13 @@ class VideoParseHandler(BaseTaskHandler):
             "asset_id": task.asset_id,
             "video_id": video_source["source_id"] or task.asset_id,
             "source_id": video_source["source_id"] or task.asset_id,
-            "source_url": video_source["source_url"] or str(asset_path),
+            "source_url": video_source["source_url"] or catalog_asset_path,
             "source_parser": "video",
             "segment_count": len(semantic_segments),
             "actio_models_config_path": str(models_config_path),
         }
+        if catalog_asset_path.startswith("storage://"):
+            asset_extra["storage_uri"] = catalog_asset_path
         if video_duration is not None:
             asset_extra["duration_sec"] = video_duration
         for key in ("caption_stats", "indexing_outcome", "global_context_quality_warnings"):
@@ -1373,7 +1378,10 @@ class VideoParseHandler(BaseTaskHandler):
                 asset_extra[key] = sop_full_data["metadata"][key]
         semantic_asset = {
             "doc_id": task.asset_id,
-            "file_path": str(asset_path),
+            "file_path": local_master_path,
+            "source_uri": catalog_asset_path
+            if catalog_asset_path.startswith("storage://")
+            else local_master_path,
             "doc_type": "video",
             "modality": "video",
             "title": title,
@@ -1387,7 +1395,7 @@ class VideoParseHandler(BaseTaskHandler):
             status="completed",
             data={
                 "content": content,
-                "asset_path": asset_path,
+                "asset_path": local_master_path,
                 "asset": semantic_asset,
                 "segments": semantic_segments,
                 "sop_full": sop_full_data,
@@ -1540,6 +1548,9 @@ class SOPVideoHandler(BaseTaskHandler):
             # 从 sop-full.json 中提取 segments
             segments = self._extract_segments_from_sop_full(sop_full_data, task.asset_id)
 
+            catalog_asset_path = str(asset_path)
+            local_master_path = resolve_local_master_video_path(catalog_asset_path, video_source)
+
             # 构建 asset
             video_duration = _extract_video_duration(
                 sop_full_data,
@@ -1554,6 +1565,8 @@ class SOPVideoHandler(BaseTaskHandler):
                 "sop_title": sop_full_data.get("metadata", {}).get("title", ""),
                 "sop_id": sop_full_data.get("metadata", {}).get("sop_id", ""),
             }
+            if catalog_asset_path.startswith("storage://"):
+                asset_extra["storage_uri"] = catalog_asset_path
             if video_duration is not None:
                 asset_extra["duration_sec"] = video_duration
             for key in ("caption_stats", "indexing_outcome", "global_context_quality_warnings"):
@@ -1561,7 +1574,10 @@ class SOPVideoHandler(BaseTaskHandler):
                     asset_extra[key] = sop_full_data["metadata"][key]
             asset = {
                 "doc_id": task.asset_id,
-                "file_path": str(asset_path),
+                "file_path": local_master_path,
+                "source_uri": catalog_asset_path
+                if catalog_asset_path.startswith("storage://")
+                else local_master_path,
                 "doc_type": "sop_video",
                 "modality": "video",
                 "extra": asset_extra,
@@ -1574,7 +1590,7 @@ class SOPVideoHandler(BaseTaskHandler):
                 status="completed",
                 data={
                     "content": content,
-                    "asset_path": asset_path,
+                    "asset_path": local_master_path,
                     "asset": asset,
                     "segments": segments,
                     "sop_full": sop_full_data,

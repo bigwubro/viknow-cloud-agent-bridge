@@ -198,6 +198,28 @@ def get_primary_video_source(sop_data: Dict[str, Any]) -> Dict[str, str]:
     return {"source_id": "", "source_url": ""}
 
 
+def resolve_local_master_video_path(
+    catalog_asset_path: str,
+    video_source: Dict[str, str],
+) -> str:
+    """Path to the full video file on disk for ffmpeg clip cuts during kg_index.
+
+    Actio plain-video parse records the scratch download in metadata.sources[].source_url.
+    Catalog jobs may still use storage:// as the logical asset_path from the platform.
+    """
+    source_url = str(video_source.get("source_url") or "").strip()
+    if source_url:
+        candidate = Path(source_url)
+        if candidate.is_file():
+            return str(candidate.resolve())
+    catalog = str(catalog_asset_path or "").strip()
+    if catalog:
+        candidate = Path(catalog)
+        if candidate.is_file():
+            return str(candidate.resolve())
+    return catalog or source_url
+
+
 def build_video_segment_payload(
     *,
     segment_id: str,

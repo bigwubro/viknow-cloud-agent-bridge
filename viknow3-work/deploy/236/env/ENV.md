@@ -70,3 +70,65 @@ Playground **产品** = 浏览器静态页 + 调用 ViKnow API；**不负责** H
 ## 宿主机回滚（非容器）
 
 `scripts/deploy-playground-ui.sh`：`start-api` 读 `api.env` + `secrets.env`；`start-ui` 只读 `ui.env` + App Key。
+
+---
+
+## 配置审计（哪些有用、哪些会被 refresh 删掉）
+
+### `ui.env` — 仅 3 键（全部有用）
+
+| 变量 | 读者 |
+|------|------|
+| `VIKNOW_UI_HOST` / `VIKNOW_UI_PORT` | `ui.server` |
+| `VIKNOW_PLAYGROUND_API_URL` | `runtime-config.js` → 浏览器调 API |
+
+### `api.env` — Playground 236 保留键（全部有用）
+
+| 变量 | 读者 |
+|------|------|
+| `VIKNOW_HOST` / `VIKNOW_PORT` | `python -m viknow3` |
+| `VIKNOW_CORS_ORIGINS` | API CORS；`set-playground-s3-cors.py` 桶 CORS（与 UI Origin 一致） |
+| `VIKNOW_STORAGE_URL` | viknow-storage HTTP 网关（服务端，与 token 成对） |
+| `VIKNOW_S3_PUBLIC_ENDPOINT` | 预签名 URL 浏览器 host |
+| `VIKNOW3_DATA_DIR` / `VIKNOW3_LIBRARIES_ROOT` / `VIKNOW_SCRATCH_DIR` / `VIKNOW_AGENT_WORKSPACE_ROOT` | HyperRAG / Agent 路径 |
+| `VIKNOW_STATE_DIR` / `VIKNOW_VENDOR_FILES_ROOT` | HyperRAG 状态、DeepAgents vendor |
+| `HYPERRAG_TEST_IMAGE` | `scripts/mineru-docker-wrapper` |
+| `ACTIO_SERVER_URL` | Actio 客户端（entrypoint 会规范化 host/port） |
+
+**不要写进 `api.env`**：`VIKNOW_PLAYGROUND_CORS_ORIGINS`（与 `VIKNOW_CORS_ORIGINS` 重复，代码里仅作别名 fallback）。
+
+### `secrets.env` — 应保留（refresh 之后典型）
+
+| 类别 | 变量 |
+|------|------|
+| 业务库 | `VIKNOW_ACCESS_DSN` / `VIKNOW_AGENT_DSN` / `VIKNOW_HYPERRAG_DSN` |
+| 运维库 | `VIKNOW_OPS_DSN` / `VIKNOW_OPS_SECRET` |
+| 存储 | `VIKNOW_STORAGE_TOKEN` |
+| Playground | `VIKNOW3_APP_KEY` |
+| 模型 / 嵌入 | `VIKNOW_PRIVATE_*` / `VIKNOW_EMBEDDING_*` / `VIKNOW3_CHAT_*` / `VIKNOW3_EMBED_*` 等（来自宿主机 `deploy.env`） |
+| Actio | `ACTIO_API_KEY` |
+| Langfuse | `VIKNOW_LANGFUSE_*` / `VIKNOW_DEEPAGENTS_LANGFUSE_*` |
+| HyperRAG 子进程 | `HYPERRAG_LOG_LEVEL` / `HYPERRAG_JOB_LOG_DIR` / `HYPERRAG_RERANK_*` 等 |
+
+连接 **Postgres / Redis / Neo4j 实例** 的 host/port/password **应只在 `viknow_ops` 表**，不要指望 `secrets.env` 里的 `POSTGRES_*` / `REDIS_*` / `NEO4J_*`（refresh 会删）。
+
+### `secrets.env` — refresh **自动删除**（deploy.env 遗留、viknow3 不读或已有替代）
+
+| 删除原因 | 键 / 前缀 |
+|----------|-----------|
+| 属于 `api.env` / `ui.env` | 见 `refresh-secrets-from-host.sh` 第一段 `for key` |
+| 飞书 | `VIKNOW_FEISHU_*` / `FEISHU_*` |
+| 废弃 storage 浏览器 | `VIKNOW_STORAGE_PUBLIC_*` / `VIKNOW_STORAGE_BROWSER_URL` |
+| 与 `VIKNOW3_DATA_DIR` 重复 | `VIKNOW_FILES_ROOT` |
+| viknow2 / 监控 / 其它产品 | `VIKNOW1_*` / `VIKNOW_PROMETHEUS_*` / `VIKNOW_VLLM_MONITOR_*` / `JUICEFS_*` / `MINIO_*` |
+| 应用层重复基础设施 | `POSTGRES_*` / `REDIS_*` / `NEO4J_*`（用 DSN + ops 表） |
+| 单测 / 无效 | `VIKNOW_OPS_TEST_DSN` / `VIKNOW3_SDK_JS` / `VIKNOW_PERSISTENCE_BACKEND` / `VIKNOW_ADMIN_PASSWORD` / `VIKNOW_ASR_MODEL` / `VIKNOW_LOCATE_ANYTHING_BASE_URL` |
+
+合并后可在 236 执行：
+
+```bash
+bash deploy/236/env/refresh-secrets-from-host.sh
+grep -E '^[A-Za-z_][A-Za-z0-9_]*=' deploy/236/env/secrets.env | cut -d= -f1 | sort
+```
+
+核对键名是否只剩上表「应保留」范围。

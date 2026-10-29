@@ -19,10 +19,11 @@ merge deploy/236/env/secrets.env \
   "$HOST_ROOT/.viknow3/ops.env" \
   "$HOST_ROOT/.viknow3/deepagents-langfuse.env"
 
-# Non-secret keys belong in api.env / ui.env only
+# --- Keys that belong in api.env / ui.env / Dockerfile only (never secrets) ---
 for key in \
   VIKNOW_HOST VIKNOW_PORT VIKNOW_UI_HOST VIKNOW_UI_PORT VIKNOW_PLAYGROUND_API_URL \
-  VIKNOW_CORS_ORIGINS VIKNOW_STORAGE_URL VIKNOW_S3_PUBLIC_ENDPOINT \
+  VIKNOW_CORS_ORIGINS VIKNOW_PLAYGROUND_CORS_ORIGINS \
+  VIKNOW_STORAGE_URL VIKNOW_S3_PUBLIC_ENDPOINT \
   VIKNOW3_DATA_DIR VIKNOW3_LIBRARIES_ROOT VIKNOW_SCRATCH_DIR VIKNOW_AGENT_WORKSPACE_ROOT \
   VIKNOW_STATE_DIR VIKNOW_VENDOR_FILES_ROOT HYPERRAG_TEST_IMAGE ACTIO_SERVER_URL \
   VIKNOW_STORAGE_PUBLIC_HOST VIKNOW_STORAGE_PUBLIC_PORT VIKNOW_STORAGE_PUBLIC_URL VIKNOW_STORAGE_BROWSER_URL \
@@ -31,7 +32,19 @@ for key in \
   sed -i "/^${key}=/d" deploy/236/env/secrets.env
 done
 
+# --- deploy.env / viknow2 stack noise: viknow3 reads DSN + ops table, not duplicate infra hosts ---
+for key in \
+  VIKNOW_FILES_ROOT VIKNOW_OPS_TEST_DSN VIKNOW3_SDK_JS \
+  VIKNOW_ADMIN_PASSWORD VIKNOW_ASR_MODEL VIKNOW_PERSISTENCE_BACKEND \
+  VIKNOW_PROMETHEUS_BASE_URL VIKNOW_VLLM_MONITOR_BASE_URL VIKNOW_LOCATE_ANYTHING_BASE_URL \
+  VIKNOW1_API VIKNOW1_TOKEN; do
+  sed -i "/^${key}=/d" deploy/236/env/secrets.env
+done
+
+# Prefixes: JuiceFS / MinIO / raw PG-Redis-Neo4j host vars (connections live in viknow_ops, not env)
+grep -v -E '^(JUICEFS_|MINIO_|POSTGRES_|REDIS_|NEO4J_)' deploy/236/env/secrets.env >deploy/236/env/secrets.env.tmp
+mv deploy/236/env/secrets.env.tmp deploy/236/env/secrets.env
+
 sed -i 's|host.docker.internal|127.0.0.1|g' deploy/236/env/secrets.env
 sed -i "s|:8871|:8600|g" deploy/236/env/secrets.env
-sed -i "s|ACTIO_SERVER_URL=.*|ACTIO_SERVER_URL=http://127.0.0.1:8600|" deploy/236/env/secrets.env
-echo "Wrote deploy/236/env/secrets.env ($(wc -l < deploy/236/env/secrets.env) lines)"
+echo "Wrote deploy/236/env/secrets.env ($(grep -cE '^[A-Za-z_][A-Za-z0-9_]*=' deploy/236/env/secrets.env || echo 0) keys)"

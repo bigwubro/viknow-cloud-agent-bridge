@@ -14,9 +14,10 @@ from viknow3.storage import s3
 
 ORIGINS = [
     o.strip()
-    for o in os.environ.get(
-        "VIKNOW_PLAYGROUND_CORS_ORIGINS",
-        "http://36.103.198.236:5198,http://127.0.0.1:5198,http://localhost:5198",
+    for o in (
+        os.environ.get("VIKNOW_CORS_ORIGINS")
+        or os.environ.get("VIKNOW_PLAYGROUND_CORS_ORIGINS")
+        or "http://36.103.198.236:5198,http://127.0.0.1:5198,http://localhost:5198"
     ).split(",")
     if o.strip()
 ]

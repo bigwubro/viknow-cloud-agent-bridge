@@ -45,19 +45,6 @@ const PlaygroundLibrary = (() => {
 
   const VIDEO_SUFFIXES = new Set([".mp4", ".mov", ".mkv", ".webm"]);
 
-  function buildAssetPath(assetId, fileName) {
-    const name = String(fileName || "").trim();
-    const dot = name.lastIndexOf(".");
-    if (dot < 0) {
-      throw new Error("文件需要有扩展名");
-    }
-    const suffix = name.slice(dot).toLowerCase();
-    const uploadName = VIDEO_SUFFIXES.has(suffix)
-      ? `${assetId}.normalized${suffix}`
-      : `${assetId}${suffix}`;
-    return `knowledge/assets/${assetId}/upload/${uploadName}`;
-  }
-
   async function storageMultipart(path, formData) {
     const response = await fetch(viknowStorageUrl(path), {
       method: "POST",
@@ -116,18 +103,18 @@ const PlaygroundLibrary = (() => {
   }
 
   async function loadLibraries() {
-    return api(`${KNOWLEDGE}/libraries?limit=100`);
+    return viknowStorageJson("/libraries?limit=100");
   }
 
   async function createLibrary(libraryId, title) {
-    return api(`${KNOWLEDGE}/libraries`, {
+    return viknowStorageJson("/libraries", {
       method: "POST",
-      body: JSON.stringify({ library_id: libraryId, title: title || null }),
+      body: JSON.stringify({ library_id: libraryId, title: title || libraryId }),
     });
   }
 
   async function loadAssets(libraryId) {
-    return api(`${KNOWLEDGE}/libraries/${encodeURIComponent(libraryId)}/assets?limit=100`);
+    return viknowStorageJson(`/libraries/${encodeURIComponent(libraryId)}/assets?limit=100`);
   }
 
   async function fetchLibraryAssetsIndexStatusBatch(libraryId) {
@@ -137,19 +124,10 @@ const PlaygroundLibrary = (() => {
   }
 
   async function uploadLibraryFile(libraryId, file) {
-    const assetId = crypto.randomUUID();
-    const assetPath = buildAssetPath(assetId, file.name);
     const form = new FormData();
     form.append("file", file, file.name);
-    form.append("asset_id", assetId);
     form.append("title", file.name);
-    await storageMultipart(`/libraries/${encodeURIComponent(libraryId)}/assets`, form);
-    return {
-      asset_id: assetId,
-      asset_path: assetPath,
-      library_id: libraryId,
-      content_type: file.type || "application/octet-stream",
-    };
+    return storageMultipart(`/libraries/${encodeURIComponent(libraryId)}/assets`, form);
   }
 
   async function fetchAssetBlob(libraryId, assetId, kind) {
@@ -167,18 +145,10 @@ const PlaygroundLibrary = (() => {
     return resp.blob();
   }
 
-  async function createAsset(libraryId, body) {
-    return api(`${KNOWLEDGE}/libraries/${encodeURIComponent(libraryId)}/assets`, {
-      method: "POST",
-      body: JSON.stringify(body),
-    });
-  }
-
   async function createIndexJob(libraryId, row, compileMode) {
     const body = {
       library_id: libraryId,
       asset_id: row.asset_id,
-      asset_path: row.asset_path,
     };
     if (compileMode === "fast_ingest" || compileMode === "pre_compile") {
       body.compile_mode = compileMode;
@@ -506,7 +476,7 @@ const PlaygroundLibrary = (() => {
 
     async function refreshMeta() {
       try {
-        const lib = await api(`${KNOWLEDGE}/libraries/${encodeURIComponent(libraryId)}`);
+        const lib = await viknowStorageJson(`/libraries/${encodeURIComponent(libraryId)}`);
         titleEl.textContent = lib.title || lib.library_id;
         metaEl.textContent = `创建于 ${lib.created_at}`;
       } catch (error) {
@@ -536,7 +506,7 @@ const PlaygroundLibrary = (() => {
           tr.innerHTML = `
             <td class="pg-mono">${row.asset_id}</td>
             <td>${row.title || "—"}</td>
-            <td class="pg-mono pg-path">${row.asset_path}</td>
+            <td class="pg-mono pg-path">${row.modality || "—"}</td>
             <td data-role="index-status" class="pg-index-status"></td>
             <td class="pg-actions">
               <button type="button" class="pg-button pg-button-link" data-action="preview">预览</button>
@@ -600,13 +570,7 @@ const PlaygroundLibrary = (() => {
       try {
         uploadStatus.hidden = false;
         uploadStatus.textContent = "上传到存储服务…";
-        const stored = await uploadLibraryFile(libraryId, file);
-        uploadStatus.textContent = "创建 Asset 记录…";
-        await createAsset(libraryId, {
-          asset_id: stored.asset_id,
-          asset_path: stored.asset_path,
-          title: file.name,
-        });
+        await uploadLibraryFile(libraryId, file);
         uploadStatus.textContent = "完成";
         uploadInput.value = "";
         await refreshAssets();

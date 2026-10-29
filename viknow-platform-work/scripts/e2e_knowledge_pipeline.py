@@ -117,36 +117,22 @@ def _ensure_mineru_on_path() -> None:
 
 
 def _ensure_library(library_id: str, title: str) -> None:
-    from viknow_platform.access.knowledge import store as knowledge_store
-    from viknow_platform.access.knowledge.service import KnowledgeError, create_library
+    from viknow_platform.service.storage.client import StorageClientError
+    from viknow_platform.service.storage.gateway import get_storage_client
 
-    if knowledge_store.get_library(library_id) is not None:
-        return
+    client = get_storage_client()
     try:
-        create_library({"library_id": library_id, "title": title})
-    except KnowledgeError as exc:
+        client.create_library(library_id, title)
+    except StorageClientError as exc:
         if exc.status != 409:
             raise
 
 
 def _ensure_asset(library_id: str, asset_id: str, asset_path: str, title: str, modality: str) -> None:
+    del asset_path, title, modality
     from viknow_platform.access.knowledge import store as knowledge_store
-    from viknow_platform.access.knowledge.service import KnowledgeError, create_asset
 
-    if knowledge_store.get_asset(library_id, asset_id) is not None:
-        return
-    try:
-        create_asset(library_id,
-            {
-                "asset_id": asset_id,
-                "asset_path": asset_path,
-                "title": title,
-                "modality": modality,
-            },
-        )
-    except KnowledgeError as exc:
-        if exc.status != 409:
-            raise
+    knowledge_store.ensure_index_asset_row(library_id, asset_id)
 
 
 def _poll_index(job_id: str, *, timeout_s: float, interval_s: float) -> dict:
@@ -223,7 +209,6 @@ def main() -> int:
         {
             "library_id": library_id,
             "asset_id": asset_id,
-            "asset_path": uploaded["asset_path"],
             "compile_mode": args.compile_mode,
             "params": {"title": source.name},
         },

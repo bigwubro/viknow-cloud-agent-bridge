@@ -84,12 +84,10 @@ class IndexStatusTests(unittest.TestCase):
                             self.assertEqual(payload["current_index_version_id"], "hr-row-1")
 
     def test_list_library_assets_index_status_batch(self) -> None:
-        asset_a = mock.Mock(asset_id="a-1")
-        asset_b = mock.Mock(asset_id="a-2")
-        with mock.patch("viknow_platform.access.knowledge.index_status.store.get_library", return_value=mock.Mock()):
+        with mock.patch("viknow_platform.access.knowledge.index_status.storage_catalog.require_library"):
             with mock.patch(
-                "viknow_platform.access.knowledge.index_status.store.list_assets",
-                return_value=[asset_a, asset_b],
+                "viknow_platform.access.knowledge.index_status.storage_catalog.list_assets",
+                return_value=[{"asset_id": "a-1"}, {"asset_id": "a-2"}],
             ):
                 with mock.patch(
                     "viknow_platform.access.knowledge.index_status.get_asset_index_status",

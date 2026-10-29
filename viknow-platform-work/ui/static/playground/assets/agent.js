@@ -873,7 +873,7 @@ const PlaygroundAgent = (() => {
       }
       pickerSection.hidden = false;
       try {
-        const rows = await api(viknowApiUrl("/api/v1/knowledge/libraries?limit=100"));
+        const rows = await viknowStorageJson("/libraries?limit=100");
         pickerLoading.hidden = true;
         if (!rows.length) {
           pickerEmpty.hidden = false;

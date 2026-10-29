@@ -212,6 +212,7 @@ class AssetRow:
 
 
 def create_library(library_id: str, title: str) -> LibraryRow:
+    """Legacy platform catalog — unused; libraries live in viknow-storage."""
     ts = now()
     with _CONN.cursor() as cur:
         cur.execute(
@@ -344,10 +345,34 @@ def get_asset(library_id: str, asset_id: str) -> AssetRow | None:
     return None if row is None else _asset_from_row(row)
 
 
+def ensure_index_asset_row(library_id: str, asset_id: str) -> None:
+    """Platform shadow row for index metadata only (catalog lives in viknow-storage)."""
+    library_id = str(library_id or "").strip()
+    asset_id = str(asset_id or "").strip()
+    if not library_id or not asset_id:
+        raise ValueError("invalid_asset")
+    if get_asset(library_id, asset_id) is not None:
+        return
+    ts = now()
+    path = f"storage://{library_id}/{asset_id}"
+    with _CONN.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO knowledge_assets (
+                library_id, asset_id, title, modality, asset_path,
+                current_index_version_id, created_at
+            ) VALUES (%s, %s, %s, %s, %s, NULL, %s)
+            ON CONFLICT (library_id, asset_id) DO NOTHING
+            """,
+            (library_id, asset_id, asset_id, "document", path, ts),
+        )
+
+
 def set_current_index_version_id(library_id: str, asset_id: str, version_id: str) -> None:
     version = str(version_id or "").strip()
     if not version:
         raise ValueError("invalid_index_version")
+    ensure_index_asset_row(library_id, asset_id)
     with _CONN.cursor() as cur:
         cur.execute(
             """

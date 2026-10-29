@@ -9,7 +9,6 @@ from unittest.mock import patch
 from uuid import uuid4
 
 import sys
-from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from pg_test_env import apply as _apply_test_pg
@@ -22,6 +21,7 @@ import tempfile
 from fastapi.testclient import TestClient
 
 from viknow_platform.server import app
+from tests.storage_catalog_mock import mock_storage_catalog
 
 
 class IndexStatusApiIntegrationTests(unittest.TestCase):
@@ -62,33 +62,22 @@ class IndexStatusApiIntegrationTests(unittest.TestCase):
     def test_job_row_created_and_index_status_survives_refresh(self) -> None:
         lib = f"lib-idx-{uuid4().hex[:10]}"
         asset = f"a-idx-{uuid4().hex[:10]}"
-        status, _ = self.request("POST", "/api/v1/knowledge/libraries", {"library_id": lib, "title": "t"})
-        self.assertIn(status, (201, 409))
         asset_path = f"knowledge/assets/{asset}/upload/{asset}.mp4"
-        with patch("viknow_platform.access.knowledge.storage_bridge.asset_exists_in_storage", return_value=None):
-            status, created = self.request(
-                "POST",
-                f"/api/v1/knowledge/libraries/{lib}/assets",
-                {"asset_id": asset, "asset_path": asset_path, "title": "v", "modality": "video"},
-            )
-        self.assertEqual(status, 201, created)
-        status_assets, assets = self.request("GET", f"/api/v1/knowledge/libraries/{lib}/assets?limit=100")
-        self.assertEqual(status_assets, 200)
-        existing = next((row for row in assets if row.get("asset_id") == asset), None)
-        self.assertIsNotNone(existing, assets)
-        asset_path = existing["asset_path"]
+        meta = {"library_id": lib, "asset_id": asset, "title": "v", "modality": "video"}
 
         from viknow_platform.service.hyperrag.object_gateway import IndexObject
 
         local = Path(os.environ["VIKNOW_SCRATCH_DIR"]) / f"idx-{asset}.mp4"
         local.write_bytes(b"video")
         fetched = IndexObject(asset_path, local)
-        with patch("viknow_platform.access.rag.service.fetch_index_asset", return_value=fetched):
-            status, job = self.request(
-                "POST",
-                "/api/v1/knowledge/index-jobs",
-                {"library_id": lib, "asset_id": asset, "asset_path": asset_path},
-            )
+
+        with mock_storage_catalog(library_id=lib, assets=[meta]):
+            with patch("viknow_platform.access.rag.service.fetch_index_asset", return_value=fetched):
+                status, job = self.request(
+                    "POST",
+                    "/api/v1/knowledge/index-jobs",
+                    {"library_id": lib, "asset_id": asset},
+                )
             self.assertEqual(status, 200, job)
             self.assertTrue(job.get("job_id"))
 
@@ -130,33 +119,23 @@ class IndexStatusApiIntegrationTests(unittest.TestCase):
     def test_index_status_survives_after_job_poll(self) -> None:
         lib = f"lib-idx-{uuid4().hex[:10]}"
         asset = f"a-idx-{uuid4().hex[:10]}"
-        status, _ = self.request("POST", "/api/v1/knowledge/libraries", {"library_id": lib, "title": "t"})
-        self.assertIn(status, (201, 409))
         asset_path = f"knowledge/assets/{asset}/upload/{asset}.mp4"
-        with patch("viknow_platform.access.knowledge.storage_bridge.asset_exists_in_storage", return_value=None):
-            status, created = self.request(
-                "POST",
-                f"/api/v1/knowledge/libraries/{lib}/assets",
-                {"asset_id": asset, "asset_path": asset_path, "title": "v", "modality": "video"},
-            )
-        self.assertEqual(status, 201, created)
-        status_assets, assets = self.request("GET", f"/api/v1/knowledge/libraries/{lib}/assets?limit=100")
-        self.assertEqual(status_assets, 200)
-        existing = next((row for row in assets if row.get("asset_id") == asset), None)
-        self.assertIsNotNone(existing, assets)
-        asset_path = existing["asset_path"]
+        meta = {"library_id": lib, "asset_id": asset, "title": "v", "modality": "video"}
 
+        from viknow_platform.access.knowledge import store
         from viknow_platform.service.hyperrag.object_gateway import IndexObject
 
         local = Path(os.environ["VIKNOW_SCRATCH_DIR"]) / f"idx-poll-{asset}.mp4"
         local.write_bytes(b"video")
         fetched = IndexObject(asset_path, local)
-        with patch("viknow_platform.access.rag.service.fetch_index_asset", return_value=fetched):
-            status, job = self.request(
-                "POST",
-                "/api/v1/knowledge/index-jobs",
-                {"library_id": lib, "asset_id": asset, "asset_path": asset_path},
-            )
+
+        with mock_storage_catalog(library_id=lib, assets=[meta]):
+            with patch("viknow_platform.access.rag.service.fetch_index_asset", return_value=fetched):
+                status, job = self.request(
+                    "POST",
+                    "/api/v1/knowledge/index-jobs",
+                    {"library_id": lib, "asset_id": asset},
+                )
             self.assertEqual(status, 200, job)
             status, done = self.request("GET", f"/api/v1/knowledge/index-jobs/{job['job_id']}")
             self.assertEqual(done["status"], "done")
@@ -169,9 +148,9 @@ class IndexStatusApiIntegrationTests(unittest.TestCase):
             self.assertEqual(index_status["status"], "indexed")
             self.assertEqual(index_status["current_index_version_id"], job["job_id"])
 
-            with patch("viknow_platform.access.knowledge.storage_bridge.asset_exists_in_storage", return_value=None):
-                status, assets = self.request("GET", f"/api/v1/knowledge/libraries/{lib}/assets")
-            self.assertEqual(assets[0]["current_index_version_id"], job["job_id"])
+            row = store.get_asset(lib, asset)
+            self.assertIsNotNone(row)
+            self.assertEqual(row.current_index_version_id, job["job_id"])
 
 
 if __name__ == "__main__":

@@ -52,4 +52,25 @@
     }
     return headers;
   };
+
+  window.viknowStorageJson = async function viknowStorageJson(path, options = {}) {
+    const url = path.startsWith("http") ? path : viknowStorageUrl(path);
+    const headers = viknowStorageHeaders(options.headers || {});
+    if (options.body && !(options.body instanceof FormData) && !headers["Content-Type"]) {
+      headers["Content-Type"] = "application/json";
+    }
+    const response = await fetch(url, { ...options, headers });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const detail = payload?.detail;
+      const message =
+        typeof detail === "string"
+          ? detail
+          : Array.isArray(detail)
+            ? detail.map((d) => d.msg || JSON.stringify(d)).join("; ")
+            : payload?.message || response.statusText;
+      throw new Error(message || "storage request failed");
+    }
+    return payload;
+  };
 })();

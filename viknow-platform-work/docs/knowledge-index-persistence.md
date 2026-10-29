@@ -6,8 +6,8 @@ All Playground knowledge **index job** and **index status** state is authoritati
 
 | Concern | Source of truth |
 |--------|------------------|
-| Asset catalog + `current_index_version_id` | `knowledge_assets` |
-| Index job rows (`job_id`, status, errors, timestamps) | `knowledge_index_jobs` |
+| Asset catalog（库/资产 HTTP） | **viknow-storage**（Postgres `storage` schema + MinIO） |
+| `current_index_version_id` + index jobs | `knowledge_assets` shadow rows + `knowledge_index_jobs`（platform PG） |
 | Engine pipeline status (when present) | `hyperrag_asset_status` (synced into catalog on terminal states) |
 | Ephemeral in-flight progress | Redis (read-only fallback in `GET …/index-status`; rows are upserted when seen) |
 

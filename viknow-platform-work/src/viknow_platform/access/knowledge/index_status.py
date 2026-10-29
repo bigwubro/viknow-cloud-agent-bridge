@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from viknow_platform.access.knowledge import store
+from viknow_platform.access.knowledge import storage_catalog
 from viknow_platform.access.knowledge.service import KnowledgeError
 
 _INDEX_DONE = frozenset({"done", "completed"})
@@ -198,16 +199,15 @@ def get_asset_index_status(library_id: str, asset_id: str) -> dict[str, Any]:
     if not library_id or not asset_id:
         raise KnowledgeError(422, {"detail": "library_id and asset_id are required"})
 
-    asset = store.get_asset(library_id, asset_id)
-    if asset is None:
-        raise KnowledgeError(404, {"detail": "asset not found"})
+    storage_catalog.require_asset(library_id, asset_id)
+    shadow = store.get_asset(library_id, asset_id)
 
-    if asset.current_index_version_id:
+    if shadow and shadow.current_index_version_id:
         return {
             "library_id": library_id,
             "asset_id": asset_id,
             "status": "indexed",
-            "current_index_version_id": asset.current_index_version_id,
+            "current_index_version_id": shadow.current_index_version_id,
             "job_id": None,
             "error_message": None,
         }
@@ -279,11 +279,10 @@ def list_library_assets_index_status(library_id: str, limit: int | None = None) 
     library_id = str(library_id or "").strip()
     if not library_id:
         raise KnowledgeError(422, {"detail": "library_id is required"})
-    if store.get_library(library_id) is None:
-        raise KnowledgeError(404, {"detail": "library not found"})
+    storage_catalog.require_library(library_id)
     cap = 100 if limit is None else max(1, min(int(limit), 100))
-    assets = store.list_assets(library_id, cap, None)
-    return [get_asset_index_status(library_id, asset.asset_id) for asset in assets]
+    rows = storage_catalog.list_assets(library_id, cap, None)
+    return [get_asset_index_status(library_id, str(row.get("asset_id") or "")) for row in rows if row.get("asset_id")]
 
 
 def get_latest_index_job(library_id: str, asset_id: str) -> dict[str, Any]:
@@ -291,8 +290,7 @@ def get_latest_index_job(library_id: str, asset_id: str) -> dict[str, Any]:
     asset_id = str(asset_id or "").strip()
     if not library_id or not asset_id:
         raise KnowledgeError(422, {"detail": "library_id and asset_id are required"})
-    if store.get_asset(library_id, asset_id) is None:
-        raise KnowledgeError(404, {"detail": "asset not found"})
+    storage_catalog.require_asset(library_id, asset_id)
     job = store.get_latest_index_job(library_id, asset_id)
     if job is None:
         raise KnowledgeError(404, {"detail": "index job not found"})

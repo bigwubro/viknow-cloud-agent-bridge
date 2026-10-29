@@ -67,38 +67,28 @@ def upload_object(
     }
 
 
-def _catalog_asset(library_id: str, asset_id: str, *, store: Any | None = None) -> Any:
-    """The library row and the asset row must exist before an index job is submitted."""
-    if store is None:
-        from viknow_platform.access.knowledge import store as knowledge_store
+def _catalog_asset(library_id: str, asset_id: str, *, store: Any | None = None) -> dict[str, Any]:
+    """Asset must exist in viknow-storage before an index job is submitted."""
+    del store
+    from viknow_platform.access.knowledge import storage_catalog
 
-        store = knowledge_store
-    if store.get_library(library_id) is None:
-        raise RagError(404, {"detail": "library not found"})
-    asset = store.get_asset(library_id, asset_id)
-    if asset is None:
-        raise RagError(404, {"detail": "asset not found"})
-    return asset
+    meta = storage_catalog.require_asset(library_id, asset_id)
+    from viknow_platform.access.knowledge import store as knowledge_store
+
+    knowledge_store.ensure_index_asset_row(library_id, asset_id)
+    return meta
 
 
 def create_index_job(body: dict[str, Any]) -> dict[str, Any]:
     library_id = str(body.get("library_id") or "").strip()
     asset_id = str(body.get("asset_id") or "").strip()
-    asset_path = str(body.get("asset_path") or "").strip()
-    if not library_id or not asset_id or not asset_path:
-        raise RagError(422, {"detail": [{"loc": ["body"], "msg": "library_id, asset_id and asset_path are required", "type": "missing"}]})
-    asset = _catalog_asset(library_id, asset_id)
-    if asset_path != asset.asset_path:
-        raise RagError(
-            422,
-            {"detail": [{"loc": ["body", "asset_path"], "msg": "asset_path does not match the asset", "type": "value_error"}]},
-        )
-    if asset_path.startswith("missing/") or "\x00" in asset_path:
-        raise RagError(400, {"detail": "asset_path is not an available storage object key or absolute file path"})
+    if not library_id or not asset_id:
+        raise RagError(422, {"detail": [{"loc": ["body"], "msg": "library_id and asset_id are required", "type": "missing"}]})
+    meta = _catalog_asset(library_id, asset_id)
     params = body.get("params") or {}
     title = params.get("title") if isinstance(params, dict) else None
     if title is None:
-        title = asset.title
+        title = meta.get("title") or asset_id
     if title is not None and not str(title).strip():
         raise RagError(422, {"detail": [{"loc": ["body", "params", "title"], "msg": "title must be non-empty", "type": "value_error"}]})
     compile_mode = body.get("compile_mode")
@@ -106,7 +96,7 @@ def create_index_job(body: dict[str, Any]) -> dict[str, Any]:
         raise RagError(422, {"detail": [{"loc": ["body", "compile_mode"], "msg": "invalid compile_mode", "type": "literal_error"}]})
     mode = compile_mode if compile_mode in ("pre_compile", "fast_ingest") else None
     try:
-        fetched = fetch_index_asset(library_id, asset_id, filename=asset.title)
+        fetched = fetch_index_asset(library_id, asset_id, filename=str(title) if title else None)
     except ObjectFetchError as exc:
         raise RagError(exc.status, exc.body) from exc
     job = HYPERAG.create_index(
@@ -121,6 +111,7 @@ def create_index_job(body: dict[str, Any]) -> dict[str, Any]:
 
     job_id = str(job.get("job_id") or "").strip()
     if job_id:
+        knowledge_store.ensure_index_asset_row(library_id, asset_id)
         knowledge_store.insert_index_job(
             library_id,
             asset_id,

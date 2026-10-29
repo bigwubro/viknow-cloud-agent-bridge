@@ -145,58 +145,55 @@ class AccessTests(unittest.TestCase):
 
         status, library = self.request(
             "POST",
-            "/api/v1/knowledge/libraries",
-            {"library_id": "library-1", "title": "库"},
+            "/api/v1/knowledge/search",
+            {"library_id": "library-1", "query": "步骤"},
         )
-        self.assertIn(status, (201, 409), library)
+        self.assertEqual(status, 200)
+
+        from tests.storage_catalog_mock import mock_storage_catalog
+        from viknow_platform.access.knowledge import store as knowledge_store
+
+        lib = "library-1"
+        asset_id = "asset-1"
         asset_path = "knowledge/assets/asset-1/upload/asset-1.mp4"
-        with patch("viknow_platform.access.knowledge.storage_bridge.asset_exists_in_storage", return_value=None):
-            status, asset = self.request(
-                "POST",
-                "/api/v1/knowledge/libraries/library-1/assets",
-                {
-                    "asset_id": "asset-1",
-                    "asset_path": asset_path,
-                    "title": "动作演示.mp4",
-                    "modality": "video",
-                },
-            )
-        self.assertIn(status, (201, 409), asset)
+        meta = {"library_id": lib, "asset_id": asset_id, "title": "动作演示.mp4", "modality": "video"}
+        knowledge_store.ensure_index_asset_row(lib, asset_id)
+
         from viknow_platform.service.hyperrag.object_gateway import IndexObject
 
         local = Path(os.environ["VIKNOW_SCRATCH_DIR"]) / "access-test-asset.mp4"
         local.write_bytes(b"video")
         fetched = IndexObject(asset_path, local)
-        with patch("viknow_platform.access.rag.service.fetch_index_asset", return_value=fetched):
-            status, job = self.request(
-                "POST",
-                "/api/v1/knowledge/index-jobs",
-                {
-                    "library_id": "library-1",
-                    "asset_id": "asset-1",
-                    "asset_path": asset_path,
-                    "compile_mode": "fast_ingest",
-                    "params": {"title": "动作演示.mp4"},
-                },
-            )
-            self.assertEqual(job["status"], "pending")
-            self.assertIsNone(job["metadata"])
-            status, done = self.request("GET", f"/api/v1/knowledge/index-jobs/{job['job_id']}")
-            self.assertEqual(done["status"], "done")
-            self.assertEqual(done["metadata"]["asset_type"], "video")
-            self.assertIn("progress", done)
-            self.assertEqual(done["progress"]["overall"], 1.0)
-            status, index_status = self.request(
-                "GET",
-                "/api/v1/knowledge/libraries/library-1/assets/asset-1/index-status",
-            )
-            self.assertEqual(status, 200)
-            self.assertEqual(index_status["status"], "indexed")
-            self.assertEqual(index_status["current_index_version_id"], job["job_id"])
-            with patch("viknow_platform.access.knowledge.storage_bridge.asset_exists_in_storage", return_value=None):
-                status, assets = self.request("GET", "/api/v1/knowledge/libraries/library-1/assets")
-            self.assertEqual(status, 200)
-            self.assertEqual(assets[0]["current_index_version_id"], job["job_id"])
+        with mock_storage_catalog(library_id=lib, assets=[meta]):
+            with patch("viknow_platform.access.rag.service.fetch_index_asset", return_value=fetched):
+                status, job = self.request(
+                    "POST",
+                    "/api/v1/knowledge/index-jobs",
+                    {
+                        "library_id": lib,
+                        "asset_id": asset_id,
+                        "compile_mode": "fast_ingest",
+                        "params": {"title": "动作演示.mp4"},
+                    },
+                )
+                self.assertEqual(status, 200, job)
+                self.assertEqual(job["status"], "pending")
+                self.assertIsNone(job["metadata"])
+                status, done = self.request("GET", f"/api/v1/knowledge/index-jobs/{job['job_id']}")
+                self.assertEqual(done["status"], "done")
+                self.assertEqual(done["metadata"]["asset_type"], "video")
+                self.assertIn("progress", done)
+                self.assertEqual(done["progress"]["overall"], 1.0)
+                status, index_status = self.request(
+                    "GET",
+                    f"/api/v1/knowledge/libraries/{lib}/assets/{asset_id}/index-status",
+                )
+                self.assertEqual(status, 200)
+                self.assertEqual(index_status["status"], "indexed")
+                self.assertEqual(index_status["current_index_version_id"], job["job_id"])
+            row = knowledge_store.get_asset(lib, asset_id)
+            self.assertIsNotNone(row)
+            self.assertEqual(row.current_index_version_id, job["job_id"])
 
         status, learning_body = self.request("GET", "/api/v1/learning")
         self.assertEqual(learning_body["module"], "self-learning")

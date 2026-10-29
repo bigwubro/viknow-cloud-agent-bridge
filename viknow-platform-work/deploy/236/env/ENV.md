@@ -26,7 +26,7 @@ Playground **产品** = 浏览器静态页 + 调用 ViKnow API；**不负责** H
 | `VIKNOW_UI_HOST` | UI 监听地址 |
 | `VIKNOW_UI_PORT` | UI 端口（236 默认 `5198`） |
 | `VIKNOW_PLAYGROUND_API_URL` | 浏览器访问的 ViKnow API 根 URL |
-| `VIKNOW_STORAGE_URL` | 浏览器直连 **viknow-storage** 的根 URL（需 CORS 允许 Playground Origin） |
+| `VIKNOW_STORAGE_URL` | 浏览器与 **Playground JS** 直连 **viknow-storage**（`GET/POST /libraries`、资产列表/上传/预览）；**不在** 5218 重复 catalog API |
 
 `VIKNOW_APP_KEY` 与 **`VIKNOW_STORAGE_TOKEN`** 在 **`secrets.env`**，由 UI 进程注入 `runtime-config.js`（Playground JS 调 API 用 `X-App-Key`，调 storage 用 `Authorization: Bearer`）。**当前 demo 允许 token 进浏览器；后续可改为短 token。**
 
@@ -46,7 +46,7 @@ Playground **产品** = 浏览器静态页 + 调用 ViKnow API；**不负责** H
 | `HYPERRAG_TEST_IMAGE` | `scripts/mineru-docker-wrapper` 镜像 |
 | `ACTIO_SERVER_URL` | Actio 服务（236 固定 `127.0.0.1:8600`） |
 
-**对象存储**：Playground **浏览器**上传/预览/下载 **直连 viknow-storage**（`ui.env` + `runtime-config.js`）。viknow-platform **不提供** `uploads/direct` 或 `…/preview|content` 代理路由；catalog 用 `POST …/assets` + 服务端 `asset_exists` 校验。API 索引时仍用 server token 从 storage 拉 scratch。
+**对象存储**：Playground **浏览器** 的库/资产 catalog、上传/预览/下载 **直连 viknow-storage（5219）**。5218 仅保留 **索引 job / index-status** 等 HyperRAG 编排 API，不提供 `GET/POST …/libraries` 或 catalog 版 `…/assets`。
 
 **禁止**：viknow-platform 进程 **不得** 直连 MinIO/S3；**不要** 配置 `VIKNOW_S3_PUBLIC_ENDPOINT` 或 `VIKNOW_STORAGE_PUBLIC_*`。
 

@@ -34,7 +34,7 @@
           <section class="pg-card">
             <h2>上传与登记</h2>
             <div class="pg-card-body">
-              <p class="pg-muted pg-help">流程：经 Playground API 写入 S3 → <code class="pg-mono">POST …/assets</code> 登记。对象键示例 <code class="pg-mono">knowledge/assets/{id}/upload/…</code></p>
+              <p class="pg-muted pg-help">流程：文件上传到 <strong>viknow-storage（5219）</strong>；索引与状态查询仍走 Playground API（5218）。</p>
               <label class="pg-label" for="upload-file">选择文件</label>
               <input id="upload-file" class="pg-input" type="file" />
               <button id="btn-upload" class="pg-button pg-button-primary" type="button">上传并创建 Asset</button>

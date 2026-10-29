@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""API-only smoke: tiny video → presign PUT → asset → index-jobs → poll (default 5 min)."""
+"""API-only smoke: tiny video → direct upload → asset → index-jobs → poll (default 5 min)."""
 
 from __future__ import annotations
 
@@ -91,6 +91,32 @@ def prepare_tiny_video(dest: Path, repo_root: Path) -> Path:
     return dest
 
 
+def _multipart_direct_upload(
+    base: str,
+    library_id: str,
+    app_key: str,
+    filename: str,
+    content: bytes,
+    content_type: str,
+) -> tuple[int, Any]:
+    boundary = f"----viknow{uuid.uuid4().hex}"
+    disposition = f'form-data; name="file"; filename="{filename}"'
+    body = (
+        f"--{boundary}\r\n"
+        f"Content-Disposition: {disposition}\r\n"
+        f"Content-Type: {content_type}\r\n\r\n"
+    ).encode() + content + f"\r\n--{boundary}--\r\n".encode()
+    return _http(
+        "POST",
+        f"{base}/api/v1/knowledge/libraries/{library_id}/uploads/direct",
+        headers=_auth_headers(
+            app_key,
+            {"Content-Type": f"multipart/form-data; boundary={boundary}"},
+        ),
+        body=body,
+    )
+
+
 def poll_job(
     base: str,
     app_key: str,
@@ -177,35 +203,21 @@ def main() -> int:
         return 1
     print("library ok", flush=True)
 
-    presign_body = json.dumps(
-        {"file_name": "smoke-tiny.mp4", "content_type": "video/mp4"},
-    ).encode()
-    status, presign = _http(
-        "POST",
-        f"{base}/api/v1/knowledge/libraries/{library_id}/uploads",
-        headers=_auth_headers(app_key, {"Content-Type": "application/json"}),
-        body=presign_body,
+    status, uploaded = _multipart_direct_upload(
+        base,
+        library_id,
+        app_key,
+        "smoke-tiny.mp4",
+        content,
+        "video/mp4",
     )
-    if status != 200 or not isinstance(presign, dict):
-        print(f"presign failed {status}: {presign}", file=sys.stderr)
+    if status != 200 or not isinstance(uploaded, dict):
+        print(f"direct upload failed {status}: {uploaded}", file=sys.stderr)
         return 1
-    asset_id = str(presign.get("asset_id") or "")
-    asset_path = str(presign.get("asset_path") or "")
-    put_url = str(presign.get("url") or "")
-    ctype = str(presign.get("content_type") or "video/mp4")
-    print(f"presign asset_id={asset_id} path={asset_path}", flush=True)
-
-    put_req = request.Request(
-        put_url,
-        data=content,
-        method="PUT",
-        headers={"Content-Type": ctype},
-    )
-    try:
-        with request.urlopen(put_req, timeout=120) as resp:
-            print(f"PUT upload HTTP {resp.status}", flush=True)
-    except error.HTTPError as exc:
-        print(f"PUT failed HTTP {exc.code}: {exc.read()[:500]}", file=sys.stderr)
+    asset_id = str(uploaded.get("asset_id") or "")
+    asset_path = str(uploaded.get("asset_path") or "")
+    print(f"upload asset_id={asset_id} path={asset_path}", flush=True)
+    if not asset_id or not asset_path:
         return 1
 
     asset_body = json.dumps(

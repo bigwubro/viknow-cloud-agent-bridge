@@ -158,33 +158,6 @@ def upload_library_file(library_id: str, file_name: str, stream: Any, content_ty
     }
 
 
-def presign_upload(library_id: str, file_name: str, asset_id: str | None, content_type: str) -> dict[str, Any]:
-    del library_id, file_name, asset_id, content_type
-    raise KnowledgeError(
-        410,
-        {
-            "detail": "presigned upload to object storage is removed; use POST …/uploads/direct (viknow-storage via API)",
-        },
-    )
-
-
-def presign_download(asset_path: str, download_name: str | None) -> dict[str, Any]:
-    """Backward-compatible shape: return ViKnow API proxy URLs (not MinIO presign)."""
-
-    del download_name
-    row = store.find_asset_by_path(asset_path)
-    if row is None:
-        raise KnowledgeError(404, {"detail": "asset not found"})
-    base = f"/api/v1/knowledge/libraries/{row.library_id}/assets/{row.asset_id}"
-    return {
-        "url": f"{base}/content",
-        "preview_url": f"{base}/preview",
-        "asset_path": asset_path,
-        "library_id": row.library_id,
-        "asset_id": row.asset_id,
-    }
-
-
 def stream_asset_preview(library_id: str, asset_id: str) -> tuple[bytes, str]:
     get_library(library_id)
     if store.get_asset(library_id, asset_id) is None:

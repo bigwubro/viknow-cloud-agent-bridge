@@ -184,10 +184,6 @@ def main() -> int:
 
     from viknow3.access.rag.service import create_index_job, upload_object
     from viknow3.application.hyperrag.client import HYPERAG
-    from viknow3.application.hyperrag.object_gateway import install_object_store
-    from viknow3.application.hyperrag.object_gateway import gateway_from_ops
-
-    install_object_store(gateway_from_ops())
 
     from viknow3.application.hyperrag.runtime import init_hyperrag, start_background_runtime
 

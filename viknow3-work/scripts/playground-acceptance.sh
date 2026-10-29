@@ -32,8 +32,8 @@ lib="pg-acc-$(date +%s)"
 curl -sf -X POST "${API_BASE}/api/v1/knowledge/libraries" -H 'Content-Type: application/json' -H "X-App-Key: ${APP_KEY}" \
   -d "{\"library_id\":\"${lib}\",\"title\":\"acceptance\"}" >/dev/null || fail "create library"
 
-signed="$(curl -sf -X POST "${API_BASE}/api/v1/knowledge/libraries/${lib}/uploads" -H 'Content-Type: application/json' -H "X-App-Key: ${APP_KEY}" \
-  -d '{"file_name":"note.txt","content_type":"text/plain"}')"
-echo "$signed" | grep -q asset_path || fail "presign upload response"
+direct="$(curl -sf -X POST "${API_BASE}/api/v1/knowledge/libraries/${lib}/uploads/direct" \
+  -H "X-App-Key: ${APP_KEY}" -F "file=@/etc/hosts;filename=note.txt;type=text/plain")"
+echo "$direct" | grep -q asset_path || fail "direct upload response"
 
 echo "OK Playground UI ${UI_BASE} API ${API_BASE}"

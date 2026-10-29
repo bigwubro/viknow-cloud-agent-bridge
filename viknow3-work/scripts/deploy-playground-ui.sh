@@ -63,6 +63,13 @@ load_api_env() {
   fi
   load_env_files
   set +a
+  # api.env uses /state for the Docker mount; on host Playground map to a writable tree.
+  if [[ "${VIKNOW_STATE_DIR:-}" == "/state" ]] && [[ ! -w "/state" ]]; then
+    export VIKNOW_STATE_DIR="/home/cursor-agent/viknow3/state"
+  fi
+  if [[ "${VIKNOW_VENDOR_FILES_ROOT:-}" == "/state/vendor-files" ]] && [[ ! -w "/state" ]]; then
+    export VIKNOW_VENDOR_FILES_ROOT="${VIKNOW_STATE_DIR}/vendor-files"
+  fi
 }
 
 load_ui_env() {
@@ -194,7 +201,7 @@ start_api() {
   load_api_env
   ensure_mineru_for_hyperrag
   export_mineru_vlm_env
-  mkdir -p "${VIKNOW_SCRATCH_DIR}/jieba-cache"
+  mkdir -p "${VIKNOW_STATE_DIR}" "${VIKNOW_VENDOR_FILES_ROOT}" "${VIKNOW_SCRATCH_DIR}/jieba-cache"
   export JIEBA_CACHE_DIR="${JIEBA_CACHE_DIR:-${VIKNOW_SCRATCH_DIR}/jieba-cache}"
   export TMPDIR="${TMPDIR:-${VIKNOW_SCRATCH_DIR}/tmp}"
   mkdir -p "$TMPDIR"

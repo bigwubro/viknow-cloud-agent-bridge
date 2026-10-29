@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from typing import Any
 
@@ -23,7 +24,13 @@ class Principal:
 DEV_APP_KEY = AppKey("dev-app-key", "deepagents")
 ADMIN_KEY = "dev-admin-key"
 
-APP_KEYS = {DEV_APP_KEY.key: DEV_APP_KEY}
+
+def _app_keys() -> dict[str, AppKey]:
+    keys: dict[str, AppKey] = {DEV_APP_KEY.key: DEV_APP_KEY}
+    configured = os.environ.get("VIKNOW3_APP_KEY", "").strip()
+    if configured:
+        keys.setdefault(configured, AppKey(configured, DEV_APP_KEY.default_agent_id))
+    return keys
 
 
 def bearer(header: str | None) -> str | None:
@@ -35,9 +42,18 @@ def bearer(header: str | None) -> str | None:
     return token.strip()
 
 
-def business_principal(header: str | None) -> Principal | None:
-    token = bearer(header)
-    app_key = APP_KEYS.get(token or "")
+def _app_token(request: Request) -> str | None:
+    token = bearer(request.headers.get("authorization"))
+    if token:
+        return token
+    header = request.headers.get("x-app-key") or request.headers.get("X-App-Key")
+    if header and header.strip():
+        return header.strip()
+    return None
+
+
+def business_principal(request: Request) -> Principal | None:
+    app_key = _app_keys().get(_app_token(request) or "")
     if app_key is None:
         return None
     return Principal("app", app_key)
@@ -57,7 +73,7 @@ class AuthError(Exception):
 
 
 def require_app(request: Request) -> AppKey:
-    principal = business_principal(request.headers.get("authorization"))
+    principal = business_principal(request)
     if principal is None or principal.app_key is None:
         raise AuthError(401, {"code": "invalid_app_key", "message": "app key is missing, invalid, or revoked"})
     return principal.app_key

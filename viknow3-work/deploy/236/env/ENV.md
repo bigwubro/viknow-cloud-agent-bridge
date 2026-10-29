@@ -32,7 +32,7 @@ Playground **产品** = 浏览器静态页 + 调用 ViKnow API；**不负责** H
 | `VIKNOW_UI_PORT` | UI 端口（236 默认 `5198`） |
 | `VIKNOW_PLAYGROUND_API_URL` | 浏览器访问的 ViKnow API 根 URL |
 
-`VIKNOW3_APP_KEY` 只在 **`secrets.env`**，由 entrypoint 传给 UI 生成 `runtime-config.js`。
+`VIKNOW3_APP_KEY` 只在 **`secrets.env`**，由 entrypoint 传给 UI 生成 `runtime-config.js`；API 接受 **`Authorization: Bearer <key>`** 或 **`X-App-Key`**（与 Playground `api-base.js` 一致）。
 
 ## `api.env`（236 Playground 容器）
 
@@ -45,8 +45,8 @@ Playground **产品** = 浏览器静态页 + 调用 ViKnow API；**不负责** H
 | `VIKNOW3_LIBRARIES_ROOT` | 知识库目录 |
 | `VIKNOW_SCRATCH_DIR` | HyperRAG scratch / object gateway |
 | `VIKNOW_AGENT_WORKSPACE_ROOT` | Agent session workspace |
-| `VIKNOW_STATE_DIR` | HyperRAG 状态目录（挂载 `/state`） |
-| `VIKNOW_VENDOR_FILES_ROOT` | DeepAgents vendor 文件 |
+| `VIKNOW_STATE_DIR` | HyperRAG 状态目录（**容器**内为挂载 `/state`；**宿主机** `deploy-playground-ui.sh` 在 `/state` 不可写时自动改为 `/home/cursor-agent/viknow3/state`） |
+| `VIKNOW_VENDOR_FILES_ROOT` | DeepAgents vendor（容器 `/state/vendor-files`；宿主机随 `VIKNOW_STATE_DIR` 映射） |
 | `HYPERRAG_TEST_IMAGE` | `scripts/mineru-docker-wrapper` 镜像 |
 | `ACTIO_SERVER_URL` | Actio 服务（236 固定 `127.0.0.1:8600`） |
 
@@ -88,7 +88,7 @@ Playground **产品** = 浏览器静态页 + 调用 ViKnow API；**不负责** H
 | 变量 | 读者 |
 |------|------|
 | `VIKNOW_HOST` / `VIKNOW_PORT` | `python -m viknow3` |
-| `VIKNOW_CORS_ORIGINS` | API CORS；`set-playground-s3-cors.py` 桶 CORS（与 UI Origin 一致） |
+| `VIKNOW_CORS_ORIGINS` | API CORS（Playground UI Origin） |
 | `VIKNOW_STORAGE_URL` | viknow-storage（服务端）；浏览器不经 MinIO |
 | `VIKNOW3_DATA_DIR` / `VIKNOW3_LIBRARIES_ROOT` / `VIKNOW_SCRATCH_DIR` / `VIKNOW_AGENT_WORKSPACE_ROOT` | HyperRAG / Agent 路径 |
 | `VIKNOW_STATE_DIR` / `VIKNOW_VENDOR_FILES_ROOT` | HyperRAG 状态、DeepAgents vendor |

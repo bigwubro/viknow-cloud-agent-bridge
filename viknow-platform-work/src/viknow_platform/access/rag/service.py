@@ -9,6 +9,12 @@ from uuid import uuid4
 
 from viknow_platform.application.hyperrag.client import HYPERAG, HyperragClientError
 from viknow_platform.service.hyperrag.object_gateway import ObjectFetchError, fetch_index_asset
+from viknow_platform.service.storage.index_download import (
+    IndexDownloadUrlError,
+    is_video_filename,
+    mint_index_download_url,
+    storage_canonical_uri,
+)
 
 _ASSET_ID = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
 _SUFFIX = re.compile(r"^\.[A-Za-z0-9]{1,16}$")
@@ -99,17 +105,37 @@ def create_index_job(body: dict[str, Any]) -> dict[str, Any]:
     if compile_mode not in (None, "pre_compile", "fast_ingest"):
         raise RagError(422, {"detail": [{"loc": ["body", "compile_mode"], "msg": "invalid compile_mode", "type": "literal_error"}]})
     mode = compile_mode if compile_mode in ("pre_compile", "fast_ingest") else None
-    try:
-        fetched = fetch_index_asset(library_id, asset_id, filename=str(title) if title else None)
-    except ObjectFetchError as exc:
-        raise RagError(exc.status, exc.body) from exc
+    filename = str(meta.get("filename") or meta.get("title") or title or asset_id)
+    canonical = storage_canonical_uri(library_id, asset_id, filename=filename)
+    index_params: dict[str, Any] = dict(params) if isinstance(params, dict) else {}
+    if title:
+        index_params.setdefault("title", str(title))
+
+    if is_video_filename(filename):
+        try:
+            issued = mint_index_download_url(library_id, asset_id)
+        except IndexDownloadUrlError as exc:
+            raise RagError(exc.status, exc.body) from exc
+        index_params["source_download_url"] = str(issued["url"])
+        index_params["source_download_expires_at"] = issued.get("expires_at")
+        asset_path = canonical
+        object_key = f"storage://{library_id}/{asset_id}"
+    else:
+        try:
+            fetched = fetch_index_asset(library_id, asset_id, filename=str(title) if title else None)
+        except ObjectFetchError as exc:
+            raise RagError(exc.status, exc.body) from exc
+        asset_path = str(fetched.path)
+        object_key = fetched.key
+
     job = HYPERAG.create_index(
         library_id,
         asset_id,
-        str(fetched.path),
+        asset_path,
         str(title) if title else None,
         compile_mode=mode,
-        object_key=fetched.key,
+        object_key=object_key,
+        index_params=index_params or None,
     )
     from viknow_platform.access.knowledge import store as knowledge_store
 

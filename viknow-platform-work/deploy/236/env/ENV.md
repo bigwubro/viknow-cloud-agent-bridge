@@ -37,6 +37,8 @@ Playground **产品** = 浏览器静态页 + 调用 ViKnow API；**不负责** H
 | `VIKNOW_HOST` / `VIKNOW_PORT` | API 监听（5218） |
 | `VIKNOW_CORS_ORIGINS` | API 允许 Playground UI Origin |
 | `VIKNOW_STORAGE_URL` | viknow-storage（**API 服务端**，常 `127.0.0.1:5219`；浏览器用 `ui.env` 里的对外 URL） |
+
+viknow-storage 侧（`deploy/storage.env`，非本表）还需 **`STORAGE_GRANT_SECRET`**、**`STORAGE_DOWNLOAD_BASE_URL`**（grant URL 前缀，须 HyperRAG/8600 能 GET）、**`STORAGE_GRANT_TTL_SECONDS`**（默认 86400）。见 [`docs/storage-download-grant.md`](../../docs/storage-download-grant.md)。
 | `VIKNOW_DATA_DIR` | 宿主机数据根（MinerU wrapper 等 bind-mount 上层） |
 | `VIKNOW_LIBRARIES_ROOT` | HyperRAG **磁盘 working_dir**（不是 catalog；对象在 viknow-storage） |
 | `VIKNOW_SCRATCH_DIR` | 索引 scratch、jieba/TMP |

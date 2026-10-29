@@ -41,13 +41,14 @@ class HyperragClient:
         *,
         compile_mode: Literal["pre_compile", "fast_ingest"] | None = None,
         object_key: str | None = None,
+        index_params: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Index one asset that already exists in the catalog.
 
         Callers create the library and the asset first. This method only submits
         the index job for an object that is already stored.
         """
-        params: dict[str, Any] = {}
+        params: dict[str, Any] = dict(index_params or {})
         if title:
             params["title"] = title
         if object_key:
@@ -543,6 +544,7 @@ class _HyperragModule:
         *,
         compile_mode: Literal["pre_compile", "fast_ingest"] | None = None,
         object_key: str | None = None,
+        index_params: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         return _require_client().create_index(
             library_id,
@@ -551,6 +553,7 @@ class _HyperragModule:
             title,
             compile_mode=compile_mode,
             object_key=object_key,
+            index_params=index_params,
         )
 
     def get_index(self, job_id: str) -> dict[str, Any]:

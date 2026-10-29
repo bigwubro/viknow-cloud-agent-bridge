@@ -34,6 +34,62 @@ from .models import TaskResult
 
 logger = logging.getLogger(__name__)
 
+
+def _mint_storage_download_url(library_id: str, asset_id: str) -> str | None:
+    """Mint a grant URL via viknow-storage (24h TTL). Used when job params omit source_download_url."""
+    import os
+
+    base = os.environ.get("VIKNOW_STORAGE_URL", "").strip().rstrip("/")
+    token = os.environ.get("VIKNOW_STORAGE_TOKEN", "").strip()
+    if not base or not token or not library_id or not asset_id:
+        return None
+    try:
+        import httpx
+
+        response = httpx.post(
+            f"{base}/libraries/{library_id}/assets/{asset_id}/download-url",
+            headers={"Authorization": f"Bearer {token}"},
+            json={},
+            timeout=60.0,
+        )
+        if response.status_code >= 400:
+            logger.warning(
+                "storage download-url mint failed: status=%s library=%s asset=%s",
+                response.status_code,
+                library_id,
+                asset_id,
+            )
+            return None
+        payload = response.json()
+        url = str(payload.get("url") or "").strip()
+        return url or None
+    except Exception:
+        logger.exception("storage download-url mint error library=%s asset=%s", library_id, asset_id)
+        return None
+
+
+def _resolve_video_parse_source(
+    asset_path: object,
+    metadata: dict[str, Any],
+    nested_params: dict[str, Any],
+    *,
+    workspace: str,
+    asset_id: str,
+) -> str:
+    for key in ("source_download_url", "source_media_url"):
+        for bag in (metadata, nested_params):
+            value = bag.get(key) if isinstance(bag, dict) else None
+            if value is not None and str(value).strip():
+                return str(value).strip()
+    text = str(asset_path or "").strip()
+    if text.startswith(("http://", "https://")):
+        return text
+    if text.startswith("storage://"):
+        url = _mint_storage_download_url(workspace, asset_id)
+        if url:
+            return url
+    return text
+
 try:
     from actio.video_parser import VideoParser as ActioVideoParser
     from actio.video_parser import VideoParserConfig as ActioVideoParserConfig
@@ -1253,9 +1309,16 @@ class VideoParseHandler(BaseTaskHandler):
 
                 from hyperrag.observability.index_usage import record_generation
 
+                parse_source = _resolve_video_parse_source(
+                    asset_path,
+                    metadata if isinstance(metadata, dict) else {},
+                    nested_params if isinstance(nested_params, dict) else {},
+                    workspace=task.workspace,
+                    asset_id=task.asset_id,
+                )
                 with observe_caption_generations(record_generation):
                     return video_parser.parse_video_only(
-                        Path(asset_path),
+                        parse_source,
                         video_id=task.asset_id,
                         title=title,
                         output_path=sop_full_path,

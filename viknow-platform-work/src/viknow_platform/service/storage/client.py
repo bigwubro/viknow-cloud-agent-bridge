@@ -92,6 +92,22 @@ class StorageClient:
     def content_url(self, library_id: str, asset_id: str) -> str:
         return f"{self._http.base_url}/libraries/{library_id}/assets/{asset_id}/content"
 
+    def mint_download_url(
+        self,
+        library_id: str,
+        asset_id: str,
+        *,
+        ttl_seconds: int | None = None,
+    ) -> dict[str, Any]:
+        body: dict[str, Any] | None = None
+        if ttl_seconds is not None:
+            body = {"ttl_seconds": int(ttl_seconds)}
+        return self._json(
+            "POST",
+            f"/libraries/{library_id}/assets/{asset_id}/download-url",
+            json=body,
+        )
+
     def list_artifacts(self, library_id: str, asset_id: str) -> list[dict[str, Any]]:
         return self._json("GET", f"/libraries/{library_id}/assets/{asset_id}/artifacts")
 

@@ -23,8 +23,10 @@ if [[ "${VIKNOW_PRIVATE_BASE_URL:-}" == http://*":8443"* ]]; then
   export VIKNOW_PRIVATE_BASE_URL="https://${VIKNOW_PRIVATE_BASE_URL#http://}"
 fi
 # deploy.env carries VIKNOW_PRIVATE_* (same Qwen/LiteLLM path as viknow2-test :5175).
-export VIKNOW_ENV_FILE="${VIKNOW_ENV_FILE:-/home/cursor-agent/viknow-platform/pg-demo.env:/home/cursor-agent/deploy.env:/home/cursor-agent/.viknow-platform/ops.env}"
+export VIKNOW_ENV_FILE="${VIKNOW_ENV_FILE:-/home/cursor-agent/viknow-platform/pg-demo.env:/home/cursor-agent/viknow3/pg-demo.env:/home/cursor-agent/deploy.env:/home/cursor-agent/.viknow-platform/ops.env:/home/cursor-agent/.viknow3/ops.env}"
 export VIKNOW_APP_KEY="${VIKNOW_APP_KEY:-$(grep -m1 '^VIKNOW_APP_KEY=' /home/cursor-agent/viknow-platform/demo.env 2>/dev/null | cut -d= -f2-)}"
+export VIKNOW_APP_KEY="${VIKNOW_APP_KEY:-$(grep -m1 '^VIKNOW_APP_KEY=' /home/cursor-agent/viknow3/demo.env 2>/dev/null | cut -d= -f2-)}"
+export VIKNOW_APP_KEY="${VIKNOW_APP_KEY:-$(grep -m1 '^VIKNOW3_APP_KEY=' /home/cursor-agent/viknow3/demo.env 2>/dev/null | cut -d= -f2-)}"
 export VIKNOW_UI_HOST="${VIKNOW_UI_HOST:-0.0.0.0}"
 export VIKNOW_DATA_DIR="${VIKNOW_DATA_DIR:-/data/viknow}"
 export VIKNOW_LIBRARIES_ROOT="${VIKNOW_LIBRARIES_ROOT:-${VIKNOW_DATA_DIR}/hyperrag-wd}"
@@ -46,6 +48,15 @@ load_env_files() {
     source "$f"
     set +a
   done
+  apply_legacy_env_aliases
+}
+
+apply_legacy_env_aliases() {
+  # Host files not yet rewritten after platform rename (removed once finish-platform-migration-236.sh has run).
+  [[ -z "${VIKNOW_APP_KEY:-}" && -n "${VIKNOW3_APP_KEY:-}" ]] && export VIKNOW_APP_KEY="$VIKNOW3_APP_KEY"
+  [[ -z "${VIKNOW_DATA_DIR:-}" && -n "${VIKNOW3_DATA_DIR:-}" ]] && export VIKNOW_DATA_DIR="$VIKNOW3_DATA_DIR"
+  [[ -z "${VIKNOW_LIBRARIES_ROOT:-}" && -n "${VIKNOW3_LIBRARIES_ROOT:-}" ]] && export VIKNOW_LIBRARIES_ROOT="$VIKNOW3_LIBRARIES_ROOT"
+  [[ -z "${VIKNOW_PLATFORM_ROOT:-}" && -n "${VIKNOW3_ROOT:-}" ]] && export VIKNOW_PLATFORM_ROOT="$VIKNOW3_ROOT"
 }
 
 load_api_env() {
@@ -81,7 +92,7 @@ load_ui_env() {
   fi
   if [[ -f "$SECRETS_ENV_FILE" ]]; then
     local key_line token_line
-    key_line="$(grep -m1 '^VIKNOW_APP_KEY=' "$SECRETS_ENV_FILE" 2>/dev/null || true)"
+    key_line="$(grep -m1 '^VIKNOW_APP_KEY=' "$SECRETS_ENV_FILE" 2>/dev/null || grep -m1 '^VIKNOW3_APP_KEY=' "$SECRETS_ENV_FILE" 2>/dev/null || true)"
     if [[ -n "$key_line" ]]; then
       VIKNOW_APP_KEY="${key_line#*=}"
       export VIKNOW_APP_KEY

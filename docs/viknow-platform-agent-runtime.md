@@ -1,6 +1,6 @@
-# viknow3 Agent 运行时（方案 B：去掉 Agno）
+# viknow-platform Agent 运行时（方案 B：去掉 Agno）
 
-业务仓：Gitea `castmeta-research/viknow3`，分支 `agent/viknow-v3-knowledge-mvp`（236：`/home/cursor-agent/src/viknow3`，Playground `:5198`）。
+业务仓：Gitea `castmeta-research/viknow-platform`，分支 `agent/viknow-v3-knowledge-mvp`（236：`/home/cursor-agent/src/viknow-platform`，Playground `:5198`）。
 
 接口以文档站为准：对话 <http://36.103.198.236:5208/start/api/runs.html>，会话数据模型 <http://36.103.198.236:5208/model/session.html>。
 
@@ -10,7 +10,7 @@
 
 ## 现在的结构
 
-| 部件 | 文件（`src/viknow3/application/agentcore/runtime/`） | 作用 |
+| 部件 | 文件（`src/viknow_platform/application/agentcore/runtime/`） | 作用 |
 |------|------|------|
 | Agent loop | `loop.py` | 进程内一个常驻 asyncio 循环（守护线程）。每个 run 是这个循环上的一个 task。HTTP 客户端、checkpointer 连接池都只绑定这一个循环 |
 | Host | `host.py` | 按 profile 建图（每个 run 重新建，模型配置改了立即生效），绑定本 run 的库授权（contextvars，task 之间互不可见） |
@@ -49,7 +49,7 @@ deepagents 要求 Python ≥ 3.11，236 宿主 `python3` 是 3.10，所以用 uv
 | `viknow_agent` | schema `ai`（`agno_runs` `agno_sessions` `agno_schema_versions`） | checkpointer 表（保留 `checkpoint_migrations` 版本行） |
 | `viknow_hyperrag` | `index_jobs`（代码已不用） | `knowledge_libraries` `knowledge_assets`（11 个测试库） |
 | `*_test` | 同上的旧表 / `ai` / `index_jobs` | 测试残留行 |
-| S3 `viknow` | — | 仅 viknow3 资产引用的 2 个对象（`fast-lib` 下的测试 PDF） |
+| S3 `viknow` | — | 仅 viknow-platform 资产引用的 2 个对象（`fast-lib` 下的测试 PDF） |
 
 浏览器里缓存了已删除用户时，Playground 页面会自动清掉缓存并回到登录页，重新创建用户即可。
 

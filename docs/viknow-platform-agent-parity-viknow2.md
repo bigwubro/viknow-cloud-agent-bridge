@@ -1,14 +1,14 @@
-# viknow3 知识助手与 viknow2 `viknow-v2` 对齐共识
+# viknow-platform 知识助手与 viknow2 `viknow-v2` 对齐共识
 
 ## 意图（产品 / 架构）
 
-在 **viknow3 单仓** 内，把 Playground / Agent Service 上的知识助手做成与 viknow2 **`viknow-v2` profile 一比一对齐** 的 agent：
+在 **viknow-platform 单仓** 内，把 Playground / Agent Service 上的知识助手做成与 viknow2 **`viknow-v2` profile 一比一对齐** 的 agent：
 
 - **对齐**：profile 元数据、DeepAgents 运行时形态、**enabled_tools / enabled_skills**、**system_prompt**、skill 工作流（含 `read_file` + SKILL.md）、工具 **id / 入参 schema / 返回 JSON 形态**、会话与 run/events（SSE）行为。
 - **Mock（允许简化）**：所有 **外部 client**——HyperRAG、Actio（及经 Actio 的视频/视觉/OCR/ASR 等）、不依赖真实索引与 GPU 的 inspect 链路；answer_review 若依赖额外 LLM 可先 **固定通过或规则 stub**。
 - **仍不做**：git submodule、**子智能体 delegate**；viknow2 业务代码不迁入跳板仓。
 
-目标不是「再做一个 demo 三工具助手」，而是 **viknow2 换壳到 viknow3 access + agentcore**，外部依赖用 mock 顶住，便于以后只换 client 实现。
+目标不是「再做一个 demo 三工具助手」，而是 **viknow2 换壳到 viknow-platform access + agentcore**，外部依赖用 mock 顶住，便于以后只换 client 实现。
 
 ## viknow2 基准（`config/.../profiles/viknow-v2.yaml`）
 
@@ -22,7 +22,7 @@
 
 工具实现入口：`viknow.core.tools.registry.build_viknow_tool_specs` + `agent_adapters/deepagents_tools.build_deepagents_tools(profile)`。
 
-## viknow3 现状（`viknow-v3`，parity 进行中）
+## viknow-platform 现状（`viknow-v3`，parity 进行中）
 
 | 项 | 现状 |
 |----|------|
@@ -37,7 +37,7 @@
 
 ```text
 ┌─────────────────────────────────────────────────────────┐
-│ Access API（runs / events / library_ids）— 已按 viknow3 文档 │
+│ Access API（runs / events / library_ids）— 已按 viknow-platform 文档 │
 ├─────────────────────────────────────────────────────────┤
 │ Profile 层：与 viknow-v2.yaml 同字段语义（可仍用 id viknow-v3 或别名） │
 ├─────────────────────────────────────────────────────────┤
@@ -57,14 +57,14 @@
 
 ## Mock 边界（建议）
 
-| 外部依赖 | viknow3 做法 |
+| 外部依赖 | viknow-platform 做法 |
 |----------|----------------|
 | HyperRAG | 扩展 `application/hyperrag/client.py` 或 `knowledge_assistant/mock_backend.py`：discover / search / refine / list_segments 返回与 viknow2 handler 同 shape 的 fixture |
 | Actio | 新增 `application/actio/client.py`（Mock）：`video_inspect_2_0`, `visual_ground`, `document_inspect`, `uploaded_image_search` 返回带 `claims` / `candidates` 的占位结构 |
 | answer_review | 配置保留；实现可为「score=80 恒通过」或跳过重试 |
 | 真实 LLM | Playground 可继续 `server-default` / 私网模型；**与 mock client 正交** |
 
-## 建议实现顺序（viknow3 分支）
+## 建议实现顺序（viknow-platform 分支）
 
 1. **Profile 源**：YAML 或等价 Python 加载 viknow-v2 字段；Registry/API 暴露 `enabled_tools` / `enabled_skills`（与 viknow2 文档对齐）。
 2. **Skills 目录**：`config/skills/` 与 viknow2 同路径约定；DeepAgents `skills=[...]` + system_prompt 与 yaml 一致。
@@ -79,4 +79,4 @@
 
 ---
 
-维护：Cloud Agent / 236 `castmeta-research/viknow3` 分支 `agent/viknow-v3-knowledge-mvp`（及后续 parity 分支）。
+维护：Cloud Agent / 236 `castmeta-research/viknow-platform` 分支 `agent/viknow-v3-knowledge-mvp`（及后续 parity 分支）。

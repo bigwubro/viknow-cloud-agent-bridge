@@ -14,9 +14,12 @@ merge() {
 }
 merge deploy/236/env/secrets.env \
   "$HOST_ROOT/viknow-platform/pg-demo.env" \
+  "$HOST_ROOT/viknow3/pg-demo.env" \
   "$HOST_ROOT/viknow-platform/demo.env" \
+  "$HOST_ROOT/viknow3/demo.env" \
   "$HOST_ROOT/deploy.env" \
   "$HOST_ROOT/.viknow-platform/ops.env" \
+  "$HOST_ROOT/.viknow3/ops.env" \
   "$HOST_ROOT/.viknow-platform/deepagents-langfuse.env"
 
 # --- Keys that belong in api.env / ui.env / Dockerfile only (never secrets) ---
@@ -47,4 +50,14 @@ mv deploy/236/env/secrets.env.tmp deploy/236/env/secrets.env
 
 sed -i 's|host.docker.internal|127.0.0.1|g' deploy/236/env/secrets.env
 sed -i "s|:8871|:8600|g" deploy/236/env/secrets.env
+# Legacy VIKNOW3_* from host deploy.env / pg-demo (until files are rewritten on disk)
+sed -i \
+  -e 's/^VIKNOW3_APP_KEY=/VIKNOW_APP_KEY=/' \
+  -e 's/^VIKNOW3_DATA_DIR=/VIKNOW_DATA_DIR=/' \
+  -e 's/^VIKNOW3_LIBRARIES_ROOT=/VIKNOW_LIBRARIES_ROOT=/' \
+  -e 's/^VIKNOW3_ROOT=/VIKNOW_PLATFORM_ROOT=/' \
+  -e 's/^VIKNOW3_ENV_FILE=/VIKNOW_ENV_FILE=/' \
+  -e 's/^VIKNOW3_CHAT_/VIKNOW_CHAT_/' \
+  -e 's/^VIKNOW3_EMBED_/VIKNOW_EMBED_/' \
+  deploy/236/env/secrets.env
 echo "Wrote deploy/236/env/secrets.env ($(grep -cE '^[A-Za-z_][A-Za-z0-9_]*=' deploy/236/env/secrets.env || echo 0) keys)"

@@ -1,23 +1,23 @@
 # Playground UI 快速部署（236 宿主机）
 
-避免每次改前端都走 Docker 重建或多次 SCP。代码在 `castmeta-research/viknow3`。
+避免每次改前端都走 Docker 重建或多次 SCP。代码在 `castmeta-research/viknow-platform`。
 
 ## 236 上一键重启（改完代码已在盘上时）
 
 ```bash
-cd /home/cursor-agent/src/viknow3
+cd /home/cursor-agent/src/viknow-platform
 ./scripts/deploy-playground-ui.sh restart   # 默认 ~1s，只杀 pidfile 里的 UI 进程
 ./scripts/deploy-playground-ui.sh status
 ```
 
 环境由脚本读取：
 
-- `VIKNOW3_ENV_FILE`：`pg-demo.env` + `~/.viknow3/ops.env`（Postgres + S3 配置）
+- `VIKNOW_ENV_FILE`：`pg-demo.env` + `~/.viknow-platform/ops.env`（Postgres + S3 配置）
 - `VIKNOW_UI_PORT`：默认 `5198`
 
 ## 开发机 → 236 同步（推荐：一条 tar 流）
 
-在 viknow3 仓库根目录：
+在 viknow-platform 仓库根目录：
 
 ```bash
 ./scripts/push-playground-to-236.sh
@@ -29,9 +29,9 @@ cd /home/cursor-agent/src/viknow3
 
 ```bash
 tar czf - ui/playground_routes.py ui/server.py ui/static/playground \
-  src/viknow3/access/knowledge src/viknow3/storage src/viknow3/server.py \
+  src/viknow_platform/access/knowledge src/viknow_platform/storage src/viknow_platform/server.py \
   scripts/deploy-playground-ui.sh \
-  | ssh cursor-agent@36.103.198.236 'cd /home/cursor-agent/src/viknow3 && tar xzf - && ./scripts/deploy-playground-ui.sh restart'
+  | ssh cursor-agent@36.103.198.236 'cd /home/cursor-agent/src/viknow-platform && tar xzf - && ./scripts/deploy-playground-ui.sh restart'
 ```
 
 ## 不要再用

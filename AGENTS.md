@@ -31,7 +31,7 @@
 
 1. **同步到 236**（`rsync`/`scp` 或 236 上 `git pull` 你的 `agent/<topic>` 分支）
 2. **单测**：`/home/cursor-agent/viknow-platform/venv312/bin/python -m pytest`（至少本次改动涉及的用例）
-3. **部署**：`cd /home/cursor-agent/src/viknow-platform && bash scripts/deploy-playground-ui.sh restart`
+3. **部署**：`cd /home/cursor-agent/src/viknow-platform && bash scripts/finish-platform-migration-236.sh`（首次改名后）或 `bash scripts/deploy-playground-ui.sh restart`
 4. **冒烟**：`curl -sf http://127.0.0.1:5198/playground`；必要时在 236 上 `PYTHONPATH=src` 调 `knowledge_discover` 等
 5. **推送 Gitea**：`agent/<topic>` 分支；Playground / deploy 236 相关改动 **验证通过后直接 merge 到 `main` 并 push**（无需再向负责人确认）。236 上 `git checkout main && git pull` 后部署。
 

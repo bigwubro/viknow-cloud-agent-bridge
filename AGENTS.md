@@ -21,17 +21,17 @@
    - `git commit` 后 `git push -u origin agent/<topic>`
 5. 结束时汇报：分支名、`git log --oneline origin/main..HEAD`、`git diff --stat origin/main...HEAD`
 
-### viknow3 Playground（`:5198`）— 改完必 push + 部署
+### ViKnow Platform Playground（`:5198`）— 改完必 push + 部署
 
-业务仓 Gitea：`castmeta-research/viknow3`。236 源码目录：`/home/cursor-agent/src/viknow3`。
+业务仓 Gitea：`castmeta-research/viknow-platform`（请在 Gitea 上将原 `viknow3` 仓库重命名或迁移 remote）。236 源码目录：`/home/cursor-agent/src/viknow-platform`。
 
-**只改跳板仓 `viknow3-work/` 或只 push GitHub 不算完成**；Playground 读的是 236 上该目录 + `scripts/deploy-playground-ui.sh` 拉起的进程。
+**只改跳板仓 `viknow-platform-work/` 或只 push GitHub 不算完成**；Playground 读的是 236 上该目录 + `scripts/deploy-playground-ui.sh` 拉起的进程。
 
 每次改动 agent / HyperRAG / Playground 相关代码，在同一任务内做完：
 
 1. **同步到 236**（`rsync`/`scp` 或 236 上 `git pull` 你的 `agent/<topic>` 分支）
-2. **单测**：`/home/cursor-agent/viknow3/venv312/bin/python -m pytest`（至少本次改动涉及的用例）
-3. **部署**：`cd /home/cursor-agent/src/viknow3 && bash scripts/deploy-playground-ui.sh restart`
+2. **单测**：`/home/cursor-agent/viknow-platform/venv312/bin/python -m pytest`（至少本次改动涉及的用例）
+3. **部署**：`cd /home/cursor-agent/src/viknow-platform && bash scripts/deploy-playground-ui.sh restart`
 4. **冒烟**：`curl -sf http://127.0.0.1:5198/playground`；必要时在 236 上 `PYTHONPATH=src` 调 `knowledge_discover` 等
 5. **推送 Gitea**：`agent/<topic>` 分支；Playground / deploy 236 相关改动 **验证通过后直接 merge 到 `main` 并 push**（无需再向负责人确认）。236 上 `git checkout main && git pull` 后部署。
 
@@ -92,7 +92,7 @@ ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=accept-new cursor-agent@36.103
 
 成功标志：Gitea `castmeta-research/viknow2` 出现分支 `agent/cloud-smoke`。
 
-### 推送 Gitea（viknow3 / viknow2 业务仓）
+### 推送 Gitea（viknow-platform / viknow2 业务仓）
 
 `VIKNOW_236_SSH_KEY` **只能 SSH 登录 236**，不能 `git push` 到 `git.qingxiang.tech`。
 
@@ -107,7 +107,7 @@ chmod 600 ~/.ssh/gitea_ed25519
 ssh -i ~/.ssh/gitea_ed25519 -p 2222 -o StrictHostKeyChecking=accept-new -T git@git.qingxiang.tech
 # 期望：Hi there, <user>! ... Gitea does not provide shell access.
 export GIT_SSH_COMMAND='ssh -i ~/.ssh/gitea_ed25519 -p 2222 -o BatchMode=yes'
-git -C /path/to/viknow3 push -u origin agent/<topic>
+git -C /path/to/viknow-platform push -u origin agent/<topic>
 ```
 
 校验指纹（Gitea 页上显示的 SHA256/SHA1 需与私钥一致）：
@@ -121,5 +121,5 @@ python3 -c "import hashlib,base64,sys; b=base64.b64decode(sys.stdin.read().split
 
 ```bash
 ssh -i ~/.ssh/id_ed25519 cursor-agent@36.103.198.236 \
-  'cd /home/cursor-agent/src/viknow3 && GIT_SSH_COMMAND="ssh -i ~/.ssh/gitea_ljs_ed25519 -o BatchMode=yes" git push -u origin agent/<topic>'
+  'cd /home/cursor-agent/src/viknow-platform && GIT_SSH_COMMAND="ssh -i ~/.ssh/gitea_ljs_ed25519 -o BatchMode=yes" git push -u origin agent/<topic>'
 ```

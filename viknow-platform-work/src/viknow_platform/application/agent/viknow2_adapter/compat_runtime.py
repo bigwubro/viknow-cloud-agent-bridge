@@ -13,7 +13,7 @@ from viknow_platform.application.agent.knowledge_assistant.bubblewrap_workspace 
     with_artifacts_root,
 )
 from viknow_platform.application.agent.knowledge_assistant.builder import build_graph
-from viknow_platform.application.agent.knowledge_assistant.deepagents_runner import _emit_answer_review
+from viknow_platform.application.agent.knowledge_assistant.answer_review import emit_answer_review
 from viknow_platform.application.agent.knowledge_assistant.profile import load_viknow_v2_profile
 from viknow_platform.application.agent.knowledge_assistant.sandbox_runtime import create_bubblewrap_sandbox
 from viknow_platform.application.agent.knowledge_assistant.workspace_config import load_deepagents_workspace_config
@@ -109,7 +109,7 @@ class Viknow2CompatRuntime:
             reset_harness(harness_token)
             await asyncio.to_thread(finalize_session_run, session_id)
 
-        _emit_answer_review(state, events, profile, harness_ctx)
+        emit_answer_review(state, events, profile, harness_ctx)
         return AgentTurnResult(
             output=state.output or "",
             citations=state.citations or {},

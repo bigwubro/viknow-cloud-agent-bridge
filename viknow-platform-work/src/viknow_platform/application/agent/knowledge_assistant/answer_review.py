@@ -48,3 +48,24 @@ def review_answer(
     if config.allow_low_confidence_output:
         return AnswerReviewResult(True, score, f"low_confidence:{reason}", stripped)
     return AnswerReviewResult(False, score, reason, stripped)
+
+
+def emit_answer_review(state, events, profile, harness_ctx) -> None:
+    """Emit answer review SSE events and optionally rewrite state.output."""
+    text = state.output or ""
+    citations = harness_ctx.citations.export()
+    state.citations = citations
+    events.emit("answer_review_started", {"library_ids": list(harness_ctx.facts.library_ids)})
+    result = review_answer(
+        text,
+        profile.answer_review,
+        library_ids=list(harness_ctx.facts.library_ids),
+        search_called=harness_ctx.facts.search_called,
+        citations=citations,
+    )
+    events.emit(
+        "answer_review_completed",
+        {"passed": result.passed, "score": result.score, "reason": result.reason},
+    )
+    if result.output != text:
+        state.output = result.output

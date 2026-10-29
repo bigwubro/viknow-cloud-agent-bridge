@@ -5,7 +5,6 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from viknow_platform.application.agent.knowledge_assistant.answer_review import review_answer
 from viknow_platform.application.agent.knowledge_assistant.profile import load_viknow_v2_profile
 from viknow_platform.application.agent.viknow2_adapter import AgentRuntimeDeps, AgentTurnInput, get_runtime
 from viknow_platform.application.agentcore.harness.context import HarnessRunContext
@@ -14,26 +13,6 @@ from viknow_platform.application.agentcore.environment.context import RunState
 from viknow_platform.application.agentcore.runtime.events import RunEvents
 
 log = logging.getLogger(__name__)
-
-
-def _emit_answer_review(state: RunState, events: RunEvents, profile: Any, harness_ctx: HarnessRunContext) -> None:
-    text = state.output or ""
-    citations = harness_ctx.citations.export()
-    state.citations = citations
-    events.emit("answer_review_started", {"library_ids": list(harness_ctx.facts.library_ids)})
-    result = review_answer(
-        text,
-        profile.answer_review,
-        library_ids=list(harness_ctx.facts.library_ids),
-        search_called=harness_ctx.facts.search_called,
-        citations=citations,
-    )
-    events.emit(
-        "answer_review_completed",
-        {"passed": result.passed, "score": result.score, "reason": result.reason},
-    )
-    if result.output != text:
-        state.output = result.output
 
 
 async def run_deepagents_turn(state: RunState, events: RunEvents) -> None:

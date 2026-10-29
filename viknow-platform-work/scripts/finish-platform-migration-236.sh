@@ -61,9 +61,23 @@ bash deploy/236/env/refresh-secrets-from-host.sh
 rewrite_env_file deploy/236/env/secrets.env
 
 echo "== Restart Playground (host processes) =="
+docker rm -f viknow3-playground viknow-platform-playground 2>/dev/null || true
+ln -sfn "${DATA_OLD}/venv312" "${DATA_NEW}/venv312" 2>/dev/null || ln -sfn "${HOST_ROOT}/viknow3/venv312" "${DATA_NEW}/venv312" 2>/dev/null || true
 bash scripts/deploy-playground-ui.sh restart
 
 echo "== Smoke =="
-curl -sf -o /dev/null "http://127.0.0.1:5198/playground"
-curl -sf -o /dev/null "http://127.0.0.1:5218/docs"
-echo "OK: Playground UI :5198, API :5218"
+ready=0
+for _ in $(seq 1 90); do
+  if curl -sf -o /dev/null "http://127.0.0.1:5198/playground" \
+     && curl -sf -o /dev/null "http://127.0.0.1:5218/docs"; then
+    ready=1
+    break
+  fi
+  sleep 2
+done
+if [[ "$ready" != 1 ]]; then
+  echo "Playground smoke failed; tail logs:" >&2
+  tail -30 /tmp/viknow-api.log >&2 || true
+  tail -15 /tmp/viknow-ui.log >&2 || true
+  exit 1
+fi

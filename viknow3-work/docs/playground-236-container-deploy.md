@@ -8,11 +8,13 @@ Manual Gitea workflow **Playground 236** (`workflow_dispatch` on `main`):
 
 ## Config layout
 
+See **`deploy/236/env/ENV.md`** (ui.env + api.env + secrets.env).
+
 | File | Purpose |
 |------|---------|
-| `env/playground.env` | Ports, public URLs, data paths (no secrets) |
-| `env/secrets.env` | DSNs, API keys, storage token — **private Gitea only** |
-| `env/secrets.env.example` | Key names only for onboarding |
+| `deploy/236/env/ui.env` | Playground UI process only |
+| `deploy/236/env/api.env` | ViKnow API stack (non-secret) |
+| `deploy/236/env/secrets.env` | DSNs, API keys, storage token — **private Gitea only** |
 
 Refresh `secrets.env` from 236 host files:
 

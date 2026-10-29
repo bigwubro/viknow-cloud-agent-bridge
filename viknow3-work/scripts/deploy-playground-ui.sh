@@ -32,6 +32,11 @@ export VIKNOW3_LIBRARIES_ROOT="${VIKNOW3_LIBRARIES_ROOT:-$PLAYGROUND_DATA_ROOT}"
 export VIKNOW_SCRATCH_DIR="${VIKNOW_SCRATCH_DIR:-$PLAYGROUND_DATA_ROOT/scratch}"
 export VIKNOW_AGENT_WORKSPACE_ROOT="${VIKNOW_AGENT_WORKSPACE_ROOT:-${VIKNOW_SCRATCH_DIR}/agent-workspaces}"
 
+DEPLOY236_ENV="${ROOT}/deploy/236/env"
+API_ENV_FILE="${VIKNOW_API_ENV_FILE:-$DEPLOY236_ENV/api.env}"
+UI_ENV_FILE="${VIKNOW_UI_ENV_FILE:-$DEPLOY236_ENV/ui.env}"
+SECRETS_ENV_FILE="${VIKNOW_SECRETS_ENV_FILE:-$DEPLOY236_ENV/secrets.env}"
+
 load_env_files() {
   local f
   IFS=':' read -ra _viknow_env_files <<< "${VIKNOW3_ENV_FILE}"
@@ -42,6 +47,41 @@ load_env_files() {
     source "$f"
     set +a
   done
+}
+
+load_api_env() {
+  set -a
+  if [[ -f "$API_ENV_FILE" ]]; then
+    # shellcheck disable=SC1090
+    source "$API_ENV_FILE"
+  else
+    echo "warn: missing $API_ENV_FILE (see deploy/236/env/ENV.md)" >&2
+  fi
+  if [[ -f "$SECRETS_ENV_FILE" ]]; then
+    # shellcheck disable=SC1090
+    source "$SECRETS_ENV_FILE"
+  fi
+  load_env_files
+  set +a
+}
+
+load_ui_env() {
+  set -a
+  if [[ -f "$UI_ENV_FILE" ]]; then
+    # shellcheck disable=SC1090
+    source "$UI_ENV_FILE"
+  else
+    echo "warn: missing $UI_ENV_FILE (see deploy/236/env/ENV.md)" >&2
+  fi
+  if [[ -f "$SECRETS_ENV_FILE" ]]; then
+    local key_line
+    key_line="$(grep -m1 '^VIKNOW3_APP_KEY=' "$SECRETS_ENV_FILE" 2>/dev/null || true)"
+    if [[ -n "$key_line" ]]; then
+      VIKNOW3_APP_KEY="${key_line#*=}"
+      export VIKNOW3_APP_KEY
+    fi
+  fi
+  set +a
 }
 
 ensure_mineru_for_hyperrag() {
@@ -159,7 +199,7 @@ ensure_s3_public_endpoint() {
 start_api() {
   ensure_playground_data_root
   mkdir -p "$VIKNOW_SCRATCH_DIR" "$VIKNOW_AGENT_WORKSPACE_ROOT" "$VIKNOW3_LIBRARIES_ROOT"
-  load_env_files
+  load_api_env
   ensure_s3_public_endpoint
   ensure_mineru_for_hyperrag
   export_mineru_vlm_env
@@ -203,7 +243,7 @@ start_api() {
 }
 
 start_ui() {
-  load_env_files
+  load_ui_env
   stop_ui
   nohup env PYTHONPATH="${PYTHONPATH}" \
     VIKNOW_UI_HOST="${VIKNOW_UI_HOST}" VIKNOW_UI_PORT="${VIKNOW_UI_PORT}" \

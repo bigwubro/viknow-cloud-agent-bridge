@@ -52,8 +52,8 @@ def _knowledge_libraries_root() -> Path:
     explicit = os.environ.get("VIKNOW3_LIBRARIES_ROOT", "").strip()
     if explicit:
         return Path(explicit).expanduser().resolve()
-    root = os.environ.get("VIKNOW3_DATA_DIR") or os.environ.get("VIKNOW_FILES_ROOT") or "/data/viknow"
-    return (Path(root) / "knowledge" / "libraries").resolve()
+    data_dir = os.environ.get("VIKNOW3_DATA_DIR", "").strip() or "/data/viknow"
+    return (Path(data_dir) / "hyperrag-wd").resolve()
 
 
 def build_hyperrag_payload_from_ops(state_dir: Path | None = None) -> dict[str, Any]:

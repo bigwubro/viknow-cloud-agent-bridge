@@ -19,7 +19,7 @@ fi
 
 mkdir -p "${VIKNOW_SCRATCH_DIR:-/tmp/scratch}" \
   "${VIKNOW_AGENT_WORKSPACE_ROOT:-/tmp/agent-workspaces}" \
-  "${VIKNOW3_LIBRARIES_ROOT:-/data/viknow/libraries}" \
+  "${VIKNOW3_LIBRARIES_ROOT:-/data/viknow/hyperrag-wd}" \
   "${VIKNOW_STATE_DIR:-/state}"
 export JIEBA_CACHE_DIR="${JIEBA_CACHE_DIR:-${VIKNOW_SCRATCH_DIR}/jieba-cache}"
 export TMPDIR="${TMPDIR:-${VIKNOW_SCRATCH_DIR}/tmp}"

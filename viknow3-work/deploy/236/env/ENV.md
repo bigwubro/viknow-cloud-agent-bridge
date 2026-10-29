@@ -3,11 +3,6 @@
 Playground **产品** = 浏览器静态页 + 调用 ViKnow API；**不负责** HyperRAG / 索引 / Agent / 存储实现。  
 环境文件按 **进程** 拆成 `ui.env`、`api.env`、`secrets.env`（见下表）。
 
-## 没有 `playground.env`
-
-历史上曾用 **`deploy/236/env/playground.env`** 把 UI + API + 密钥写进一个文件，已 **删除**。  
-若文档或脚本仍提到 `playground.env`，一律改为 **`ui.env` + `api.env` + `secrets.env`**（口语里的「Playground 部署 env」指这三份，不是第四个文件名）。
-
 ## 文件与进程
 
 | 文件 | 提交到 Git | 注入方式 | 谁读 |
@@ -71,8 +66,6 @@ Playground **产品** = 浏览器静态页 + 调用 ViKnow API；**不负责** H
   sessions/{session_id}/workspace/…
 ```
 
-旧路径 `…/knowledge/libraries/playground-cursor-agent/…` 与 `…/playground/…` 已废弃。
-
 ## `secrets.env`
 
 见 `secrets.env.example`。典型必填：
@@ -91,12 +84,13 @@ Playground **产品** = 浏览器静态页 + 调用 ViKnow API；**不负责** H
 
 ## 配置审计（哪些有用、哪些会被 refresh 删掉）
 
-### `ui.env` — 仅 3 键（全部有用）
+### `ui.env` — 全部有用
 
 | 变量 | 读者 |
 |------|------|
 | `VIKNOW_UI_HOST` / `VIKNOW_UI_PORT` | `ui.server` |
 | `VIKNOW_PLAYGROUND_API_URL` | `runtime-config.js` → 浏览器调 API |
+| `VIKNOW_STORAGE_URL` | `runtime-config.js` → 浏览器直连 viknow-storage |
 
 ### `api.env` — Playground 236 保留键（全部有用）
 

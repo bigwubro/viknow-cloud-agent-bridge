@@ -344,25 +344,6 @@ def get_asset(library_id: str, asset_id: str) -> AssetRow | None:
     return None if row is None else _asset_from_row(row)
 
 
-def find_asset_by_path(asset_path: str) -> AssetRow | None:
-    path = str(asset_path or "").strip()
-    if not path:
-        return None
-    with _CONN.cursor() as cur:
-        cur.execute(
-            """
-            SELECT library_id, asset_id, title, modality, asset_path,
-                   current_index_version_id, created_at
-            FROM knowledge_assets
-            WHERE asset_path = %s
-            LIMIT 1
-            """,
-            (path,),
-        )
-        row = cur.fetchone()
-    return None if row is None else _asset_from_row(row)
-
-
 def set_current_index_version_id(library_id: str, asset_id: str, version_id: str) -> None:
     version = str(version_id or "").strip()
     if not version:

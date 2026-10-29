@@ -65,6 +65,6 @@ curl -s -H "Authorization: Bearer dev-app-key" -H "Content-Type: application/jso
 镜像需包含 `requirements-hyperrag.txt`，并设置：
 
 - `VIKNOW_OPS_DSN` / `VIKNOW_OPS_SECRET`（以及 access / hyperrag 业务库 DSN 若与 demo 一致）
-- `VIKNOW3_DATA_DIR=/data/viknow`（`working_dir` 指向 `knowledge/libraries`）
+- `VIKNOW3_DATA_DIR=/data/viknow`，`VIKNOW3_LIBRARIES_ROOT=/data/viknow/hyperrag-wd`（HyperRAG `working_dir`）
 
 **不要**再挂载仓库内的 `config/hyperrag.yml`。

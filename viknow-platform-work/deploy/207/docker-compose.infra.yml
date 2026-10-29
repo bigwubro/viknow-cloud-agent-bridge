@@ -1,0 +1,45 @@
+# Postgres + Redis + Neo4j for 207 (ACR images). Secrets via host.env / --env-file.
+services:
+  postgres:
+    image: registry.cn-hangzhou.aliyuncs.com/litesense/viknow2-pgvector-textsearch:pg18-trixie-v1.3.1
+    container_name: viknow207-ops-postgres
+    environment:
+      POSTGRES_USER: viknow_ops
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: viknow_ops
+    ports:
+      - "${VIKNOW_PG_PORT:-16432}:5432"
+    volumes:
+      - viknow207-pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U viknow_ops -d viknow_ops"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    restart: unless-stopped
+
+  redis:
+    image: registry.cn-hangzhou.aliyuncs.com/litesense/viknow2-redis:7
+    container_name: viknow207-redis
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:?set REDIS_PASSWORD}"]
+    ports:
+      - "127.0.0.1:${VIKNOW_REDIS_PORT:-16479}:6379"
+    restart: unless-stopped
+
+  neo4j:
+    image: registry.cn-hangzhou.aliyuncs.com/litesense/viknow2-neo4j:5.26.3.0
+    container_name: viknow207-neo4j
+    environment:
+      NEO4J_AUTH: neo4j/${NEO4J_PASSWORD:?set NEO4J_PASSWORD}
+      NEO4J_server_memory_heap_initial__size: 512m
+      NEO4J_server_memory_heap_max__size: 512m
+    ports:
+      - "127.0.0.1:${VIKNOW_NEO4J_HTTP_PORT:-17474}:7474"
+      - "127.0.0.1:${VIKNOW_NEO4J_BOLT_PORT:-17487}:7687"
+    volumes:
+      - viknow207-neo4j:/data
+    restart: unless-stopped
+
+volumes:
+  viknow207-pgdata:
+  viknow207-neo4j:

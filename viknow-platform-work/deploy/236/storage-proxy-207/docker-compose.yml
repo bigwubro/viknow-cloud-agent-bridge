@@ -1,0 +1,19 @@
+# Nginx on 236 (host network): :5220 → host 127.0.0.1:15219 (SSH tunnel from 207) → 207 :5219.
+services:
+  storage-proxy-207:
+    image: nginx:1.27-alpine
+    container_name: viknow236-storage-proxy-207
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      STORAGE_PROXY_UPSTREAM: ${STORAGE_PROXY_UPSTREAM:-127.0.0.1:15219}
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf.template:ro
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        set -eu
+        upstream="$${STORAGE_PROXY_UPSTREAM:-127.0.0.1:15219}"
+        sed "s|STORAGE_PROXY_UPSTREAM|$${upstream}|g" /etc/nginx/nginx.conf.template > /etc/nginx/nginx.conf
+        exec nginx -g 'daemon off;'

@@ -99,18 +99,6 @@ knowledge:
   sidebar_library_ids: []
   engine: hyperrag
   default_library_id: default
-  feishu:
-    enabled: false
-    enabled_env: VIKNOW_FEISHU_ENABLED
-    api_base_url: https://open.feishu.cn/open-apis
-    app_id_env: FEISHU_APP_ID
-    app_secret_env: FEISHU_APP_SECRET
-    space_id_env: FEISHU_SPACE_ID
-    tenant_host_env: FEISHU_TENANT_HOST
-    request_timeout_seconds: 15
-    page_size: 50
-    sync_poll_interval_seconds: 5
-    default_sync_interval_seconds: 10800
   hyperrag:
     config_path: ./hyperrag.yml
     repo_root: ../../external/HyperRAG

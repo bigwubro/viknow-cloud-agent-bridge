@@ -50,7 +50,7 @@ Playground **产品** = 浏览器静态页 + 调用 ViKnow API；**不负责** H
 
 对象存储凭证与 DSN、模型 Key 等 **只** 在 `secrets.env`（`refresh-secrets-from-host.sh` 会从 secrets 里删掉上述非密钥键）。
 
-**Playground 236 不启用飞书同步**：`VIKNOW_FEISHU_*` / `FEISHU_*` 若从宿主机 `deploy.env` 被 merge 进来，refresh 脚本会 **删除**（`config/app.yaml` 里 `knowledge.feishu.enabled` 仍为 false，接入层无 feishu 代码路径）。
+**Playground 236 不使用飞书**：`VIKNOW_FEISHU_*` / `FEISHU_*` 从宿主机 merge 后由 refresh **删除**（见 `docs/project-boundary.md`）。
 
 ## `secrets.env`
 

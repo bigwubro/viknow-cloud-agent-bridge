@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ViKnow Playground · 对话</title>
+    <link rel="stylesheet" href="/playground/assets/playground.css?v=15" />
+  </head>
+  <body class="pg-body pg-chat-page">
+    <div class="pg-shell">
+      <aside class="pg-sidebar" aria-label="导航">
+        <div class="pg-sidebar-head">
+          <div class="pg-brand-mark">V</div>
+          <div>
+            <div class="pg-brand-title">ViKnow</div>
+            <div class="pg-brand-sub">Playground</div>
+          </div>
+        </div>
+        <nav class="pg-nav">
+          <a class="pg-nav-item" href="/playground/workspace">知识库</a>
+          <a class="pg-nav-item pg-nav-active" href="/playground/agents">智能体</a>
+        </nav>
+        <button id="btn-logout" class="pg-button pg-button-sidebar" type="button">退出登录</button>
+      </aside>
+
+      <main class="pg-main pg-chat-layout pg-sessions-collapsed">
+        <aside class="pg-session-rail" aria-label="会话列表">
+          <div class="pg-session-rail-head">
+            <button id="btn-toggle-sessions" class="pg-rail-toggle" type="button" aria-expanded="false" aria-label="展开会话列表" title="展开会话列表">›</button>
+            <h2 class="pg-session-rail-title">会话</h2>
+            <button id="btn-new-session" class="pg-button pg-button-compact" type="button" title="新对话"><span class="pg-new-session-label">新对话</span></button>
+          </div>
+          <p id="session-list-loading" class="pg-muted pg-session-rail-hint">加载会话…</p>
+          <p id="session-list-empty" class="pg-muted pg-session-rail-hint" hidden>暂无会话，发送第一条消息开始。</p>
+          <ul id="session-list" class="pg-session-list" hidden></ul>
+          <p id="session-list-error" class="pg-error pg-session-rail-hint" hidden></p>
+        </aside>
+
+        <section class="pg-chat-stage">
+          <header class="pg-chat-head">
+            <div>
+              <p class="pg-breadcrumb"><a href="/playground/agents">智能体</a><span aria-hidden="true"> / </span><span id="chat-agent-id"></span></p>
+              <h1 id="chat-head-title" class="pg-chat-title">对话</h1>
+            </div>
+          </header>
+
+          <section id="library-picker-section" class="pg-library-picker" hidden aria-label="选择知识库">
+            <button id="library-picker-toggle" class="pg-library-picker-bar" type="button" aria-expanded="false">
+              <span class="pg-library-picker-label">知识库</span>
+              <span id="library-picker-current" class="pg-library-picker-current">未选择</span>
+              <span class="pg-library-picker-caret" aria-hidden="true"></span>
+            </button>
+            <div id="library-picker-panel" class="pg-library-picker-panel" hidden>
+              <div class="pg-library-picker-head">
+                <span class="pg-library-picker-hint">每次检索 1 个</span>
+                <a class="pg-library-picker-link" href="/playground/workspace">管理知识库</a>
+              </div>
+              <p id="library-picker-loading" class="pg-muted">加载知识库列表…</p>
+              <p id="library-picker-empty" class="pg-muted" hidden>暂无知识库，请先在「知识库」页创建。</p>
+              <ul id="library-picker-list" class="pg-library-picker-list" hidden></ul>
+              <p id="library-picker-error" class="pg-error" hidden></p>
+            </div>
+          </section>
+
+          <div class="pg-chat-scroll">
+            <div id="chat-messages" class="pg-chat-thread" aria-live="polite"></div>
+          </div>
+
+          <footer class="pg-composer-wrap">
+            <form id="chat-form" class="pg-composer-shell">
+              <div class="pg-composer">
+                <div id="attachment-slot" class="pg-attach-row" hidden>
+                  <div class="pg-attach-chip">
+                    <span class="pg-attach-file-icon" aria-hidden="true">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
+                        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke-linejoin="round" />
+                        <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" stroke-linecap="round" />
+                      </svg>
+                    </span>
+                    <span class="pg-attach-label">
+                      <span id="attachment-name" class="pg-attach-name">—</span>
+                      <span class="pg-attach-sep">·</span>
+                      <span id="attachment-meta" class="pg-attach-meta">—</span>
+                    </span>
+                    <button id="attachment-remove" class="pg-attach-remove" type="button" aria-label="移除附件">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M18 6L6 18M6 6l12 12" stroke-linecap="round" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+                <textarea
+                  id="chat-input"
+                  class="pg-composer-textarea"
+                  rows="2"
+                  placeholder="输入消息，Enter 发送（Shift+Enter 换行）"
+                ></textarea>
+                <div class="pg-composer-bar">
+                  <div class="pg-composer-left">
+                    <input id="attachment-input" type="file" hidden />
+                    <button id="btn-attach" class="pg-icon-btn" type="button" aria-label="添加文件">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
+                        <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48" stroke-linecap="round" stroke-linejoin="round" />
+                      </svg>
+                    </button>
+                    <select id="model-select" class="pg-model-picker" aria-label="模型"></select>
+                  </div>
+                  <button id="chat-stop" class="pg-button pg-button-compact" type="button" hidden aria-label="停止当前回复">
+                    停止
+                  </button>
+                  <button id="chat-send" class="pg-send-btn" type="submit" disabled aria-label="发送">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M12 19V5M5 12l7-7 7 7" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </form>
+            <p class="pg-composer-hint">须选择知识库并填写文字才可发送 · 最多 1 个附件</p>
+          </footer>
+        </section>
+
+        <aside class="pg-inspector" aria-label="智能体信息">
+          <h2 class="pg-inspector-title">Agent</h2>
+          <p id="aside-title" class="pg-inspector-name">…</p>
+          <p id="aside-description" class="pg-inspector-desc"></p>
+          <dl class="pg-dl pg-inspector-meta">
+            <dt>默认模型</dt>
+            <dd id="aside-default-model" class="pg-mono">—</dd>
+            <dt>已选知识库</dt>
+            <dd id="aside-library" class="pg-mono">未选择</dd>
+            <dt>更新时间</dt>
+            <dd id="aside-updated" class="pg-mono">—</dd>
+          </dl>
+          <p class="pg-inspector-foot">工具调用和模型输出显示在对话里</p>
+        </aside>
+      </main>
+    </div>
+    <script src="/playground/assets/runtime-config.js"></script>
+    <script src="/playground/assets/api-base.js?v=1"></script>
+    <script src="/playground/assets/user.js?v=8"></script>
+    <script src="/playground/assets/agent.js?v=19"></script>
+    <script>
+      PlaygroundAgent.requireUser();
+      document.getElementById("btn-logout").addEventListener("click", () => {
+        localStorage.removeItem("viknow_playground_user");
+        window.location.href = "/playground";
+      });
+      PlaygroundAgent.initChatPage();
+    </script>
+  </body>
+</html>

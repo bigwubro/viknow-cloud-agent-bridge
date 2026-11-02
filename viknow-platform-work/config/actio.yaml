@@ -1,0 +1,106 @@
+# Actio integration strategy selection for this environment.
+sop_schema_path: ../../external/actio/docs/specs/sop_schema.md
+toolkit:
+  segmentation:
+    selected: semantic
+    fixed:
+      segment_backend: fixed
+      fixed_segment_duration_s: 30
+      min_duration_s: 0.5
+      input_fps: 30.0
+    semantic:
+      segment_backend: video_split_remote
+      video_split:
+        service_url: ${ACTIO_SERVER_URL}/split
+        service_api_key: ${ACTIO_API_KEY}
+        service_timeout_s: 1200
+        service_poll_interval_s: 2
+        service_trust_env_proxy: false
+        segmenter: efficientgebd
+        aggregator: siglip_ward
+        threshold: 0.35
+        min_duration_s: 3
+        max_duration_s: 30
+        max_segments: 120
+        upload_base64: true
+        upload_max_mb: 1024
+  asr:
+    indexing_selected: ark_vad
+    qa_selected: ark_vad
+    ark_fixed:
+      provider: ark
+      model_name: AutoArk-AI/ARK-ASR-3B
+      base_url: ${ACTIO_SERVER_URL}/asr/v1
+      api_key_env: ACTIO_API_KEY
+      region_mode: fixed
+      transport: upload
+      max_upload_mb: 128
+      chunk_seconds: 1800
+      # Full audio request: local preparation/upload plus server stage budgets.
+      job_timeout_seconds: 7200
+      preparation_timeout_seconds: 1800
+      queue_timeout_seconds: 1800
+      transcription_timeout_seconds: 3600
+      poll_interval_seconds: 2
+    ark_vad:
+      provider: ark
+      model_name: AutoArk-AI/ARK-ASR-3B
+      base_url: ${ACTIO_SERVER_URL}/asr/v1
+      api_key_env: ACTIO_API_KEY
+      region_mode: vad
+      transport: upload
+      max_upload_mb: 128
+      chunk_seconds: 1800
+      # Full audio request: local preparation/upload plus server stage budgets.
+      job_timeout_seconds: 7200
+      preparation_timeout_seconds: 1800
+      queue_timeout_seconds: 1800
+      transcription_timeout_seconds: 3600
+      poll_interval_seconds: 2
+    # 索引和问答都选 openai 时复用现有 Whisper；地址/key 默认继承 asr provider。
+    openai:
+      provider: openai
+      model_name: vllm/whisper-large-v3
+      response_format: verbose_json
+  ocr:
+    selected: paddleocr
+    paddleocr:
+      ref: null
+      provider: paddleocr
+      model_name: PaddleOCR
+      base_url: ${ACTIO_SERVER_URL}/ocr/v1
+      api_key_env: ACTIO_API_KEY
+  locate_anything:
+    selected: service
+    service:
+      base_url: ${ACTIO_SERVER_URL}/locate
+      timeout_seconds: 180
+  caption:
+    asr:
+      max_concurrency: 8
+      keep_segment_outputs: false
+    vlm:
+      max_concurrency: 2
+    aggregate:
+      max_concurrency: 32
+      previous_context_count: 2
+      next_context_count: 2
+    sop_alignment:
+      llm:
+        align_method: llm
+        min_candidate_duration_s: 2.0
+        node_index: 0
+        max_retries: 3
+        max_tokens: 4096
+        max_concurrency: 8
+        top_k_per_action: 8
+        dtw_segment_gap_s: 20.0
+      dtw:
+        align_method: dtw
+        min_candidate_duration_s: 2.0
+        node_index: 0
+        max_retries: 3
+        max_tokens: 4096
+        max_concurrency: 8
+        top_k_per_action: 8
+        dtw_segment_gap_s: 20.0

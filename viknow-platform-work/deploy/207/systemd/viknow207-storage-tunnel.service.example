@@ -1,0 +1,17 @@
+[Unit]
+Description=ViKnow 207 storage SSH reverse tunnel to 236 (Actio grant proxy)
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=wuzihan
+Environment=VIKNOW236_TUNNEL_HOST=36.103.198.236
+Environment=VIKNOW236_TUNNEL_USER=cursor-agent
+WorkingDirectory=/home/wuzihan/src/viknow-platform
+ExecStart=/home/wuzihan/src/viknow-platform/deploy/207/storage-tunnel-to-236.sh
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

@@ -2,7 +2,7 @@
 
 事实来源是 236 上正在运行的 `viknow2-test`，镜像 `viknow2-app:secretary-output-limit-8eff6f7e1d64`，配置 `VIKNOW_CONFIG=/opt/viknow/config/test/app.yaml`。进程内的 HyperRAG 在 `/opt/viknow/external/HyperRAG`。下面的判断以这个容器里的代码和配置为准，不以开发目录里另一份 checkout 为准。
 
-**viknow3 / HyperRAG 集成（`agent/hyperrag-dev3`）的配置原则**：运维**不要**维护仓库 YAML。连接、模型、检索默认值等**只写在 Postgres `viknow_ops`**（`/api/v1/om/config`）。进程启动时从 ops 物化**临时** `state_dir/hyperrag/hyperrag.yml`，仅供 HyperRAG 子模块 `load_config_from_yaml`；给人看的界面是 OM API / 数据库，不是 YAML 文件。
+**viknow-platform / HyperRAG 集成（`agent/hyperrag-dev3`）的配置原则**：运维**不要**维护仓库 YAML。连接、模型、检索默认值等**只写在 Postgres `viknow_ops`**（`/api/v1/om/config`）。进程启动时从 ops 物化**临时** `state_dir/hyperrag/hyperrag.yml`，仅供 HyperRAG 子模块 `load_config_from_yaml`；给人看的界面是 OM API / 数据库，不是 YAML 文件。
 
 本文只定方案，不改 `viknow2-test` 容器。
 

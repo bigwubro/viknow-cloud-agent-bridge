@@ -116,7 +116,19 @@ def create_index_job(body: dict[str, Any]) -> dict[str, Any]:
             issued = mint_index_download_url(library_id, asset_id)
         except IndexDownloadUrlError as exc:
             raise RagError(exc.status, exc.body) from exc
-        index_params["source_download_url"] = str(issued["url"])
+        import os
+
+        raw_url = str(issued["url"])
+        worker_base = os.environ.get("VIKNOW_STORAGE_WORKER_GRANT_BASE", "http://127.0.0.1:5219").strip()
+        actio_base = os.environ.get(
+            "VIKNOW_STORAGE_GRANT_FETCH_BASE", "http://127.0.0.1:5220"
+        ).strip()
+        index_params["source_download_url"] = rewrite_grant_content_url_for_actio_fetch(
+            raw_url, fetch_base=worker_base
+        )
+        index_params["source_media_url"] = rewrite_grant_content_url_for_actio_fetch(
+            raw_url, fetch_base=actio_base
+        )
         index_params["source_download_expires_at"] = issued.get("expires_at")
         asset_path = canonical
         object_key = f"storage://{library_id}/{asset_id}"

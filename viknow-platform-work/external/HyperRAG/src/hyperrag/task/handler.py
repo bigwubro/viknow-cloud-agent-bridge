@@ -81,10 +81,55 @@ def _rewrite_actio_grant_fetch_url(url: str) -> str:
     if parsed.scheme not in {"http", "https"} or "/libraries/" not in parsed.path:
         return text
     host = (parsed.hostname or "").lower()
-    if host not in {"10.168.1.207", "36.103.198.236"} and "grant=" not in (parsed.query or ""):
+    if host not in {"10.168.1.207", "36.103.198.236", "127.0.0.1"} and "grant=" not in (parsed.query or ""):
         return text
     target = urlparse(fetch_base)
     return urlunparse((target.scheme, target.netloc, parsed.path, parsed.params, parsed.query, parsed.fragment))
+
+
+def _param_grant_url(metadata: dict[str, Any], nested_params: dict[str, Any], key: str) -> str | None:
+    for bag in (metadata, nested_params):
+        if not isinstance(bag, dict):
+            continue
+        value = bag.get(key)
+        if value is not None and str(value).strip():
+            return str(value).strip()
+    return None
+
+
+def _resolve_worker_download_url(
+    metadata: dict[str, Any],
+    nested_params: dict[str, Any],
+    *,
+    workspace: str,
+    asset_id: str,
+    asset_path: object,
+) -> str | None:
+    url = _param_grant_url(metadata, nested_params, "source_download_url")
+    if url:
+        return url
+    text = str(asset_path or "").strip()
+    if text.startswith(("http://", "https://")):
+        return text
+    if text.startswith("storage://"):
+        return _mint_storage_download_url(workspace, asset_id)
+    return None
+
+
+def _materialize_grant_video(local_url: str, work_dir: Path) -> Path:
+    """Download grant URL on the indexing worker (207) so Actio split uses a local file."""
+    import httpx
+
+    dest = work_dir / "source_video.mp4"
+    work_dir.mkdir(parents=True, exist_ok=True)
+    with httpx.stream("GET", local_url, timeout=600.0, follow_redirects=True) as response:
+        response.raise_for_status()
+        with dest.open("wb") as handle:
+            for chunk in response.iter_bytes():
+                handle.write(chunk)
+    if dest.stat().st_size <= 0:
+        raise ValueError("downloaded video is empty")
+    return dest
 
 
 def _resolve_video_parse_source(
@@ -1335,6 +1380,15 @@ class VideoParseHandler(BaseTaskHandler):
                     workspace=task.workspace,
                     asset_id=task.asset_id,
                 )
+                worker_url = _resolve_worker_download_url(
+                    metadata if isinstance(metadata, dict) else {},
+                    nested_params if isinstance(nested_params, dict) else {},
+                    workspace=task.workspace,
+                    asset_id=task.asset_id,
+                    asset_path=asset_path,
+                )
+                if worker_url and worker_url.startswith(("http://", "https://")):
+                    parse_source = str(_materialize_grant_video(worker_url, work_dir))
                 with observe_caption_generations(record_generation):
                     return video_parser.parse_video_only(
                         parse_source,

@@ -60,5 +60,5 @@ def mint_index_download_url(library_id: str, asset_id: str, *, ttl_seconds: int 
     url = str(issued.get("url") or "").strip()
     if url:
         issued = dict(issued)
-        issued["url"] = rewrite_grant_content_url_for_actio_fetch(url)
+        issued["url"] = url
     return issued

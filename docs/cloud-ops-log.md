@@ -29,6 +29,14 @@
 
 ## 变更记录（倒序）
 
+### 2026-11-02 207 视频 grant 双 URL + worker 本地下载
+
+- 环境：Cloud Agent Tailscale；236 隧道+反代 OK；236 正在 build `207-latest` 镜像
+- 动作：platform `source_download_url`/`source_media_url`；HyperRAG `_materialize_grant_video`；actio `segment_video_input=video_path`（236 源码）
+- 结果：代码已提交 `cursor/207-video-grant-0f64`；207 SSH 本环境 **无有效 VIKNOW207_SSH_PASSWORD**（仅 bastion 10 字符，认证失败），未能 recreate 207 storage/platform
+- 证据：Tailscale `100.101.46.52:5219` OK；236 `:5220` + Actio split ok
+- 残留：236 docker build 完成后 push ACR 或 load 到 207；配置 Secret `VIKNOW207_SSH_PASSWORD` 后跑 `scripts/smoke-207-video-index.sh`
+
 ### 2026-10-29 Cloud Agent Tailscale 207 视频 grant 隧道 + Actio 热修
 
 - 环境：Cloud Agent Tailscale；236 nginx `viknow236-storage-proxy-207`；207 `viknow207-storage` compose 同步

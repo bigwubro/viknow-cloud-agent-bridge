@@ -14,7 +14,7 @@
 236 上：
 
 ```bash
-cd /home/cursor-agent/src/viknow3
+cd /home/cursor-agent/src/viknow-platform
 chmod +x scripts/playground-acceptance.sh
 ./scripts/playground-acceptance.sh
 # 或 PLAYGROUND_BASE=http://36.103.198.236:5198 ./scripts/playground-acceptance.sh
@@ -35,7 +35,7 @@ chmod +x scripts/playground-acceptance.sh
 ## 单测
 
 ```bash
-export VIKNOW3_ENV_FILE=/home/cursor-agent/viknow3/pg-demo.env:/home/cursor-agent/.viknow3/ops.env
+export VIKNOW_ENV_FILE=/home/cursor-agent/viknow-platform/pg-demo.env:/home/cursor-agent/.viknow3/ops.env
 export PYTHONPATH="$(pwd)/src:$(pwd)"
 python3 -m pytest tests/test_playground_user_ui.py -q
 ```

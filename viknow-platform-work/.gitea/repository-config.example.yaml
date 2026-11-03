@@ -1,0 +1,10 @@
+# Gitea Actions（viknow-platform 文档站）
+# Runner：236，label = python-312-uv
+
+variables:
+  VIKNOW_DOCS_DEPLOY_ROOT:
+    example: "/data/wuzihan/docusaurus"
+    default: "/data/wuzihan/docusaurus"
+    workflows: [docs-site.yml]
+
+secrets: {}

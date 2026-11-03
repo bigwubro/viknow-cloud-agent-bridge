@@ -1,0 +1,36 @@
+# Catalog: Postgres via STORAGE_DATABASE_URL. Object bytes: MinIO with a host bind mount.
+services:
+  minio:
+    # 236 hosts often have `minio:latest` locally; override with MINIO_IMAGE if needed.
+    image: ${MINIO_IMAGE:-minio:latest}
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: viknow-storage
+      MINIO_ROOT_PASSWORD: viknow-storage-dev
+    volumes:
+      - ${VIKNOW_STORAGE_MINIO_DATA:-./data/minio}:/data
+    expose:
+      - "9000"
+    restart: unless-stopped
+
+  storage:
+    build: .
+    depends_on:
+      - minio
+    environment:
+      STORAGE_TOKEN: ${STORAGE_TOKEN:-dev-storage-token}
+      STORAGE_DATABASE_URL: ${STORAGE_DATABASE_URL:?set STORAGE_DATABASE_URL to a Postgres URL}
+      S3_ENDPOINT: http://minio:9000
+      S3_ACCESS_KEY: viknow-storage
+      S3_SECRET_KEY: viknow-storage-dev
+      S3_BUCKET: viknow
+      S3_REGION: us-east-1
+      STORAGE_CORS_ORIGINS: ${STORAGE_CORS_ORIGINS:-}
+      STORAGE_GRANT_SECRET: ${STORAGE_GRANT_SECRET:-}
+      STORAGE_DOWNLOAD_BASE_URL: ${STORAGE_DOWNLOAD_BASE_URL:-}
+      STORAGE_GRANT_TTL_SECONDS: ${STORAGE_GRANT_TTL_SECONDS:-86400}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "${VIKNOW_STORAGE_HTTP_PORT:-8090}:8080"
+    restart: unless-stopped

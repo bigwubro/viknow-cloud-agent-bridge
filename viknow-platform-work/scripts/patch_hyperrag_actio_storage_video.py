@@ -3,13 +3,14 @@
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 
-CONTAINER = "hyperrag-test"
-HANDLER = "/opt/hyperrag/.venv/lib/python3.12/site-packages/hyperrag/task/handler.py"
-SDK = "/opt/hyperrag/.venv/lib/python3.12/site-packages/actio/sdk.py"
-SERVICE = "/opt/hyperrag/.venv/lib/python3.12/site-packages/actio/service.py"
+CONTAINER = os.environ.get("HYPERRAG_PATCH_CONTAINER", "viknow2-test")
+HANDLER = "/opt/viknow/external/HyperRAG/src/hyperrag/task/handler.py"
+SDK = "/opt/viknow/external/actio/src/actio/sdk.py"
+SERVICE = "/opt/viknow/external/actio/src/actio/service.py"
 
 
 def docker_python(code: str) -> None:

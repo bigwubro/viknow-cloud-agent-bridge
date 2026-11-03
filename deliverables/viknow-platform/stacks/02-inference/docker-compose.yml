@@ -1,0 +1,46 @@
+# ViKnow Platform — 本地推理侧车（模板）
+# 实际镜像、GPU、模型路径、启动命令以 MANIFEST / 236 现网为准。
+# 本文件定义 service 名与网络，供 deploy.env 使用 embedding / rerank 主机名。
+
+services:
+  embedding:
+    image: ${VIKNOW_EMBEDDING_IMAGE:-vllm-viknow:0.26.0}
+    container_name: ${VIKNOW_EMBEDDING_CONTAINER:-viknow-platform-embedding}
+    restart: unless-stopped
+    profiles: ["inference"]
+    ports:
+      - "${VIKNOW_EMBEDDING_HOST_PORT:-8611}:8000"
+    environment:
+      # 现场替换为真实 vLLM / OpenAI 兼容启动参数
+      VIKNOW_INFERENCE_ROLE: embedding
+    networks:
+      - viknow_platform
+
+  rerank:
+    image: ${VIKNOW_RERANK_IMAGE:-vllm-viknow:0.26.0}
+    container_name: ${VIKNOW_RERANK_CONTAINER:-viknow-platform-rerank}
+    restart: unless-stopped
+    profiles: ["inference"]
+    ports:
+      - "${VIKNOW_RERANK_HOST_PORT:-8602}:8000"
+    environment:
+      VIKNOW_INFERENCE_ROLE: rerank
+    networks:
+      - viknow_platform
+
+  whisper:
+    image: ${VIKNOW_WHISPER_IMAGE:-vllm-viknow:0.19.0}
+    container_name: ${VIKNOW_WHISPER_CONTAINER:-viknow-platform-whisper}
+    restart: unless-stopped
+    profiles: ["inference"]
+    ports:
+      - "${VIKNOW_WHISPER_HOST_PORT:-8620}:8000"
+    environment:
+      VIKNOW_INFERENCE_ROLE: whisper
+    networks:
+      - viknow_platform
+
+networks:
+  viknow_platform:
+    external: true
+    name: ${VIKNOW_PLATFORM_NETWORK:-viknow-platform_data}

@@ -1,0 +1,5 @@
+# 合并进 config/jinhe/hyperrag.yml 或物化后的 .state/hyperrag/hyperrag.yml
+# 解决部分 embedding 网关对视频 temporal_factor 的限制
+
+video_embedding_params:
+  local_video_mode: first_frame_image

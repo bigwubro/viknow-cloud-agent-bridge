@@ -1,0 +1,67 @@
+# ViKnow Platform 发包清单（示例）
+# 复制为 MANIFEST.yaml 并按本次交付填写
+
+release:
+  id: viknow-platform-jinhe-20261103
+  customer: jinhe
+  profile: greenfield-full   # greenfield-full | viknow-only | brownfield-viknow
+  built_at: "2026-11-03T12:00:00+08:00"
+  built_from:
+    viknow2_repo: castmeta-research/viknow2
+    commit: 56d8705e5feb
+    config_profile: jinhe
+
+stacks:
+  order:
+    - stacks/01-data
+    - stacks/02-inference
+    - stacks/03-actio
+    - stacks/04-viknow
+  optional:
+    - stacks/02-inference
+    - stacks/03-actio
+
+network:
+  name: viknow-platform_data
+  created_by: stacks/01-data
+
+images:
+  - file: images/viknow2-app-56d8705e5feb.tar
+    ref: viknow2-app:56d8705e5feb
+    required: true
+  - file: images/viknow-pgvector.tar
+    ref: viknow/pgvector-textsearch:pg18-trixie-v1.3.1
+    required: true
+  - file: images/redis-7-alpine.tar
+    ref: redis:7-alpine
+    required: true
+  - file: images/minio.tar
+    ref: minio/minio:RELEASE.2024-11-07T00-00-00Z
+    required: true
+  - file: images/neo4j-5.tar
+    ref: neo4j:5-community
+    required: true
+  # inference / actio 按合同追加
+
+ports_host:
+  viknow_api: 8000
+  postgres: 15432
+  redis: 16379
+  minio_api: 19000
+  minio_console: 19001
+  neo4j_http: 17474
+  neo4j_bolt: 17687
+
+secrets_customer_must_set:
+  - POSTGRES_PASSWORD
+  - REDIS_PASSWORD
+  - MINIO_ACCESS_KEY
+  - MINIO_SECRET_KEY
+  - NEO4J_PASSWORD
+  - VIKNOW_ADMIN_PASSWORD
+  - VIKNOW_PRIVATE_API_KEY
+
+notes:
+  - Whisper 镜像需内置 soundfile+av，或 startup 脚本安装；避免无持久化的 pip-only 修复
+  - hyperrag 视频索引建议 first_frame_image（见 config-overrides/）
+  - JuiceFS 需 privileged；换 ViKnow 实例见 viknow2-jinhe README「换 ViKnow、MinIO 还是同一套」

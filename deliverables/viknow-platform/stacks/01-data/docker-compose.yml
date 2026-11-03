@@ -1,0 +1,88 @@
+# ViKnow Platform — 数据栈（创建共享网络 viknow-platform_data）
+# 镜像 tag 在 .env 中指定；离线现场先 docker load 再 up
+
+services:
+  postgres:
+    image: ${VIKNOW_PG_IMAGE:-viknow/pgvector-textsearch:pg18-trixie-v1.3.1}
+    container_name: ${VIKNOW_PG_CONTAINER:-viknow-platform-postgres}
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DATABASE:-viknow2}
+    ports:
+      - "${VIKNOW_PG_HOST_PORT:-15432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DATABASE:-viknow2}"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    networks:
+      - viknow_platform
+
+  redis:
+    image: ${VIKNOW_REDIS_IMAGE:-redis:7-alpine}
+    container_name: ${VIKNOW_REDIS_CONTAINER:-viknow-platform-redis}
+    restart: unless-stopped
+    command: >
+      redis-server
+      --requirepass ${REDIS_PASSWORD:?set REDIS_PASSWORD in .env}
+    ports:
+      - "${VIKNOW_REDIS_HOST_PORT:-16379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+    networks:
+      - viknow_platform
+
+  minio:
+    image: ${VIKNOW_MINIO_IMAGE:-minio/minio:RELEASE.2024-11-07T00-00-00Z}
+    container_name: ${VIKNOW_MINIO_CONTAINER:-viknow-platform-minio}
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:?set MINIO_ACCESS_KEY in .env}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:?set MINIO_SECRET_KEY in .env}
+    ports:
+      - "${VIKNOW_MINIO_API_HOST_PORT:-19000}:9000"
+      - "${VIKNOW_MINIO_CONSOLE_HOST_PORT:-19001}:9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - viknow_platform
+
+  neo4j:
+    image: ${VIKNOW_NEO4J_IMAGE:-neo4j:5-community}
+    container_name: ${VIKNOW_NEO4J_CONTAINER:-viknow-platform-neo4j}
+    restart: unless-stopped
+    environment:
+      NEO4J_AUTH: ${NEO4J_USERNAME:-neo4j}/${NEO4J_PASSWORD:?set NEO4J_PASSWORD in .env}
+      NEO4J_server_memory_heap_initial__size: ${NEO4J_HEAP_INITIAL:-512m}
+      NEO4J_server_memory_heap_max__size: ${NEO4J_HEAP_MAX:-1G}
+    ports:
+      - "${VIKNOW_NEO4J_HTTP_HOST_PORT:-17474}:7474"
+      - "${VIKNOW_NEO4J_BOLT_HOST_PORT:-17687}:7687"
+    volumes:
+      - neo4j_data:/data
+    networks:
+      - viknow_platform
+
+networks:
+  viknow_platform:
+    name: ${VIKNOW_PLATFORM_NETWORK:-viknow-platform_data}
+
+volumes:
+  postgres_data:
+    name: ${VIKNOW_PG_VOLUME:-viknow_platform_postgres}
+  redis_data:
+    name: ${VIKNOW_REDIS_VOLUME:-viknow_platform_redis}
+  minio_data:
+    name: ${VIKNOW_MINIO_VOLUME:-viknow_platform_minio}
+  neo4j_data:
+    name: ${VIKNOW_NEO4J_VOLUME:-viknow_platform_neo4j}

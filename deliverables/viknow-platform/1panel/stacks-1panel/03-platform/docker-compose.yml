@@ -1,0 +1,33 @@
+# 1Panel 栈 03：viknow-platform Playground（bridge 模式，非 207 host network）
+# 需自备 api.env、ui.env、secrets.env（见 README-PLATFORM-PRIVATE.md）
+
+name: viknow-platform-app
+
+services:
+  platform:
+    image: ${VIKNOW_PLATFORM_IMAGE:?set VIKNOW_PLATFORM_IMAGE}
+    container_name: ${VIKNOW_PLATFORM_CONTAINER:-viknow-platform-playground}
+    restart: unless-stopped
+    privileged: true
+    group_add:
+      - "999"
+    security_opt:
+      - seccomp:unconfined
+    ports:
+      - "${VIKNOW_UI_HOST_PORT:-5198}:5198"
+      - "${VIKNOW_API_HOST_PORT:-5218}:5218"
+    env_file:
+      - ./api.env
+      - ./secrets.env
+      - ./ui.env
+    volumes:
+      - ${VIKNOW_DATA_DIR:-/opt/viknow-platform/data}:/data/viknow
+      - ${VIKNOW_STATE_DIR:-/opt/viknow-platform/state}:/state
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - viknow_platform
+
+networks:
+  viknow_platform:
+    external: true
+    name: ${VIKNOW_PLATFORM_NETWORK:-viknow-platform_data}

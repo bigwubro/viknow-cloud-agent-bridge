@@ -1,0 +1,59 @@
+# 1Panel 栈 01：Platform 依赖的数据平面（形状来自 viknow-platform deploy/207）
+# 创建网络 viknow-platform_data；02/03 以 external 接入
+
+name: viknow-platform-infra
+
+services:
+  postgres:
+    image: ${VIKNOW_PG_IMAGE:-registry.cn-hangzhou.aliyuncs.com/litesense/viknow2-pgvector-textsearch:pg18-trixie-v1.3.1}
+    container_name: ${VIKNOW_PG_CONTAINER:-viknow-platform-postgres}
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-viknow_ops}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-viknow_ops}
+    ports:
+      - "${VIKNOW_PG_HOST_PORT:-16432}:5432"
+    volumes:
+      - viknow_platform_pg:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-viknow_ops} -d ${POSTGRES_DB:-viknow_ops}"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    networks:
+      - viknow_platform
+
+  redis:
+    image: ${VIKNOW_REDIS_IMAGE:-registry.cn-hangzhou.aliyuncs.com/litesense/viknow2-redis:7}
+    container_name: ${VIKNOW_REDIS_CONTAINER:-viknow-platform-redis}
+    restart: unless-stopped
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:?set REDIS_PASSWORD}"]
+    ports:
+      - "${VIKNOW_REDIS_HOST_PORT:-16479}:6379"
+    networks:
+      - viknow_platform
+
+  neo4j:
+    image: ${VIKNOW_NEO4J_IMAGE:-registry.cn-hangzhou.aliyuncs.com/litesense/viknow2-neo4j:5.26.3.0}
+    container_name: ${VIKNOW_NEO4J_CONTAINER:-viknow-platform-neo4j}
+    restart: unless-stopped
+    environment:
+      NEO4J_AUTH: neo4j/${NEO4J_PASSWORD:?set NEO4J_PASSWORD}
+      NEO4J_server_memory_heap_initial__size: 512m
+      NEO4J_server_memory_heap_max__size: 512m
+    ports:
+      - "${VIKNOW_NEO4J_HTTP_HOST_PORT:-17474}:7474"
+      - "${VIKNOW_NEO4J_BOLT_HOST_PORT:-17687}:7687"
+    volumes:
+      - viknow_platform_neo4j:/data
+    networks:
+      - viknow_platform
+
+networks:
+  viknow_platform:
+    name: ${VIKNOW_PLATFORM_NETWORK:-viknow-platform_data}
+
+volumes:
+  viknow_platform_pg:
+  viknow_platform_neo4j:

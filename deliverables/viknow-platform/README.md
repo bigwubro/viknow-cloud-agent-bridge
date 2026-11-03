@@ -1,5 +1,25 @@
 # ViKnow Platform（离线私有化 + 1Panel）
 
+> **别和代码仓搞混**  
+> **ViKnow Platform 应用源码**在 Gitea **`castmeta-research/viknow-platform`**（236：`/home/cursor-agent/src/viknow-platform`）。构建 Playground 镜像、跑 API/UI、Gitea Actions 都在**那个仓库**的 `deploy/236/`、`scripts/`。  
+> **本目录**是跳板仓里的 **viknow2 客户离线多栈 Compose 模板**（historical 命名），与 Gitea 代码仓不是同一个东西。代码仓怎么构建见下文「代码仓对照」。
+
+## 代码仓对照（Gitea `viknow-platform`）
+
+| 目标 | 命令 / 入口 |
+|------|-------------|
+| 本地 editable 安装 | `pip install -e .` → `python -m viknow_platform`（默认 5175） |
+| Dev Container | 仓库 `.devcontainer/`，`post-create` 拉 `external/HyperRAG` |
+| 单测 | `pytest`（需 DSN，见 `docs/external-infra.md`；**不**起 PG） |
+| 236 Playground **镜像** | `bash deploy/236/prepare-build-context.sh` → `docker build -f deploy/236/Dockerfile -t viknow-platform-playground:<tag> .` |
+| 236 容器部署 | `bash deploy/236/deploy.sh <image>`（`api.env` + `secrets.env` + `ui.env`） |
+| CI 一键 | Gitea **Actions → Playground 236**（`workflow_dispatch`，runner `python-312-uv`） |
+| 文档站 | **Actions → Docs site** 或 `bash scripts/deploy-docs-site.sh` → `:3022` |
+
+仓库 **不** 包含 Postgres/Redis/Neo4j compose；Playground 假定宿主机已由其它任务 provision（`docs/external-infra.md`）。与 **viknow2-app / jinhe 客户镜像** 是不同产品线。
+
+---
+
 **ViKnow Platform** 不是单个镜像，而是一套可重复打包的 **多栈 Compose 交付物**：中间件、推理侧车、可选 Actio、ViKnow 应用，通过 **同一 Docker 网络** 互联，在客户内网用 **1Panel「容器 → 编排」** 或 CLI `docker compose` 按顺序启动。
 
 本目录描述 **怎么构建发包**、**包内长什么样**、**1Panel 上怎么装**。应用 compose 与 `deploy.env` 模板仍以 [`../viknow2-jinhe/`](../viknow2-jinhe/) 为权威（jinhe 客户拓扑）。

@@ -20,6 +20,17 @@
    - `git commit` 后 `git push origin main`
 5. 结束时汇报：`main` 上的 `git log -1 --oneline`、`git diff --stat HEAD~1`
 
+### DSH web（236）
+
+两套互不影响，不要停、不要抢端口。
+
+| 入口 | 后端 platform | 重启 |
+|---|---|---|
+| http://36.103.198.236:5172/ | **demo**（api `:15275` / ui `:15298` / storage `:15319`），host 工具桥 `:18276` | 现网 5172 由 wuzihan `dsh-5172` + nginx `dsh-5172-proxy` 维护；cursor-agent 的 claimfirst 叠层在 `dsh-claimfirst-home`（runner 曾用 `:15174`） |
+| http://36.103.198.236:5173/ | **integration**（api `:15175` / ui `:15198` / storage `:15219`），host 工具桥 `:18278` | `bash /home/cursor-agent/h2d-annot/start-dsh-5173.sh`（home：`dsh-integration-home`，runner `:15179`，SOP `:18279`） |
+
+5173 不要改 `VIKNOW_TOOL_BRIDGE` 去抢 demo 的 `:18276`。integration 镜像/知识库与 demo 不是同一份。
+
 ### viknow3 Playground（`:5198`）— 改完必 push + 部署
 
 业务仓 Gitea：`castmeta-research/viknow3`。236 源码目录：`/home/cursor-agent/src/viknow3`。
